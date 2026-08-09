@@ -1,0 +1,247 @@
+import time
+from datetime import datetime, timezone as dt_timezone
+from collections import defaultdict
+
+from scapy.layers.inet import IP, TCP, UDP, ICMP
+from scapy.layers.dns import DNS, DNSQR
+from scapy.layers.l2 import Ether
+
+from .features import shannon_entropy, dns_query_features, compute_flow_metrics
+
+
+TCP_FLAG_MAP = {
+    0x01: 'F', 0x02: 'S', 0x04: 'R',
+    0x08: 'P', 0x10: 'A', 0x20: 'U',
+}
+
+WELL_KNOWN_PORTS = {
+    20: 'FTP-DATA', 21: 'FTP', 22: 'SSH', 23: 'TELNET',
+    25: 'SMTP', 53: 'DNS', 80: 'HTTP', 110: 'POP3',
+    143: 'IMAP', 443: 'HTTPS', 465: 'SMTPS', 587: 'SMTP',
+    993: 'IMAPS', 995: 'POP3S', 3389: 'RDP', 8080: 'HTTP-ALT',
+}
+
+
+def flow_key(src_ip, dst_ip, src_port, dst_port, protocol):
+    """
+    Canonical bidirectional key. Sorting the endpoints means packets in
+    both directions map to the same flow, so we measure conversations
+    rather than one-way streams.
+    """
+    a = (src_ip, src_port)
+    b = (dst_ip, dst_port)
+    if a <= b:
+        return (a[0], a[1], b[0], b[1], protocol), True
+    return (b[0], b[1], a[0], a[1], protocol), False
+
+
+class FlowAggregator:
+    """
+    Accumulates packets into flow records in memory, then flushes
+    completed flows to the database in batches.
+    """
+
+    def __init__(self):
+        self.flows = {}
+        self.dns_records = []
+        self.total_packets = 0
+        self.total_bytes = 0
+
+    def process(self, pkt):
+        if IP not in pkt:
+            return
+
+        self.total_packets += 1
+        pkt_len = len(pkt)
+        self.total_bytes += pkt_len
+        now = time.time()
+
+        ip = pkt[IP]
+        src_ip, dst_ip = ip.src, ip.dst
+
+        if TCP in pkt:
+            protocol = 'TCP'
+            sport, dport = pkt[TCP].sport, pkt[TCP].dport
+            flags = self._decode_tcp_flags(pkt[TCP].flags)
+        elif UDP in pkt:
+            protocol = 'UDP'
+            sport, dport = pkt[UDP].sport, pkt[UDP].dport
+            flags = ''
+        elif ICMP in pkt:
+            protocol = 'ICMP'
+            sport = dport = 0
+            flags = ''
+        else:
+            protocol = 'OTHER'
+            sport = dport = 0
+            flags = ''
+
+        key, is_forward = flow_key(src_ip, dst_ip, sport, dport, protocol)
+
+        if key not in self.flows:
+            self.flows[key] = {
+                'src_ip': key[0], 'src_port': key[1],
+                'dst_ip': key[2], 'dst_port': key[3],
+                'protocol': protocol,
+                'packets_sent': 0, 'packets_received': 0,
+                'bytes_sent': 0, 'bytes_received': 0,
+                'first_seen': now, 'last_seen': now,
+                'entropy_samples': [],
+                'tcp_flags': set(),
+                'dst_ports': set(),
+                'dns_query_count': 0,
+                'longest_dns_label': 0,
+                'app_protocol': '',
+                'http_host': '',
+                'tls_sni': '',
+            }
+
+        f = self.flows[key]
+        f['last_seen'] = now
+        f['dst_ports'].add(dport)
+
+        if is_forward:
+            f['packets_sent'] += 1
+            f['bytes_sent'] += pkt_len
+        else:
+            f['packets_received'] += 1
+            f['bytes_received'] += pkt_len
+
+        if flags:
+            f['tcp_flags'].update(flags)
+
+        if not f['app_protocol']:
+            f['app_protocol'] = (
+                WELL_KNOWN_PORTS.get(dport) or WELL_KNOWN_PORTS.get(sport) or ''
+            )
+
+        # Sample payload entropy (cap samples to bound memory)
+        if protocol in ('TCP', 'UDP'):
+            payload = bytes(pkt[protocol].payload)
+        elif protocol == 'ICMP':
+            payload = bytes(pkt[ICMP].payload)
+        else:
+            payload = b''
+        if payload and len(f['entropy_samples']) < 40:
+            f['entropy_samples'].append(shannon_entropy(payload[:512]))
+
+        if DNS in pkt:
+            self._process_dns(pkt, f, src_ip, now)
+
+        if protocol == 'TCP' and payload:
+            self._process_app_layer(payload, f, dport)
+
+    def _decode_tcp_flags(self, flag_value):
+        return ''.join(
+            char for bit, char in TCP_FLAG_MAP.items() if int(flag_value) & bit
+        )
+
+    def _process_dns(self, pkt, f, src_ip, now):
+        dns = pkt[DNS]
+        if dns.qr != 0 or not dns.qd:
+            return
+
+        try:
+            qname = dns.qd.qname.decode('utf-8', errors='ignore')
+        except Exception:
+            return
+
+        feats = dns_query_features(qname)
+        f['dns_query_count'] += 1
+        f['longest_dns_label'] = max(f['longest_dns_label'], feats['subdomain_length'])
+        f['app_protocol'] = 'DNS'
+
+        qtype = ''
+        try:
+            qtype = dns.qd.get_field('qtype').i2repr(dns.qd, dns.qd.qtype)
+        except Exception:
+            pass
+
+        self.dns_records.append({
+            'src_ip': src_ip,
+            'query_name': qname.rstrip('.')[:512],
+            'query_type': qtype[:12],
+            'subdomain_length': feats['subdomain_length'],
+            'label_count': feats['label_count'],
+            'query_entropy': feats['query_entropy'],
+            'timestamp': datetime.fromtimestamp(now, tz=dt_timezone.utc),
+            'flow_key': (f['src_ip'], f['src_port'], f['dst_ip'], f['dst_port'], f['protocol']),
+        })
+
+    def _process_app_layer(self, payload, f, dport):
+        # HTTP Host header
+        if dport in (80, 8080) and not f['http_host']:
+            try:
+                text = payload[:400].decode('utf-8', errors='ignore')
+                for line in text.split('\r\n'):
+                    if line.lower().startswith('host:'):
+                        f['http_host'] = line.split(':', 1)[1].strip()[:255]
+                        f['app_protocol'] = 'HTTP'
+                        break
+            except Exception:
+                pass
+
+        # TLS SNI from ClientHello — gives us the destination domain
+        # even though the session is encrypted. This is the
+        # "encrypted traffic analysis without decryption" capability.
+        elif dport == 443 and not f['tls_sni']:
+            sni = self._extract_sni(payload)
+            if sni:
+                f['tls_sni'] = sni[:255]
+                f['app_protocol'] = 'TLS'
+
+    def _extract_sni(self, data):
+        try:
+            if len(data) < 45 or data[0] != 0x16:
+                return None
+            pos = 43
+            sid_len = data[pos]
+            pos += 1 + sid_len
+            cs_len = int.from_bytes(data[pos:pos + 2], 'big')
+            pos += 2 + cs_len
+            comp_len = data[pos]
+            pos += 1 + comp_len
+            ext_total = int.from_bytes(data[pos:pos + 2], 'big')
+            pos += 2
+            end = pos + ext_total
+
+            while pos + 4 <= end and pos + 4 <= len(data):
+                ext_type = int.from_bytes(data[pos:pos + 2], 'big')
+                ext_len = int.from_bytes(data[pos + 2:pos + 4], 'big')
+                pos += 4
+                if ext_type == 0x0000:
+                    name_len = int.from_bytes(data[pos + 3:pos + 5], 'big')
+                    return data[pos + 5:pos + 5 + name_len].decode('utf-8', errors='ignore')
+                pos += ext_len
+        except Exception:
+            return None
+        return None
+
+    def finalize(self):
+        """Convert in-memory state into database-ready dicts."""
+        results = []
+        for key, f in self.flows.items():
+            metrics = compute_flow_metrics(f)
+            results.append({
+                'src_ip': f['src_ip'],
+                'dst_ip': f['dst_ip'],
+                'src_port': f['src_port'],
+                'dst_port': f['dst_port'],
+                'protocol': f['protocol'],
+                'packets_sent': f['packets_sent'],
+                'packets_received': f['packets_received'],
+                'bytes_sent': f['bytes_sent'],
+                'bytes_received': f['bytes_received'],
+                'first_seen': datetime.fromtimestamp(f['first_seen'], tz=dt_timezone.utc),
+                'last_seen': datetime.fromtimestamp(f['last_seen'], tz=dt_timezone.utc),
+                'unique_dst_ports': len(f['dst_ports']),
+                'tcp_flags_seen': ''.join(sorted(f['tcp_flags'])),
+                'app_protocol': f['app_protocol'],
+                'dns_query_count': f['dns_query_count'],
+                'longest_dns_label': f['longest_dns_label'],
+                'http_host': f['http_host'],
+                'tls_sni': f['tls_sni'],
+                '_key': key,
+                **metrics,
+            })
+        return results, self.dns_records

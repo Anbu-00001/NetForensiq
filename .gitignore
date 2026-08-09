@@ -1,0 +1,19 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+backend/.env
+db.sqlite3
+
+# Node
+node_modules/
+frontend/dist/
+
+# Captures & evidence
+*.pcap
+*.pcapng
+evidence_store/
+
+# IDE
+.vscode/
+.idea/
