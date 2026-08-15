@@ -22,8 +22,17 @@ class CaptureSession(models.Model):
     bpf_filter = models.CharField(max_length=255, blank=True)
 
     state = models.CharField(max_length=12, choices=State.choices, default=State.RUNNING)
+
+    # When we processed the capture. For an imported PCAP this is the import
+    # time and says nothing about when the traffic occurred.
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+
+    # When the traffic actually happened, taken from the packets themselves.
+    # Keeping these separate from started_at/ended_at is what lets an analyst
+    # testify about the events rather than about our processing run.
+    capture_start = models.DateTimeField(null=True, blank=True)
+    capture_end = models.DateTimeField(null=True, blank=True)
 
     packet_count = models.BigIntegerField(default=0)
     byte_count = models.BigIntegerField(default=0)
@@ -52,12 +61,20 @@ class Flow(models.Model):
         CaptureSession, on_delete=models.CASCADE, related_name='flows',
     )
 
-    # 5-tuple identity
+    # 5-tuple identity. src/dst here are the canonical (sorted) endpoints and
+    # carry no directional meaning — use initiator_ip for that.
     src_ip = models.GenericIPAddressField()
     dst_ip = models.GenericIPAddressField()
     src_port = models.IntegerField(default=0)
     dst_port = models.IntegerField(default=0)
     protocol = models.CharField(max_length=12)
+
+    # Who opened the conversation. Confirmed by a TCP SYN where available,
+    # otherwise inferred from the first packet observed. Everything
+    # directional (bytes_sent, bytes_ratio) is measured relative to this.
+    initiator_ip = models.GenericIPAddressField(null=True, blank=True)
+    initiator_port = models.IntegerField(default=0)
+    initiator_confirmed = models.BooleanField(default=False)
 
     # Volume features
     packets_sent = models.IntegerField(default=0)
@@ -65,10 +82,18 @@ class Flow(models.Model):
     bytes_sent = models.BigIntegerField(default=0)
     bytes_received = models.BigIntegerField(default=0)
 
-    # Timing features
+    # Timing features, derived from packet timestamps
     first_seen = models.DateTimeField()
     last_seen = models.DateTimeField()
     duration_seconds = models.FloatField(default=0.0)
+
+    # Inter-packet gap statistics — the basis of beaconing detection.
+    interval_count = models.IntegerField(default=0)
+    interval_mean = models.FloatField(default=0.0)
+    interval_median = models.FloatField(default=0.0)
+    interval_stddev = models.FloatField(default=0.0)
+    interval_mad = models.FloatField(default=0.0)
+    interval_dispersion = models.FloatField(default=0.0)
 
     # Behavioural features
     avg_packet_size = models.FloatField(default=0.0)
@@ -82,11 +107,15 @@ class Flow(models.Model):
     app_protocol = models.CharField(max_length=20, blank=True)
     dns_query_count = models.IntegerField(default=0)
     longest_dns_label = models.IntegerField(default=0)
+    max_dns_entropy = models.FloatField(default=0.0)
     http_host = models.CharField(max_length=255, blank=True)
     tls_sni = models.CharField(max_length=255, blank=True)
     ja3_hash = models.CharField(max_length=64, blank=True)
 
-    # Filled in by Phase 3
+    # Populated by the detection engine (capture/detection.py).
+    # risk_score is the 0-100 rollup of matched rules; anomaly_score is the
+    # separate unsupervised score, kept distinct so a rule-based finding is
+    # never conflated with a model's opinion.
     is_analyzed = models.BooleanField(default=False)
     anomaly_score = models.FloatField(null=True, blank=True)
     risk_score = models.IntegerField(null=True, blank=True)
@@ -132,3 +161,65 @@ class DNSRecord(models.Model):
 
     def __str__(self):
         return f"{self.src_ip} → {self.query_name}"
+
+
+class Detection(models.Model):
+    """
+    A single finding against a flow or host, produced by a named rule.
+
+    Each row carries the rule that fired, the observed values that triggered
+    it, and the threshold it was compared against. An investigator asked
+    "why is this flagged?" in court can read the answer off the record
+    instead of appealing to a model's judgement — which is the reason
+    detection is rules-first here.
+    """
+
+    class Severity(models.TextChoices):
+        LOW = 'low', 'Low'
+        MEDIUM = 'medium', 'Medium'
+        HIGH = 'high', 'High'
+        CRITICAL = 'critical', 'Critical'
+
+    class Method(models.TextChoices):
+        RULE = 'rule', 'Deterministic rule'
+        MODEL = 'model', 'Unsupervised model'
+
+    session = models.ForeignKey(
+        CaptureSession, on_delete=models.CASCADE, related_name='detections',
+    )
+    flow = models.ForeignKey(
+        Flow, null=True, blank=True,
+        on_delete=models.CASCADE, related_name='detections',
+    )
+
+    rule_id = models.CharField(max_length=64)
+    title = models.CharField(max_length=200)
+    category = models.CharField(max_length=40)
+    severity = models.CharField(max_length=10, choices=Severity.choices)
+    method = models.CharField(max_length=10, choices=Method.choices, default=Method.RULE)
+
+    # 0.0-1.0. For rules this reflects how far past the threshold the
+    # observation sits, not a probability of maliciousness.
+    confidence = models.FloatField(default=0.0)
+
+    # Plain-language explanation shown to the investigator and printed into
+    # the evidence report.
+    rationale = models.TextField()
+
+    # The numbers behind the finding: {"observed": ..., "threshold": ...,
+    # "source": "<citation for the threshold>"}.
+    evidence = models.JSONField(default=dict, blank=True)
+
+    subject_ip = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-severity', '-confidence']
+        indexes = [
+            models.Index(fields=['session', 'severity']),
+            models.Index(fields=['rule_id']),
+            models.Index(fields=['subject_ip']),
+        ]
+
+    def __str__(self):
+        return f"[{self.severity}] {self.rule_id} · {self.subject_ip or '-'}"

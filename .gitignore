@@ -1,18 +1,36 @@
 # Python
 backend/venv/
+backend/.venv/
+.venv/
 __pycache__/
 *.pyc
 backend/.env
+.env
+
+# Databases (local dev / demo)
 db.sqlite3
+*.sqlite3
 
 # Node
 node_modules/
 frontend/dist/
 
-# Captures & evidence
+# Captures & evidence — never commit case material
 *.pcap
 *.pcapng
 evidence_store/
+backend/evidence_store/
+backend/synthetic_captures/
+
+# Test / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Playwright
+test-results/
+playwright-report/
+frontend/e2e/.auth/
 
 # IDE
 .vscode/

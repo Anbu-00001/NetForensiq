@@ -1,8 +1,10 @@
-import time
+from datetime import datetime, timezone as dt_timezone
+
 from django.utils import timezone
 from django.db import transaction
 
-from scapy.all import sniff, rdpcap, conf
+from scapy.all import sniff, conf
+from scapy.utils import PcapReader
 
 from .models import CaptureSession, Flow, DNSRecord
 from .processor import FlowAggregator
@@ -16,38 +18,54 @@ def resolve_interface(index_or_name):
         return index_or_name
 
 
+def _utc(ts):
+    return datetime.fromtimestamp(ts, tz=dt_timezone.utc) if ts else None
+
+
 @transaction.atomic
 def persist_results(session, flows, dns_records, aggregator):
-    """Write aggregated flows and DNS records into PostgreSQL in bulk."""
+    """Write aggregated flows and DNS records into the database in bulk."""
 
     flow_objects = []
     key_to_index = {}
 
     for idx, f in enumerate(flows):
-        key = f.pop('_key')
+        record = dict(f)
+        key = record.pop('_key')
+        record.pop('_timestamps', None)          # timing already reduced to features
         key_to_index[key] = idx
-        flow_objects.append(Flow(session=session, **f))
+        flow_objects.append(Flow(session=session, **record))
 
     created_flows = Flow.objects.bulk_create(flow_objects, batch_size=500)
 
     dns_objects = []
     for rec in dns_records:
-        fkey = rec.pop('flow_key', None)
+        record = dict(rec)
+        fkey = record.pop('flow_key', None)
         linked_flow = None
         if fkey is not None and fkey in key_to_index:
             linked_flow = created_flows[key_to_index[fkey]]
-        dns_objects.append(DNSRecord(session=session, flow=linked_flow, **rec))
+        dns_objects.append(DNSRecord(session=session, flow=linked_flow, **record))
 
     DNSRecord.objects.bulk_create(dns_objects, batch_size=500)
 
     session.packet_count = aggregator.total_packets
     session.byte_count = aggregator.total_bytes
     session.flow_count = len(created_flows)
+    session.capture_start = _utc(aggregator.first_packet_time)
+    session.capture_end = _utc(aggregator.last_packet_time)
     session.ended_at = timezone.now()
     session.state = CaptureSession.State.COMPLETED
     session.save()
 
     return len(created_flows), len(dns_objects)
+
+
+def _fail(session, exc):
+    session.state = CaptureSession.State.FAILED
+    session.error_message = str(exc)
+    session.ended_at = timezone.now()
+    session.save()
 
 
 def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='', name=None, user=None):
@@ -84,20 +102,23 @@ def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='', name=
     except KeyboardInterrupt:
         pass
     except Exception as exc:
-        session.state = CaptureSession.State.FAILED
-        session.error_message = str(exc)
-        session.ended_at = timezone.now()
-        session.save()
+        _fail(session, exc)
         raise
 
     flows, dns_records = aggregator.finalize()
     return session, persist_results(session, flows, dns_records, aggregator)
 
 
-def run_pcap_import(pcap_path, name=None, user=None):
-    """Read a stored PCAP file and persist the resulting flows."""
+def run_pcap_import(pcap_path, name=None, user=None, session=None):
+    """
+    Read a stored PCAP and persist the resulting flows.
 
-    session = CaptureSession.objects.create(
+    Packets are streamed with PcapReader rather than loaded via rdpcap, so
+    memory scales with the number of distinct conversations rather than with
+    file size — police captures are routinely multi-gigabyte.
+    """
+
+    session = session or CaptureSession.objects.create(
         name=name or f"PCAP import {timezone.now():%Y-%m-%d %H:%M:%S}",
         source_type=CaptureSession.Source.PCAP,
         pcap_filename=str(pcap_path),
@@ -108,14 +129,11 @@ def run_pcap_import(pcap_path, name=None, user=None):
     aggregator = FlowAggregator()
 
     try:
-        packets = rdpcap(str(pcap_path))
-        for pkt in packets:
-            aggregator.process(pkt)
+        with PcapReader(str(pcap_path)) as reader:
+            for pkt in reader:
+                aggregator.process(pkt)
     except Exception as exc:
-        session.state = CaptureSession.State.FAILED
-        session.error_message = str(exc)
-        session.ended_at = timezone.now()
-        session.save()
+        _fail(session, exc)
         raise
 
     flows, dns_records = aggregator.finalize()

@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 
 import os
+import secrets
+from datetime import timedelta
+
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, '.env'))
@@ -25,7 +28,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+# A generated ephemeral key keeps a fresh clone runnable; any real deployment
+# must set SECRET_KEY in .env, otherwise sessions and tokens reset on restart.
+SECRET_KEY = os.getenv('SECRET_KEY') or secrets.token_urlsafe(50)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
@@ -84,16 +89,28 @@ WSGI_APPLICATION = 'netforensiq_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+# PostgreSQL when DB_NAME is configured; SQLite otherwise.
+# The fallback exists so a demo or review machine can run the full stack with
+# no database server installed — capture, detection and evidence export all
+# work on SQLite. PostgreSQL remains the deployment target.
+if os.getenv('DB_NAME'):
+    DATABASES = {
+        'default': {
+            'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+            'NAME': os.getenv('DB_NAME'),
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'netforensiq.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -132,6 +149,13 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Evidence storage. Ingested PCAPs are copied here and never modified; hashes
+# are computed on arrival and re-verified on every export.
+MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', BASE_DIR / 'evidence_store'))
+MEDIA_URL = 'media/'
+EVIDENCE_ROOT = MEDIA_ROOT / 'pcaps'
+CERTIFICATE_ROOT = MEDIA_ROOT / 'certificates'
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
@@ -140,6 +164,13 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # Deny by default. Endpoints that must be public opt out explicitly with
+    # permission_classes = [AllowAny]; nothing is exposed by forgetting to set it.
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
     'DEFAULT_THROTTLE_CLASSES': (
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
@@ -150,8 +181,6 @@ REST_FRAMEWORK = {
         'login': '8/hour',
     },
 }
-
-from datetime import timedelta
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
