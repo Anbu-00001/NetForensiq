@@ -1,0 +1,196 @@
+"""Evidence intake, custody chain maintenance, and certificate issue."""
+
+import shutil
+import uuid
+from pathlib import Path
+
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+
+from .models import (
+    CustodyEvent, EvidenceRecord, Section63Certificate, hash_file,
+)
+
+
+def _next_sequence(evidence):
+    last = evidence.custody_events.order_by('-sequence').first()
+    return (last.sequence + 1) if last else 1
+
+
+def record_custody(evidence, action, actor=None, detail='', actor_ip=None):
+    """
+    Append a hash-chained entry to an exhibit's custody log.
+
+    The entry hash covers the previous entry's hash, so the log can be
+    replayed and verified end to end; see verify_custody_chain.
+    """
+    previous = evidence.custody_events.order_by('-sequence').first()
+
+    event = CustodyEvent(
+        evidence=evidence,
+        sequence=_next_sequence(evidence),
+        action=action,
+        actor=actor,
+        actor_badge=getattr(actor, 'badge_id', '') or '',
+        actor_ip=actor_ip,
+        detail=detail,
+        previous_hash=previous.entry_hash if previous else '',
+    )
+    # timestamp is auto_now_add, so the row must exist before it can be hashed.
+    event.save()
+    event.entry_hash = event.compute_hash()
+    event.save(update_fields=['entry_hash'])
+    return event
+
+
+def verify_custody_chain(evidence):
+    """
+    Replay the custody log and re-derive every link.
+
+    Returns (ok, problems). A break tells you exactly which sequence number
+    failed, which is what an investigator would be asked in cross-examination.
+    """
+    problems = []
+    expected_previous = ''
+
+    for event in evidence.custody_events.order_by('sequence'):
+        if event.previous_hash != expected_previous:
+            problems.append(
+                f"entry #{event.sequence}: previous_hash does not match entry "
+                f"#{event.sequence - 1}"
+            )
+        recomputed = event.compute_hash()
+        if recomputed != event.entry_hash:
+            problems.append(f"entry #{event.sequence}: content has been altered")
+        expected_previous = event.entry_hash
+
+    return (not problems), problems
+
+
+@transaction.atomic
+def ingest_evidence(
+    source_path,
+    original_filename=None,
+    exhibit_number=None,
+    collected_by=None,
+    case_reference='',
+    seized_from='',
+    device_make_model='',
+    device_serial='',
+    device_identifier='',
+    acquisition_notes='',
+    actor_ip=None,
+):
+    """
+    Take custody of a capture file.
+
+    The file is copied into the evidence store and hashed *before* anything
+    reads it for analysis, so the recorded digest describes the artefact as
+    received. The copy is what we keep; the original stays where it was.
+    """
+    source = Path(source_path)
+    if not source.exists():
+        raise FileNotFoundError(f"No such capture file: {source}")
+
+    exhibit_number = exhibit_number or f"NF-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+
+    store = Path(settings.EVIDENCE_ROOT)
+    store.mkdir(parents=True, exist_ok=True)
+    destination = store / f"{exhibit_number}{source.suffix or '.pcap'}"
+    shutil.copy2(source, destination)
+
+    digests, size = hash_file(destination)
+
+    record = EvidenceRecord.objects.create(
+        exhibit_number=exhibit_number,
+        original_filename=original_filename or source.name,
+        stored_path=str(destination),
+        file_size_bytes=size,
+        sha256_hash=digests['sha256'],
+        md5_hash=digests.get('md5', ''),
+        acquisition_timestamp=timezone.now(),
+        case_reference=case_reference,
+        seized_from=seized_from,
+        device_make_model=device_make_model,
+        device_serial=device_serial,
+        device_identifier=device_identifier,
+        acquisition_notes=acquisition_notes,
+        collected_by=collected_by,
+        last_verified_at=timezone.now(),
+    )
+
+    record_custody(
+        record, CustodyEvent.Action.ACQUIRED, actor=collected_by,
+        detail=f"Acquired from {source.name} ({size:,} bytes)", actor_ip=actor_ip,
+    )
+    record_custody(
+        record, CustodyEvent.Action.HASHED, actor=collected_by,
+        detail=f"SHA256={digests['sha256']} MD5={digests.get('md5', '')}",
+        actor_ip=actor_ip,
+    )
+    return record
+
+
+def issue_certificate(
+    evidence,
+    session=None,
+    part_a_user=None,
+    part_a_name='', part_a_designation='', part_a_organisation='', part_a_address='',
+    part_b_user=None,
+    part_b_name='', part_b_designation='', part_b_organisation='', part_b_qualification='',
+    findings_summary='',
+    actor_ip=None,
+):
+    """
+    Issue a s.63 certificate over an exhibit.
+
+    Integrity is re-verified first: certifying a hash we have not just checked
+    would defeat the purpose. A failed check raises rather than producing a
+    certificate that asserts something untrue.
+    """
+    ok, computed = evidence.verify()
+    if not ok:
+        raise ValueError(
+            f"Refusing to certify {evidence.exhibit_number}: integrity check failed "
+            f"(expected {evidence.sha256_hash}, computed {computed})"
+        )
+
+    reference = f"S63-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+
+    device_description = ' · '.join(filter(None, [
+        evidence.get_device_type_display(),
+        evidence.device_make_model,
+        f"S/N {evidence.device_serial}" if evidence.device_serial else '',
+        evidence.device_identifier,
+    ]))
+
+    certificate = Section63Certificate.objects.create(
+        evidence=evidence,
+        session=session,
+        reference=reference,
+        part_a_user=part_a_user,
+        part_a_name=part_a_name or getattr(part_a_user, 'get_full_name', lambda: '')() or getattr(part_a_user, 'username', ''),
+        part_a_designation=part_a_designation,
+        part_a_organisation=part_a_organisation,
+        part_a_address=part_a_address,
+        part_a_relationship=evidence.custodian_relationship,
+        part_a_signed_at=timezone.now() if part_a_user else None,
+        part_b_user=part_b_user,
+        part_b_name=part_b_name or getattr(part_b_user, 'username', ''),
+        part_b_designation=part_b_designation,
+        part_b_organisation=part_b_organisation,
+        part_b_qualification=part_b_qualification,
+        part_b_signed_at=timezone.now() if part_b_user else None,
+        certified_sha256=evidence.sha256_hash,
+        certified_md5=evidence.md5_hash,
+        device_description=device_description,
+        findings_summary=findings_summary,
+    )
+
+    record_custody(
+        evidence, CustodyEvent.Action.CERTIFICATE_ISSUED,
+        actor=part_b_user or part_a_user,
+        detail=f"Certificate {reference} issued", actor_ip=actor_ip,
+    )
+    return certificate

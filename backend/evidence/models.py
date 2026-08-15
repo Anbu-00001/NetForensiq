@@ -1,3 +1,293 @@
+"""
+Evidence integrity layer.
+
+Everything here exists to answer one question a defence counsel will ask:
+"how do you know this file is the one you seized, and that nobody altered it?"
+
+Field provenance is tagged in comments as:
+  [STATUTORY]     required by Bharatiya Sakshya Adhiniyam 2023 s.63 or its Schedule
+  [STANDARD]      derived from ISO/IEC 27037 or NIST SP 800-86
+  [GOOD PRACTICE] our design choice, no legal backing claimed
+
+The Part A / Part B split below is not our invention: it is THE SCHEDULE to the
+BSA 2023, cross-referenced by s.63(4)(c) ("...in the certificate specified in
+the Schedule"). See research/SPEC_01_EVIDENCE_INTEGRITY.md for verbatim text.
+"""
+
+import hashlib
+
+from django.conf import settings
 from django.db import models
 
-# Create your models here.
+
+# The Schedule prints these as checkboxes; we mirror the wording exactly so the
+# generated certificate is the prescribed form rather than a paraphrase of it.
+class DeviceType(models.TextChoices):
+    COMPUTER = 'computer', 'Computer/Storage Media'
+    DVR = 'dvr', 'DVR'
+    MOBILE = 'mobile', 'Mobile'
+    FLASH_DRIVE = 'flash', 'Flash Drive'
+    CD_DVD = 'cd_dvd', 'CD/DVD'
+    SERVER = 'server', 'Server'
+    CLOUD = 'cloud', 'Cloud'
+    OTHER = 'other', 'Other'
+
+
+class HashAlgorithm(models.TextChoices):
+    SHA256 = 'SHA256', 'SHA256'
+    SHA1 = 'SHA1', 'SHA1'
+    MD5 = 'MD5', 'MD5'
+    OTHER = 'Other', 'Other (Legally acceptable standard)'
+
+
+class CustodianRelationship(models.TextChoices):
+    OWNED = 'owned', 'Owned'
+    MAINTAINED = 'maintained', 'Maintained'
+    MANAGED = 'managed', 'Managed'
+    OPERATED = 'operated', 'Operated'
+
+
+def hash_file(path, algorithms=('sha256', 'md5'), chunk_size=1024 * 1024):
+    """
+    Hash a file in streaming chunks.
+
+    Multiple digests are computed in a single pass because re-reading a
+    multi-gigabyte capture once per algorithm is wasteful. SHA-256 is the
+    primary; MD5 is computed only because the Schedule prints a checkbox for
+    it and officers expect to see it — it is never relied on alone.
+    """
+    digests = {name: hashlib.new(name) for name in algorithms}
+    size = 0
+    with open(path, 'rb') as fh:
+        while True:
+            chunk = fh.read(chunk_size)
+            if not chunk:
+                break
+            size += len(chunk)
+            for d in digests.values():
+                d.update(chunk)
+    return {name: d.hexdigest() for name, d in digests.items()}, size
+
+
+class EvidenceRecord(models.Model):
+    """
+    The original seized artefact — for us, a PCAP file.
+
+    Derived analysis (flows, detections) lives in the capture app and is
+    explicitly NOT the evidence; it is opinion computed from the evidence.
+    Keeping them in separate tables makes that distinction arguable in court
+    rather than implied.
+    """
+
+    class Status(models.TextChoices):
+        SEALED = 'sealed', 'Sealed — hash verified'
+        TAMPERED = 'tampered', 'Integrity check FAILED'
+        ARCHIVED = 'archived', 'Archived'
+
+    # Identity
+    exhibit_number = models.CharField(max_length=100, unique=True)      # [GOOD PRACTICE]
+    original_filename = models.CharField(max_length=255)                # [STANDARD]
+    stored_path = models.CharField(max_length=500)                      # [GOOD PRACTICE]
+    file_size_bytes = models.BigIntegerField(default=0)                 # [STANDARD]
+
+    # Integrity — Schedule names SHA1/SHA256/MD5 explicitly
+    sha256_hash = models.CharField(max_length=64, db_index=True)        # [STATUTORY]
+    md5_hash = models.CharField(max_length=32, blank=True)              # [STATUTORY]
+    hash_algorithm_declared = models.CharField(                          # [STATUTORY]
+        max_length=10, choices=HashAlgorithm.choices, default=HashAlgorithm.SHA256,
+    )
+
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.SEALED)
+    last_verified_at = models.DateTimeField(null=True, blank=True)      # [STANDARD]
+
+    # Acquisition context — Schedule Part A device block
+    acquisition_timestamp = models.DateTimeField()                       # [STATUTORY]
+    device_type = models.CharField(                                      # [STATUTORY]
+        max_length=12, choices=DeviceType.choices, default=DeviceType.COMPUTER,
+    )
+    device_make_model = models.CharField(max_length=200, blank=True)     # [STATUTORY]
+    device_serial = models.CharField(max_length=120, blank=True)         # [STATUTORY]
+    device_identifier = models.CharField(                                # [STATUTORY]
+        max_length=200, blank=True,
+        help_text='IMEI/UIN/UID/MAC/Cloud ID, as applicable',
+    )
+    custodian_relationship = models.CharField(                           # [STATUTORY]
+        max_length=12, choices=CustodianRelationship.choices,
+        default=CustodianRelationship.OPERATED,
+    )
+
+    # Case linkage
+    case_reference = models.CharField(max_length=120, blank=True)        # [GOOD PRACTICE]
+    seized_from = models.CharField(max_length=200, blank=True)           # [STANDARD]
+    acquisition_notes = models.TextField(blank=True)                     # [STANDARD]
+
+    collected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='collected_evidence',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.exhibit_number} · {self.original_filename}"
+
+    def verify(self):
+        """
+        Recompute the digest and compare against the sealed value.
+
+        Returns (ok, computed_sha256). A mismatch flips status to TAMPERED and
+        is deliberately sticky — an artefact that ever failed verification
+        should not silently return to 'sealed' on a later pass.
+        """
+        from django.utils import timezone
+
+        try:
+            digests, _ = hash_file(self.stored_path, algorithms=('sha256',))
+        except OSError:
+            self.status = self.Status.TAMPERED
+            self.save(update_fields=['status'])
+            return False, None
+
+        computed = digests['sha256']
+        ok = (computed == self.sha256_hash)
+        self.last_verified_at = timezone.now()
+        if not ok:
+            self.status = self.Status.TAMPERED
+        self.save(update_fields=['last_verified_at', 'status'])
+        return ok, computed
+
+
+class CustodyEvent(models.Model):
+    """
+    One link in the chain of custody, hash-chained to its predecessor.
+
+    Each row stores the digest of the previous row, so removing or editing a
+    past entry breaks every subsequent link. This is a tamper-*evident* log,
+    not tamper-proof — it detects alteration rather than preventing it, which
+    is the honest claim to make about a database table.
+    """
+
+    class Action(models.TextChoices):
+        ACQUIRED = 'acquired', 'Acquired / Seized'
+        HASHED = 'hashed', 'Hash computed'
+        VERIFIED = 'verified', 'Integrity verified'
+        ANALYSED = 'analysed', 'Analysed'
+        VIEWED = 'viewed', 'Viewed'
+        EXPORTED = 'exported', 'Exported'
+        TRANSFERRED = 'transferred', 'Custody transferred'
+        CERTIFICATE_ISSUED = 'certificate', 'Section 63 certificate issued'
+
+    evidence = models.ForeignKey(
+        EvidenceRecord, on_delete=models.CASCADE, related_name='custody_events',
+    )
+    sequence = models.PositiveIntegerField()
+    action = models.CharField(max_length=16, choices=Action.choices)
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='custody_events',
+    )
+    actor_badge = models.CharField(max_length=50, blank=True)
+    actor_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    detail = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    previous_hash = models.CharField(max_length=64, blank=True)
+    entry_hash = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        ordering = ['evidence', 'sequence']
+        unique_together = [('evidence', 'sequence')]
+
+    def __str__(self):
+        return f"#{self.sequence} {self.action} · {self.evidence.exhibit_number}"
+
+    def compute_hash(self):
+        """Digest over the immutable content of this entry plus the prior link."""
+        payload = '|'.join([
+            str(self.evidence_id),
+            str(self.sequence),
+            self.action,
+            str(self.actor_badge or ''),
+            str(self.actor_ip or ''),
+            self.detail or '',
+            self.timestamp.isoformat() if self.timestamp else '',
+            self.previous_hash or '',
+        ])
+        return hashlib.sha256(payload.encode('utf-8')).hexdigest()
+
+
+class Section63Certificate(models.Model):
+    """
+    A generated certificate under BSA 2023 s.63(4)(c), following THE SCHEDULE.
+
+    Part A is signed by the person in charge of the device; Part B by an
+    expert. The statute requires both ("...signed by a person in charge ...
+    and an expert"), so a certificate with only one part is incomplete and is
+    marked as such rather than being presented as valid.
+    """
+
+    evidence = models.ForeignKey(
+        EvidenceRecord, on_delete=models.CASCADE, related_name='certificates',
+    )
+    session = models.ForeignKey(
+        'capture.CaptureSession', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='certificates',
+    )
+    reference = models.CharField(max_length=100, unique=True)
+
+    # ── Part A — person in charge of the device / activities ──
+    part_a_name = models.CharField(max_length=200, blank=True)
+    part_a_designation = models.CharField(max_length=200, blank=True)
+    part_a_organisation = models.CharField(max_length=200, blank=True)
+    part_a_address = models.TextField(blank=True)
+    part_a_relationship = models.CharField(
+        max_length=12, choices=CustodianRelationship.choices,
+        default=CustodianRelationship.OPERATED,
+    )
+    part_a_signed_at = models.DateTimeField(null=True, blank=True)
+    part_a_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='part_a_certificates',
+    )
+
+    # ── Part B — expert ──
+    part_b_name = models.CharField(max_length=200, blank=True)
+    part_b_designation = models.CharField(max_length=200, blank=True)
+    part_b_organisation = models.CharField(max_length=200, blank=True)
+    part_b_qualification = models.CharField(
+        max_length=300, blank=True,
+        help_text="s.63 does not define 'expert'; qualification is recorded "
+                  "so the court can assess competence.",
+    )
+    part_b_signed_at = models.DateTimeField(null=True, blank=True)
+    part_b_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='part_b_certificates',
+    )
+
+    # Snapshot of the facts certified, frozen at issue time
+    certified_sha256 = models.CharField(max_length=64)
+    certified_md5 = models.CharField(max_length=32, blank=True)
+    certified_algorithm = models.CharField(
+        max_length=10, choices=HashAlgorithm.choices, default=HashAlgorithm.SHA256,
+    )
+    device_description = models.TextField(blank=True)
+    findings_summary = models.TextField(blank=True)
+
+    generated_at = models.DateTimeField(auto_now_add=True)
+    pdf_path = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ['-generated_at']
+
+    def __str__(self):
+        return f"{self.reference} · {self.evidence.exhibit_number}"
+
+    @property
+    def is_complete(self):
+        """Both parts signed, as s.63(4) requires conjunctively."""
+        return bool(self.part_a_signed_at and self.part_b_signed_at)

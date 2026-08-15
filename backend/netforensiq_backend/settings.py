@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'capture',
+    'evidence',
 ]
 
 MIDDLEWARE = [

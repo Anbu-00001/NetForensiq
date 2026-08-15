@@ -213,6 +213,27 @@ class Detection(models.Model):
     subject_ip = models.GenericIPAddressField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # ── Analyst review (human-in-the-loop) ──
+    # Nothing here is auto-actioned. A detection is a prompt for a human to
+    # look, and the machine's opinion is never the final word on the record —
+    # which is both good SOC practice and the only defensible posture when the
+    # output may end up in a chargesheet.
+    class Triage(models.TextChoices):
+        NEW = 'new', 'Awaiting review'
+        CONFIRMED = 'confirmed', 'Confirmed by analyst'
+        DISMISSED = 'dismissed', 'Dismissed — false positive'
+        ESCALATED = 'escalated', 'Escalated'
+
+    triage_status = models.CharField(
+        max_length=12, choices=Triage.choices, default=Triage.NEW, db_index=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reviewed_detections',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
+
     class Meta:
         ordering = ['-severity', '-confidence']
         indexes = [
