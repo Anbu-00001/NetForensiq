@@ -1,6 +1,6 @@
 # SPEC 03 — External Connectors & MCP Servers for NetForensiq
 
-> Status: IN PROGRESS — research pass. Pure research document, no application code.
+> Status: Research pass complete. Pure research document, no application code.
 > Compiled: 2026-08-15
 > Scope: (1) open-source threat-intel feeds/datasets for flow enrichment, (2) Indian
 > government/Gujarat Police connectors, (3) MCP servers relevant to this build,
@@ -134,10 +134,74 @@
 
 ## Part 4 — Human-in-the-loop precedents
 
+Mature SOC/forensic tooling converges on a small number of recurring patterns worth copying rather than reinventing:
+
+1. **Alert → Case promotion, not a flat queue.** The dominant pattern (documented for TheHive/Cortex, and generically across SOC-workflow literature) is a two-tier model: raw automated detections land in an **alert queue**, and an analyst decides whether to close them (false positive / benign true positive) or **promote** them into a **case** — a richer, collaborative investigation object pre-populated with the alert's observables. Most alerts never become cases; this keeps the expensive, human-collaborative workflow reserved for what's actually worth it. **Applicability to NetForensiq**: model detections as "alerts" (per-flow or per-window automated findings) and give analysts a one-click promote-to-case action that bundles the related flows, not a flat list where every detection gets equal investigative weight.
+2. **Four-way disposition, not binary true/false.** The alert-triage literature (CyberDefenders' SOC guide et al.) describes categorizing each alert as **True Positive** (escalate), **False Positive** (close + document), **Benign True Positive** (real activity, not malicious — close + tune), or **Indeterminate** (needs more data/threat-hunting). This is a better fit than binary true/false for a network-forensics tool where "the detection fired correctly but the traffic turns out to be sanctioned pen-testing" is a distinct, common case from "the detection was simply wrong."
+3. **Feedback closes the loop into detection tuning, not just case closure.** Multiple sources emphasize that a false-positive disposition should never be a dead end — it should feed back into either rule suppression for known-safe conditions, threshold tuning, or baseline updates. **Applicability**: NetForensiq's analyst-review UI should capture *why* something was marked false-positive (e.g. "known internal scanner," "whitelisted domain not yet in our Tranco list") as structured feedback, not just a status flag — this is the mechanism that makes the tool improve over the life of an investigation rather than re-annoying analysts with the same noise.
+4. **Enrichment is pulled per-observable, on demand, with the verdict attached back to the observable.** Cortex's model — an analyst runs an "analyzer" against a specific IP/domain/hash from inside a case, and the result (verdict + raw data) attaches to that observable for the rest of the investigation — is a clean pattern for wiring in the Part 1 threat-intel sources: don't try to enrich every flow against every feed automatically (noisy, slow); let the analyst trigger enrichment against the feeds relevant to what they're looking at, and persist the result on the flow/IOC record.
+5. **MITRE ATT&CK tagging for shared vocabulary.** TheHive imports ATT&CK TTPs so analysts (and cross-team communication, and eventual reporting to bodies like I4C) share a standard technique vocabulary rather than free-text descriptions. NetForensiq's detections (C2 beaconing, DNS tunnelling, port scan, exfiltration) map reasonably cleanly onto existing ATT&CK techniques (e.g. T1071 Application Layer Protocol, T1071.004 DNS, T1046 Network Service Discovery, T1041 Exfiltration Over C2 Channel) — tagging detections with these IDs costs little and buys credibility with judges who know the framework.
+6. **Chain-of-custody / four-eyes for evidence export has a real standards basis, not just internal convention.** **ISO/IEC 27037:2012** (international standard for identification, collection, acquisition, and preservation of digital evidence) and the UK's **ACPO Good Practice Guide for Digital Evidence** both define a **two-role separation**: a "Digital Evidence First Responder" (initial collection) and a "Digital Evidence Specialist" (acquisition/analysis) — a documented precedent for **why** a four-eyes/dual-control step on evidence export is standard practice, not an invented requirement. The operative pattern for an export step: the exporting officer holds a **sealed artefact + a verification record + a copy of the audit log**, sufficient to demonstrate unbroken custody from capture to disclosure. **Applicability**: NetForensiq's evidence-export feature (referenced elsewhere in this repo's `SPEC_01_EVIDENCE_INTEGRITY.md`) should require a second analyst's sign-off before an export is finalized, and the export bundle should carry its own audit-log excerpt, not just the raw PCAP/flow data — this maps directly onto the DEFR/DES two-role model and gives the team a citable standard (ISO/IEC 27037) to point to when judges ask "how do you know this would hold up as evidence."
+
+**Real products cited as precedent**: TheHive + Cortex + MISP (open-source SOC stack, StrangeBee) for the alert→case→enrichment→ATT&CK workflow; ISO/IEC 27037:2012 and the ACPO Good Practice Guide for the chain-of-custody/dual-role standard. These are genuine, citable, non-invented sources for the review-workflow design.
+
 ---
 
 ## Recommended for this build
 
+Ordered by value ÷ effort for a 5-day build:
+
+1. **abuse.ch (URLhaus + ThreatFox + Feodo Tracker + SSLBL bulk lists)** — sign up for the free Auth-Key on day 1 (`auth.abuse.ch`); the SSLBL and Feodo bulk CSV/JSON blocklists work without a key at all. Single highest-value IOC source: covers malicious URLs, IPs, C2 infrastructure, and the only living malicious-JA3 list, in one free registration.
+2. **Tranco list** (`tranco-list.eu/top-1m.csv.zip`) for domain whitelisting — no signup, one static file, directly cuts false positives on DNS/SNI/Host fields, which the task explicitly flags as the higher-value move over blacklisting. Verified live during this research.
+3. **Public Suffix List** (`publicsuffix.org/list/public_suffix_list.dat`) — small, no signup, and structurally required for correct registrable-domain extraction; DNS-tunnelling and DGA detection logic is unreliable without it.
+4. **DB-IP Lite** (CC-BY, no account) for GeoIP — pick this over MaxMind GeoLite2 to avoid the ~30–45 minutes of account/EULA/phone-verification friction MaxMind now requires; same MMDB format, same library support.
+5. **Tor bulk exit list + AWS/GCP IP-range JSON** — trivially cheap (flat files/JSON, no auth, official URLs, all verified live) and directly useful for tagging egress-anonymization and cloud-hosted infrastructure in flow enrichment.
+6. **Emerging Threats Open ruleset, parsed for IOCs (not run as an IDS)** — free, no registration, daily updates; extracting IP/domain/URL indicators from the `.rules` files is a lightweight way to add a broader, community-curated IOC set beyond abuse.ch without standing up Suricata itself.
+
+*(MISP, Snort Community Rules, IPinfo Lite, JA4DB and the various PCAP corpora are all legitimate but second-tier: either redundant with something above, or better used as pre-downloaded test data than as a live dependency — see Part 1 notes for the reasoning on each.)*
+
 ## Explicitly NOT available
 
+The following have **no public, self-serve API or machine-readable feed**, confirmed by direct search and (for CERT-In) a direct site fetch — do not design NetForensiq around any of them being reachable in a hackathon build, or realistically at all without a formal LEA/DoT relationship:
+
+- **Sanchar Saathi / Chakshu** (sancharsaathi.gov.in) — web form only, no developer documentation found.
+- **CEIR** (ceir.gov.in) — no confirmed public API; any cross-operator IMEI-sync API is, at most, DoT/telecom-operator-internal and undocumented publicly. Left as ⚠️ unverified rather than a flat no, but treat as unavailable.
+- **I4C / NCRP / cybercrime.gov.in / 1930** — citizen complaint intake only (web form + phone helpline); no documented integration or API for third-party/LEA-external programmatic access.
+- **CCTNS / ICJS** — **confirmed** police/judiciary-network-only: MHA's own integration documentation specifies firewall-cleared point-to-point links (ports 443/80) per authorised pilot location, with central dashboard access restricted by name to NCRB, NIA, NCB, and CBI. This is the strongest-evidenced "not available" finding in this document.
+- **CERT-In advisories** — no RSS/JSON feed found; site uses a legacy frameset/servlet structure with no visible feed links. Advisories are web/PDF publications, not a machine-readable feed.
+- **NCIIPC** — advisory/coordination body for critical-sector operators; no public feed found.
+- **Cyber Swachhta Kendra (csk.gov.in)** — offers downloadable *end-user tools* (bot-removal utility, USB Pratirodh, AppSamvid), not a bot-infection *data feed* for third parties.
+- **DigiLocker/APISetu** — the one exception that's a *real, documented* API (OAuth-based Issuer/Requester spec), but partner-gated with an approval process incompatible with a 5-day timeline, and a poor conceptual fit for NetForensiq's forensics use case regardless.
+
+**data.gov.in is the one genuine partial exception**: it has a real, working, self-serve API and at least one directly relevant dataset (NCRP cyber-fraud statistics by state/UT, plus NCRB cyber-crime master data) — but these are periodic aggregate counts, useful for a context/dashboard panel, not operational per-case or per-IP data for flow enrichment. Frame it in the pitch as "situational context," not as an intelligence feed.
+
 ## Sources
+
+**Part 1 (threat intel / datasets):**
+- [abuse.ch API key requirements — Gjallarhorn docs](https://github.com/allsafe-ar/Gjallarhorn-community/blob/main/docs/api-keys/abusech.md), [Spamhaus/abuse.ch data access](https://www.spamhaus.com/data-access/abusech-api/), [ThreatFox API](https://threatfox.abuse.ch/api/), [MalwareBazaar API](https://bazaar.abuse.ch/api/), [URLhaus API](https://urlhaus.abuse.ch/api/), [SSLBL](https://sslbl.abuse.ch/), [SSLBL JA3 fingerprints](https://sslbl.abuse.ch/ja3-fingerprints/), [Feodo Tracker](https://feodotracker.abuse.ch/)
+- [salesforce/ja3 GitHub (archived)](https://github.com/salesforce/ja3), [ja3er.com down — GitHub issue](https://github.com/salesforce/ja3/issues/79), [Fastly — state of TLS fingerprinting](https://www.fastly.com/blog/the-state-of-tls-fingerprinting-whats-working-what-isnt-and-whats-next), [JA4DB / FoxIO JA4](https://github.com/FoxIO-LLC/ja4), [ja4db.com](https://ja4db.com/)
+- [Tor Project bulk exit list](https://check.torproject.org/torbulkexitlist), [Tor exit list service changes](https://blog.torproject.org/changes-tor-exit-list-service/)
+- [AWS IP ranges](https://ip-ranges.amazonaws.com/ip-ranges.json), [Azure IP ranges download](https://www.microsoft.com/en-us/download/details.aspx?id=56519), [GCP IP ranges](https://www.gstatic.com/ipranges/cloud.json)
+- [Tranco list](https://tranco-list.eu/), [Tranco methodology](https://tranco-list.eu/methodology), [Majestic Million](https://majestic.com/reports/majestic-million) — all three domain-popularity lists independently verified live via direct HTTP HEAD request during this research (same-day Last-Modified headers)
+- [Public Suffix List](https://publicsuffix.org/list/), [publicsuffix/list GitHub](https://github.com/publicsuffix/list)
+- [MaxMind GeoLite EULA](https://www.maxmind.com/en/geolite/eula), [GeoLite2 free data](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/), [DB-IP Lite](https://db-ip.com/db/lite.php), [IPinfo Lite](https://ipinfo.io/lite), [IPinfo Lite launch announcement](https://www.businesswire.com/news/home/20250506409714/en/IPinfo-Launches-IPinfo-Lite-Unlimited-Country-level-Geolocation-API-Database-Download)
+- [Emerging Threats Open download instructions](https://rules.emergingthreats.net/OPEN_download_instructions.html), [Snort community rules FAQ](https://www.snort.org/faq/what-are-community-rules)
+- [MISP project](https://www.misp-project.org/), [MISP GitHub](https://github.com/MISP/MISP)
+- [Netresec public PCAP files](https://www.netresec.com/?page=PcapFiles), [malware-traffic-analysis.net](https://www.malware-traffic-analysis.net/), [Suricata public datasets doc](https://docs.suricata.io/en/latest/public-data-sets.html), [Wireshark sample captures](https://wiki.wireshark.org/SampleCaptures)
+
+**Part 2 (Indian government connectors):**
+- [Sanchar Saathi](https://sancharsaathi.gov.in/), [Sanchar Saathi — Wikipedia](https://en.wikipedia.org/wiki/Sanchar_Saathi)
+- [CEIR](https://www.ceir.gov.in/Home/index.jsp), [CEIR — Wikipedia](https://en.wikipedia.org/wiki/Central_Equipment_Identity_Register)
+- [Cyber Crime Portal (NCRP)](https://cybercrime.gov.in/)
+- [CCTNS — MHA brief](https://www.mha.gov.in/sites/default/files/2022-08/CCTNS_Briefportal24042018%5B1%5D.pdf), [ICJS — MHA](https://www.mha.gov.in/en/commoncontent/inter-operable-criminal-justice-system-icjs), [ICJS manual (Puducherry Police)](https://police.py.gov.in/Brief%20persentation%20on%20ICJS%20-20.08.24.pdf)
+- [data.gov.in](https://www.data.gov.in/), [data.gov.in APIs listing](https://www.data.gov.in/apis), [data.gov.in NCRP cyber-fraud dataset](https://www.data.gov.in/resource/stateut-wise-details-statistics-national-cyber-crime-reporting-portal-ncrp-related-cyber), [datagovindia Python client](https://github.com/addypy/datagovindia), [dataful.in NCRB cyber-crime datasets](https://dataful.in/datasets/19641/)
+- [CERT-In](https://www.cert-in.org.in/) (direct fetch during this research — no feed links found), [Cyber Swachhta Kendra](https://www.csk.gov.in/)
+- [APISetu DigiLocker](https://apisetu.gov.in/digilocker), [DigiLocker API directory](https://directory.apisetu.gov.in/api-collection/digilocker), [DigiLocker Issuer API spec PDF](https://cf-media.api-setu.in/resources/DigiLocker-Issuer-APISpecification-v1-13.pdf)
+
+**Part 3 (MCP servers):**
+- [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers) (fetched directly during this research), [modelcontextprotocol/servers-archived](https://github.com/modelcontextprotocol/servers-archived), [Datadog Security Labs — Postgres MCP SQL injection case study](https://securitylabs.datadoghq.com/articles/mcp-vulnerability-case-study-SQL-injection-in-the-postgresql-mcp-server/)
+- [mcp-wireshark](https://github.com/khuynh22/mcp-wireshark), [Wireshark-MCP](https://github.com/mixelpixx/Wireshark-MCP), [suricata-mcp](https://github.com/solomonneas/suricata-mcp), [mcp-shodan (ADEOSec)](https://github.com/ADEOSec/mcp-shodan), [mcp-security-hub](https://github.com/FuzzingLabs/mcp-security-hub), [osint-mcp-server](https://github.com/badchars/osint-mcp-server), [cve-mcp-server](https://github.com/mukul975/cve-mcp-server), [Snyk — 10 MCP servers for cybersecurity](https://snyk.io/articles/10-mcp-servers-for-cybersecurity-professionals-and-elite-hackers/)
+
+**Part 4 (human-in-the-loop precedents):**
+- [TheHive](https://strangebee.com/thehive/), [Cortex](https://strangebee.com/cortex/), [CyberDefenders — Alert Triage Process guide](https://cyberdefenders.org/blog/alert-triage-process/)
+- [ISO/IEC 27037 overview](https://www.iso27001security.com/html/27037), [ACPO Good Practice Guide for Digital Evidence](https://truescreen.io/articles/acpo-digital-evidence-uk-guide/), [ACPO guidelines explained — Forensic Control](https://forensiccontrol.com/guides/acpo-guidelines-principles-explained/)
