@@ -1,7 +1,11 @@
 import { Box, Typography } from '@mui/material';
 
 function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
-  const max = Math.max(...data);
+  // The sparkline is decorative and optional. It is only rendered when real
+  // series data is supplied — an invented trend line beside a real figure
+  // would imply history the capture does not contain.
+  const series = Array.isArray(data) && data.length ? data : null;
+  const max = series ? Math.max(...series) : 0;
 
   return (
     <Box
@@ -43,8 +47,9 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
         />
       </Box>
 
+      {series && (
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: 34, mb: 1.4 }}>
-        {data.map((v, i) => (
+        {series.map((v, i) => (
           <Box
             key={i}
             sx={{
@@ -62,6 +67,7 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
           />
         ))}
       </Box>
+      )}
 
       <Row color="rgba(229,231,235,0.3)" value={primary} />
       <Row color={color} value={secondary} />

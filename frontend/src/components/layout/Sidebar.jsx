@@ -13,15 +13,12 @@ import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
 import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
+// Only routes that exist. Navigation that leads nowhere reads as a mock-up,
+// which is exactly the impression a forensic tool cannot afford to give.
 const navItems = [
-  { label: 'Home', icon: <HomeOutlinedIcon />, path: '/dashboard' },
-  { label: 'Dashboard', icon: <InsightsOutlinedIcon />, path: '/dashboard', sub: ['Overview'] },
-  { label: 'Capture', icon: <SensorsOutlinedIcon />, path: '/capture' },
-  { label: 'Forensics', icon: <TravelExploreOutlinedIcon />, path: '/forensics' },
-  { label: 'Sessions', icon: <TimelineOutlinedIcon />, path: '/sessions' },
-  { label: 'Rules', icon: <RuleFolderOutlinedIcon />, path: '/rules' },
+  { label: 'Dashboard', icon: <InsightsOutlinedIcon />, path: '/dashboard' },
+  { label: 'Findings', icon: <RuleFolderOutlinedIcon />, path: '/detections' },
   { label: 'Evidence', icon: <GavelOutlinedIcon />, path: '/evidence' },
-  { label: 'System', icon: <SettingsOutlinedIcon />, path: '/system' },
 ];
 
 function Sidebar() {

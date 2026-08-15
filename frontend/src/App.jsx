@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import StatusPage from './pages/StatusPage';
 import DashboardPage from './pages/DashboardPage';
+import DetectionsPage from './pages/DetectionsPage';
+import EvidencePage from './pages/EvidencePage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -19,6 +21,22 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/detections"
+          element={
+            <ProtectedRoute>
+              <DetectionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/evidence"
+          element={
+            <ProtectedRoute>
+              <EvidencePage />
             </ProtectedRoute>
           }
         />
