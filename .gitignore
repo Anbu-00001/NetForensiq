@@ -1,37 +1,156 @@
+# ============================================================
+# NetForensiq — root .gitignore
+# Stack: Django + DRF (Python) | React + Vite (Node)
+# ============================================================
+
+# ──────────────────────────────────────────────────────────────
 # Python
-backend/venv/
-backend/.venv/
-.venv/
+# ──────────────────────────────────────────────────────────────
 __pycache__/
-*.pyc
-backend/.env
-.env
+*.py[cod]
+*$py.class
+*.so
 
-# Databases (local dev / demo)
+# Virtual environments
+.venv/
+backend/.venv/
+backend/venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+dist/
+build/
+sdist/
+wheels/
+*.whl
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ──────────────────────────────────────────────────────────────
+# Django
+# ──────────────────────────────────────────────────────────────
+*.log
+local_settings.py
 db.sqlite3
+db.sqlite3-journal
 *.sqlite3
+*.sqlite3-journal
+backend/netforensiq.sqlite3
+backend/media/
+backend/staticfiles/
+backend/static_collected/
 
-# Node
+# ──────────────────────────────────────────────────────────────
+# Environment / secrets  — NEVER commit credentials
+# ──────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# ──────────────────────────────────────────────────────────────
+# Node / JavaScript
+# ──────────────────────────────────────────────────────────────
 node_modules/
-frontend/dist/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
-# Captures & evidence — never commit case material
+# Vite build output
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ──────────────────────────────────────────────────────────────
+# Evidence & captures — NEVER commit case material
+# ──────────────────────────────────────────────────────────────
 *.pcap
 *.pcapng
+*.cap
+*.dmp
 evidence_store/
 backend/evidence_store/
 backend/synthetic_captures/
+captures/
 
-# Test / coverage
+# Generated forensic reports / certificates
+*.pdf
+
+# ──────────────────────────────────────────────────────────────
+# Testing & coverage
+# ──────────────────────────────────────────────────────────────
 .pytest_cache/
 htmlcov/
 .coverage
+.coverage.*
+coverage/
+coverage.xml
+*.cover
+.hypothesis/
 
 # Playwright
 test-results/
 playwright-report/
 frontend/e2e/.auth/
 
-# IDE
+# ──────────────────────────────────────────────────────────────
+# IDE & editors
+# ──────────────────────────────────────────────────────────────
 .vscode/
+!.vscode/extensions.json
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ──────────────────────────────────────────────────────────────
+# OS generated
+# ──────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ──────────────────────────────────────────────────────────────
+# Misc
+# ──────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp
+*.cache
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Serena / code-intelligence local state
+.serena/
