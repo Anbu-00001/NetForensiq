@@ -157,9 +157,18 @@ MEDIA_URL = 'media/'
 EVIDENCE_ROOT = MEDIA_ROOT / 'pcaps'
 CERTIFICATE_ROOT = MEDIA_ROOT / 'certificates'
 
+# Vite's default dev port, plus the fixed port the Playwright suite uses.
+# Both loopback spellings are listed because the browser treats
+# localhost and 127.0.0.1 as distinct origins.
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5199",
+    "http://127.0.0.1:5199",
 ]
+_extra_origins = os.getenv('CORS_EXTRA_ORIGINS', '')
+if _extra_origins:
+    CORS_ALLOWED_ORIGINS += [o.strip() for o in _extra_origins.split(',') if o.strip()]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

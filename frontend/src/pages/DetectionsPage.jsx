@@ -188,7 +188,8 @@ function DetectionsPage() {
             }}>
               {thresholds.map((t) => (
                 <Box key={t.key} sx={{ mb: 1.2 }}>
-                  <Typography sx={{ fontSize: 12.5, fontFamily: 'monospace', color: '#00D4FF' }}>
+                  <Typography component="div"
+                    sx={{ fontSize: 12.5, fontFamily: 'monospace', color: '#00D4FF' }}>
                     {t.key} = {String(t.value)}
                     {t.is_heuristic && (
                       <Chip label="our heuristic" size="small" sx={{

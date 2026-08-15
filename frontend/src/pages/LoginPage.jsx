@@ -177,7 +177,7 @@ function LoginPage() {
                     placeholder="••••••••••••"
                     autoComplete="current-password"
                     sx={consoleField}
-                    InputProps={{
+                    slotProps={{ input: {
                       endAdornment: (
                         <InputAdornment position="end">
                           <IconButton
@@ -190,7 +190,7 @@ function LoginPage() {
                           </IconButton>
                         </InputAdornment>
                       ),
-                    }}
+                    } }}
                   />
                 </Box>
 
@@ -426,10 +426,8 @@ export function TelemetryPanel() {
         LIVE SYSTEM TELEMETRY
       </Typography>
 
-      <MiniSpark label="Capture throughput" value="1.24 Gb/s" delta="4%" color="#00D4FF" data={spark(0.5)} delay={0.05} />
-      <MiniSpark label="Flows inspected" value="512.0 M" delta="7%" color="#00E68A" data={spark(0.8)} delay={0.12} />
-      <MiniSpark label="Anomalies flagged" value="14.8 K" delta="3%" color="#FFB020" data={spark(1.1)} delay={0.19} up={false} />
-      <MiniSpark label="Evidence sealed" value="2,417" delta="9%" color="#A855F7" data={spark(1.4)} delay={0.26} />
+
+
 
       <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', my: 2.2 }} />
 

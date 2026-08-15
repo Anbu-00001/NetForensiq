@@ -1,0 +1,40 @@
+{
+  // node_modules (~60k files) and .venv (~15k files) are required to run the
+  // project but are gitignored and never edited by hand. Excluding them from
+  // the watcher stops the editor reporting tens of thousands of file changes,
+  // and makes search return project code instead of dependency source.
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/__pycache__/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/evidence_store/**": true,
+    "**/synthetic_captures/**": true,
+    "**/test-results/**": true,
+    "**/playwright-report/**": true,
+    "**/graphify-out/**": true,
+    "**/.codegraph/**": true,
+    "**/.serena/**": true,
+    "**/dist/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/__pycache__": true,
+    "**/dist": true,
+    "**/test-results": true,
+    "**/playwright-report": true,
+    "**/graphify-out": true,
+    "**/.codegraph": true,
+    "**/.serena": true,
+    "**/*.pcap": true,
+    "**/package-lock.json": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.analysis.extraPaths": ["${workspaceFolder}/backend"]
+}

@@ -6,6 +6,9 @@ from .models import CaptureSession, Flow, DNSRecord, Detection
 class DetectionSerializer(serializers.ModelSerializer):
     severity_label = serializers.CharField(source='get_severity_display', read_only=True)
     method_label = serializers.CharField(source='get_method_display', read_only=True)
+    reviewed_by_username = serializers.CharField(
+        source='reviewed_by.username', read_only=True, default=None,
+    )
 
     class Meta:
         model = Detection
@@ -13,6 +16,11 @@ class DetectionSerializer(serializers.ModelSerializer):
             'id', 'session', 'flow', 'rule_id', 'title', 'category',
             'severity', 'severity_label', 'method', 'method_label',
             'confidence', 'rationale', 'evidence', 'subject_ip', 'created_at',
+            # Analyst review state. Without these the client cannot tell a
+            # reviewed finding from an unreviewed one, and the triage controls
+            # never render.
+            'triage_status', 'reviewed_by', 'reviewed_by_username',
+            'reviewed_at', 'review_note',
         ]
 
 
