@@ -47,6 +47,36 @@ export const verifyEvidence = (id) =>
 export const issueCertificate = (id, payload) =>
   api.post(`/evidence/${id}/certificate/`, payload).then((r) => r.data);
 
+export const listCertificates = () =>
+  api.get('/certificates/').then((r) => r.data);
+
+export const signCertificatePartB = (id, payload) =>
+  api.post(`/certificates/${id}/sign/`, payload).then((r) => r.data);
+
+/**
+ * Download the rendered s.63 certificate.
+ *
+ * Fetched as a blob through the authenticated client rather than linked
+ * directly: the endpoint requires a bearer token, so a plain <a href> would
+ * come back 401. The object URL is revoked immediately after the click to
+ * avoid leaking it for the lifetime of the page.
+ */
+export const downloadCertificatePdf = async (id, reference) => {
+  const response = await api.get(`/certificates/${id}/pdf/`, {
+    responseType: 'blob',
+  });
+  const url = window.URL.createObjectURL(
+    new Blob([response.data], { type: 'application/pdf' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${reference || `certificate-${id}`}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
 /** DRF pagination returns {results: []}; plain lists come back bare. */
 export const unwrap = (data) => (Array.isArray(data) ? data : data?.results ?? []);
 

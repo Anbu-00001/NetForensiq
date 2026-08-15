@@ -193,4 +193,52 @@ def issue_certificate(
         actor=part_b_user or part_a_user,
         detail=f"Certificate {reference} issued", actor_ip=actor_ip,
     )
+
+    # Imported here rather than at module scope: certificate_pdf reads the
+    # custody chain back through this module, and a top-level import would
+    # close the cycle.
+    from .certificate_pdf import render_certificate_pdf
+    render_certificate_pdf(certificate)
+
+    return certificate
+
+
+def sign_part_b(certificate, user, name='', designation='', organisation='',
+                qualification='', actor_ip=None):
+    """
+    Countersign a certificate as the expert, then re-render it.
+
+    Part B is a separate act by a different person — s.63(4) requires the
+    person in charge *and* an expert — so it is a separate call rather than a
+    field on issue. Integrity is re-checked first: an expert should not be
+    attesting to a hash that no longer matches the file.
+    """
+    from django.utils import timezone
+
+    ok, computed = certificate.evidence.verify()
+    if not ok:
+        raise ValueError(
+            f"Refusing to countersign {certificate.reference}: integrity check failed "
+            f"(expected {certificate.evidence.sha256_hash}, computed {computed})"
+        )
+
+    certificate.part_b_user = user
+    certificate.part_b_name = name or getattr(user, 'username', '')
+    certificate.part_b_designation = designation
+    certificate.part_b_organisation = organisation
+    certificate.part_b_qualification = qualification
+    certificate.part_b_signed_at = timezone.now()
+    certificate.save(update_fields=[
+        'part_b_user', 'part_b_name', 'part_b_designation',
+        'part_b_organisation', 'part_b_qualification', 'part_b_signed_at',
+    ])
+
+    record_custody(
+        certificate.evidence, CustodyEvent.Action.PART_B_SIGNED, actor=user,
+        detail=f"Certificate {certificate.reference} Part B signed by {certificate.part_b_name}",
+        actor_ip=actor_ip,
+    )
+
+    from .certificate_pdf import render_certificate_pdf
+    render_certificate_pdf(certificate)
     return certificate

@@ -269,6 +269,63 @@ def generate_c2_beaconing(beacon_count=90, base_time=None, infected='10.45.57.28
     return packets
 
 
+def generate_c2_beaconing_connections(
+    beacon_count=40, base_time=None, infected='10.45.57.29',
+    c2_server='198.51.100.24', interval=45.0,
+):
+    """
+    Beaconing that opens a NEW connection per callback.
+
+    This is the shape RITA's algorithm is built for: periodicity lives in the
+    gaps *between* connections, not between packets inside one. The other
+    generator models the opposite case — a single session held open with
+    periodic keepalives — and the two are detected by different rules.
+
+    Having only the keepalive shape in the corpus is what let a beacon rule
+    that counted packets-per-flow pass for RITA's connection counting; real
+    malware traffic exposed it. Both shapes are now represented.
+    """
+    packets = []
+    t = base_time or time.time()
+
+    for _ in range(beacon_count):
+        sport = random.randint(49152, 65535)
+        seq = random.randint(1000, 900000)
+
+        syn = IP(src=infected, dst=c2_server) / TCP(
+            sport=sport, dport=8443, flags='S', seq=seq)
+        syn.time = t
+        packets.append(syn)
+
+        synack = IP(src=c2_server, dst=infected) / TCP(
+            sport=8443, dport=sport, flags='SA', seq=random.randint(1000, 900000),
+            ack=seq + 1)
+        synack.time = t + 0.04
+        packets.append(synack)
+
+        # Uniform-ish payload: RITA's data-size subscore rewards consistency
+        req = (IP(src=infected, dst=c2_server)
+               / TCP(sport=sport, dport=8443, flags='PA', seq=seq + 1)
+               / Raw(load=_rand_bytes(random.randint(190, 210))))
+        req.time = t + 0.08
+        packets.append(req)
+
+        resp = (IP(src=c2_server, dst=infected)
+                / TCP(sport=8443, dport=sport, flags='PA')
+                / Raw(load=_rand_bytes(random.randint(50, 70))))
+        resp.time = t + 0.19
+        packets.append(resp)
+
+        fin = IP(src=infected, dst=c2_server) / TCP(
+            sport=sport, dport=8443, flags='FA')
+        fin.time = t + 0.24
+        packets.append(fin)
+
+        t += interval + random.uniform(-2.0, 2.0)
+
+    return packets
+
+
 def generate_icmp_tunnel(packet_count=120, base_time=None, host='10.45.57.37'):
     """
     ICMP tunneling: data hidden inside oversized ping payloads.

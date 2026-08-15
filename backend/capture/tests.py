@@ -9,15 +9,16 @@ than merely that it runs without raising.
 import tempfile
 from pathlib import Path
 
-from django.test import TestCase
-from scapy.all import wrpcap
+from django.test import TestCase, override_settings
+from scapy.all import Raw, wrpcap
 
 from .detection import THRESHOLDS, analyse_session, bowley_skewness, madm
 from .features import dns_query_features, interval_features, shannon_entropy
 from .models import Detection
 from .service import run_pcap_import
 from .synthetic import (
-    generate_benign, generate_c2_beaconing, generate_data_exfiltration,
+    generate_benign, generate_c2_beaconing, generate_c2_beaconing_connections,
+    generate_data_exfiltration,
     generate_dns_tunneling, generate_icmp_tunnel, generate_port_scan,
 )
 
@@ -114,10 +115,36 @@ class DetectionTests(TestCase):
     def _rule_ids(self, session):
         return set(session.detections.values_list('rule_id', flat=True))
 
-    def test_beaconing_detected(self):
+    def test_beaconing_over_repeated_connections_detected(self):
+        """
+        RITA's shape: a new connection per callback, periodicity in the gaps
+        between them. This is the case rule_beaconing actually models.
+        """
         session = self._analyse(
-            generate_c2_beaconing(beacon_count=60, base_time=1_700_000_000.0), 'beacon')
+            generate_c2_beaconing_connections(
+                beacon_count=40, base_time=1_700_000_000.0), 'beacon-conns')
         self.assertIn('C2_BEACON_PERIODIC', self._rule_ids(session))
+
+    def test_beaconing_inside_one_persistent_connection_detected(self):
+        """
+        The other shape: one session held open with periodic keepalives, which
+        RITA cannot see because it counts connections and there is only one.
+        Real AsyncRAT traffic behaves this way.
+        """
+        session = self._analyse(
+            generate_c2_beaconing(beacon_count=60, base_time=1_700_000_000.0), 'beacon-keepalive')
+        self.assertIn('C2_BEACON_KEEPALIVE', self._rule_ids(session))
+
+    def test_connection_beacon_counts_connections_not_packets(self):
+        """
+        Guards the bug real traffic exposed: an earlier rule used packets-in-a-
+        flow as a stand-in for RITA's connection count. A single long-lived
+        connection, however many packets it carries, is one connection and must
+        not satisfy the 23-connection threshold on its own.
+        """
+        session = self._analyse(
+            generate_c2_beaconing(beacon_count=90, base_time=1_700_000_000.0), 'single-conn')
+        self.assertNotIn('C2_BEACON_PERIODIC', self._rule_ids(session))
 
     def test_dns_tunnelling_detected(self):
         session = self._analyse(
@@ -202,3 +229,125 @@ class IPv6Tests(TestCase):
         session, _ = run_pcap_import(path, name='ipv6')
         self.assertEqual(session.packet_count, 10)
         self.assertGreater(session.flows.count(), 0)
+
+
+class DirectionAndNoiseTests(TestCase):
+    """
+    Regressions found by running against real captures rather than our own
+    synthetic corpus. Each of these fired hundreds to thousands of times on a
+    week of real internet-facing server traffic before it was fixed.
+    """
+
+    def _analyse(self, packets, name, home_net=None):
+        path = write_pcap(packets)
+        session, _ = run_pcap_import(path, name=name)
+        if home_net is None:
+            analyse_session(session)
+        else:
+            with override_settings(HOME_NET=home_net):
+                analyse_session(session)
+        return session
+
+    def _rule_ids(self, session):
+        return set(session.detections.values_list('rule_id', flat=True))
+
+    def test_inbound_connections_are_not_reported_as_c2_beaconing(self):
+        """
+        An external host connecting in repeatedly is a scanner, not an
+        internal host calling out to a controller. On a real capture all 155
+        'beacons' were inbound.
+        """
+        packets = generate_c2_beaconing_connections(
+            beacon_count=40, base_time=1_700_000_000.0,
+            infected='203.0.113.9',        # external initiator
+            c2_server='192.168.10.5',      # our host is the destination
+        )
+        session = self._analyse(packets, 'inbound-beacon')
+        self.assertNotIn('C2_BEACON_PERIODIC', self._rule_ids(session))
+
+    def test_outbound_beaconing_from_home_net_still_fires(self):
+        """The mirror of the above: egress from inside must still be caught."""
+        packets = generate_c2_beaconing_connections(
+            beacon_count=40, base_time=1_700_000_000.0,
+            infected='192.168.10.5', c2_server='203.0.113.9',
+        )
+        session = self._analyse(packets, 'outbound-beacon')
+        self.assertIn('C2_BEACON_PERIODIC', self._rule_ids(session))
+
+    def test_home_net_is_configurable(self):
+        """
+        The RFC 1918 default is wrong for a capture of a public-facing server.
+        Setting HOME_NET to the monitored range must make its egress visible.
+        """
+        packets = generate_c2_beaconing_connections(
+            beacon_count=40, base_time=1_700_000_000.0,
+            infected='203.161.44.208', c2_server='198.51.100.7',
+        )
+        default = self._analyse(packets, 'public-default')
+        self.assertNotIn('C2_BEACON_PERIODIC', self._rule_ids(default))
+
+        configured = self._analyse(
+            packets, 'public-configured', home_net=['203.161.44.0/24'])
+        self.assertIn('C2_BEACON_PERIODIC', self._rule_ids(configured))
+
+    def test_icmp_error_messages_are_not_reported_as_tunnels(self):
+        """
+        ICMP errors quote the offending packet's header (RFC 792), so they are
+        large by design. A busy server answering scans emits hundreds; 795 of
+        799 findings on a real capture were these.
+        """
+        from scapy.layers.inet import ICMP, IP
+
+        packets = []
+        t = 1_700_000_000.0
+        for i in range(40):
+            # Type 3 = destination unreachable, carrying a quoted header
+            pkt = (IP(src='192.168.10.5', dst='203.0.113.9')
+                   / ICMP(type=3, code=3)
+                   / Raw(load=b'Q' * 300))
+            pkt.time = t + i
+            packets.append(pkt)
+
+        session = self._analyse(packets, 'icmp-errors')
+        self.assertNotIn('ICMP_TUNNEL_OVERSIZED', self._rule_ids(session))
+
+    def test_single_oversized_echo_is_not_a_tunnel(self):
+        """
+        Echo replies mirror the request payload, so one large reply to a
+        scanner's large ping is ordinary. A tunnel carries a stream.
+        """
+        from scapy.layers.inet import ICMP, IP
+
+        pkt = (IP(src='192.168.10.5', dst='203.0.113.9')
+               / ICMP(type=8) / Raw(load=b'Z' * 400))
+        pkt.time = 1_700_000_000.0
+
+        session = self._analyse([pkt], 'icmp-single')
+        self.assertNotIn('ICMP_TUNNEL_OVERSIZED', self._rule_ids(session))
+
+    def test_icmp_echo_tunnel_still_detected(self):
+        """The genuine case must survive both new conditions."""
+        session = self._analyse(
+            generate_icmp_tunnel(packet_count=120, base_time=1_700_000_000.0),
+            'icmp-real-tunnel')
+        self.assertIn('ICMP_TUNNEL_OVERSIZED', self._rule_ids(session))
+
+    def test_service_port_is_read_from_the_responder(self):
+        """
+        Reading dst_port blindly yields the client's ephemeral port whenever
+        the capture recorded the responder as the source — which is how the
+        covert-channel rule ended up flagging 5,853 inbound scans.
+        """
+        from capture.detection import flow_direction
+
+        class FakeFlow:
+            initiator_ip = '203.0.113.9'
+            src_ip = '192.168.10.5'   # responder recorded as source
+            src_port = 5985           # the actual service
+            dst_ip = '203.0.113.9'
+            dst_port = 55684          # the client's ephemeral port
+
+        initiator, peer, service_port = flow_direction(FakeFlow())
+        self.assertEqual(initiator, '203.0.113.9')
+        self.assertEqual(peer, '192.168.10.5')
+        self.assertEqual(service_port, 5985)

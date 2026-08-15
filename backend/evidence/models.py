@@ -178,6 +178,10 @@ class CustodyEvent(models.Model):
         EXPORTED = 'exported', 'Exported'
         TRANSFERRED = 'transferred', 'Custody transferred'
         CERTIFICATE_ISSUED = 'certificate', 'Section 63 certificate issued'
+        # Part B is a distinct act by a distinct person, so it gets its own
+        # action. Reusing CERTIFICATE_ISSUED printed two identical rows on the
+        # custody annexure and hid who actually countersigned.
+        PART_B_SIGNED = 'part_b_signed', 'Section 63 Part B countersigned by expert'
 
     evidence = models.ForeignKey(
         EvidenceRecord, on_delete=models.CASCADE, related_name='custody_events',

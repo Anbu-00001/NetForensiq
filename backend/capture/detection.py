@@ -12,13 +12,63 @@ tag is carried into the stored evidence, so an overclaim is impossible to make
 by accident.
 """
 
+import ipaddress
 import math
 import statistics
 from collections import defaultdict
 
+from django.conf import settings
 from django.db import transaction
 
 from .models import Detection, Flow
+
+
+# Snort and Suricata both define $HOME_NET — the address space you are
+# defending — and write egress rules against it. Without that notion, a rule
+# meant to catch "an internal host reaching out to something odd" also fires on
+# every scanner on the internet reaching in, which on an internet-facing
+# capture is thousands of alerts. Default is the RFC 1918 private ranges, as
+# in Snort's shipped configuration; override with HOME_NET in settings.
+DEFAULT_HOME_NET = ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', 'fd00::/8')
+SRC_HOME_NET = ('Snort/Suricata $HOME_NET convention; default RFC 1918 private '
+                'address space')
+
+
+def _home_networks():
+    nets = getattr(settings, 'HOME_NET', None) or DEFAULT_HOME_NET
+    parsed = []
+    for entry in nets:
+        try:
+            parsed.append(ipaddress.ip_network(entry, strict=False))
+        except ValueError:
+            continue
+    return parsed
+
+
+def is_internal(ip):
+    """True if the address falls inside the monitored network."""
+    if not ip:
+        return False
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(address in net for net in _home_networks())
+
+
+def flow_direction(flow):
+    """
+    (initiator_ip, peer_ip, service_port) for a flow.
+
+    The service port is the *responder's* port — the thing being connected to.
+    Reading dst_port blindly is wrong whenever the capture recorded the
+    responder as the source, which is common for inbound connections, and
+    yields the client's ephemeral port instead of the service.
+    """
+    initiator = flow.initiator_ip or flow.src_ip
+    if initiator == flow.src_ip:
+        return initiator, flow.dst_ip, flow.dst_port
+    return initiator, flow.src_ip, flow.src_port
 
 
 SRC_RITA = 'RITA (Active Countermeasures) pkg/beacon/analyzer.go + etc/rita.yaml'
@@ -30,9 +80,26 @@ SRC_PING = 'ping(8) default payload: 56 bytes Linux / 32 bytes Windows'
 OUR_HEURISTIC = '[OUR HEURISTIC] no citable source; see SPEC_02 heuristics table'
 
 
+# Ports where an unrecognised, long-lived encrypted channel is unremarkable.
+# Sourced from the IANA Service Name and Transport Protocol Port Number
+# Registry (system/well-known range) restricted to services that legitimately
+# carry sustained sessions. Membership is deliberately generous: a false
+# negative here is better than flagging routine traffic.
+WELL_KNOWN_PORTS = frozenset({
+    20, 21, 22, 23, 25, 53, 67, 68, 69, 80, 110, 119, 123, 135, 137, 138, 139,
+    143, 161, 162, 179, 389, 443, 445, 465, 514, 515, 587, 631, 636, 873, 989,
+    990, 993, 995, 1194, 1433, 1521, 1723, 3128, 3306, 3389, 5060, 5061, 5222,
+    5432, 5900, 5985, 5986, 6379, 8000, 8080, 8443, 8888, 9200, 27017,
+})
+SRC_IANA = ('IANA Service Name and Transport Protocol Port Number Registry '
+            '— well-known service ports')
+
+
 THRESHOLDS = {
     # ── beaconing ──
-    'beacon_min_connections': (23, SRC_RITA + ' — DefaultConnectionThresh, hard floor'),
+    'beacon_min_connections': (23, SRC_RITA + ' — DefaultConnectionThresh, counted as '
+                                              'CONNECTIONS between a host pair (not packets '
+                                              'within one connection)'),
     'beacon_alert_score': (0.80, 'Practitioner guidance (Black Hills InfoSec; Cyb3r-Monk KQL '
                                  'uses 0.85). RITA itself ranks rather than hard-cuts. '
                                  '[OUR HEURISTIC, informed by practitioner sources]'),
@@ -64,6 +131,27 @@ THRESHOLDS = {
 
     # ── ICMP tunnelling ──
     'icmp_payload_bytes': (100, OUR_HEURISTIC + f' — grounded in {SRC_PING}'),
+    # A tunnel is a sustained exchange. A single oversized echo reply is an
+    # ordinary answer to a scanner that sent a large ping payload — echo
+    # replies mirror the request. On a real week-long capture, 238 of 461
+    # remaining findings were single-packet flows.
+    'icmp_min_packets': (10, OUR_HEURISTIC + ' — a covert channel carries a stream; '
+                                             'one-off oversized echoes are ping replies'),
+
+    # ── keepalive beaconing inside one persistent connection ──
+    # RITA's model assumes a beacon opens a NEW connection each time. Remote
+    # access trojans frequently hold one TCP connection open and beacon inside
+    # it, which RITA's connection counting cannot see. This is our own rule for
+    # that case, scored with RITA's MADM formula so the alert threshold means
+    # the same thing in both.
+    'keepalive_min_intervals': (20, OUR_HEURISTIC + ' — below ~20 samples the MAD estimate '
+                                                    'is too unstable to act on'),
+
+    # ── unrecognised long-lived channel ──
+    'unknown_channel_min_duration': (60, OUR_HEURISTIC + ' — long enough to be a session '
+                                                         'rather than a probe or a failed '
+                                                         'connection attempt'),
+    'unknown_channel_ports': ('not in IANA well-known service list', SRC_IANA),
 }
 
 
@@ -165,6 +253,35 @@ def beacon_subscores(intervals, sizes):
     return result
 
 
+def score_connection_beacon(intervals, sizes):
+    """
+    Composite RITA score over inter-connection intervals and payload sizes.
+
+    RITA weights timestamp and data-size subscores equally. Its duration and
+    histogram subscores need 6 h and 11 h of activity respectively, so they are
+    omitted on shorter captures and the score is renormalised over what could
+    actually be computed — recorded in the evidence so the omission is visible
+    rather than silently depressing every short capture's score.
+    """
+    subscores = beacon_subscores(intervals, sizes)
+
+    components = {}
+    if 'ts_skew_score' in subscores:
+        components['ts'] = subscores['ts_score']
+    if 'ds_skew_score' in subscores:
+        components['ds'] = subscores['ds_score']
+    if not components:
+        return 0.0, {'omitted_subscores': ['ts and ds (insufficient samples)']}
+
+    score = round(sum(components.values()) / len(components), 4)
+    detail: dict = dict(subscores)
+    detail['components'] = {k: round(v, 4) for k, v in components.items()}
+    detail['omitted_subscores'] = ['duration (needs >=6h)', 'histogram (needs >=11h)']
+    detail['renormalised'] = True
+    detail['interval_median_s'] = subscores.get('interval_median', 0.0)
+    return score, detail
+
+
 def score_beacon(flow):
     """
     Score one flow for beaconing.
@@ -207,45 +324,211 @@ def score_beacon(flow):
 # ──────────────────────────────────────────────────────────────────────────
 
 def rule_beaconing(session):
+    """
+    RITA's beacon model: repeated CONNECTIONS between a host pair.
+
+    This counts connections between (initiator, peer), not packets inside one
+    connection. The distinction is the whole algorithm — an earlier version of
+    this rule used packets-within-a-flow as a stand-in for RITA's connection
+    count, which happens to agree on synthetic traffic that opens one
+    connection per beacon, and is meaningless on a real capture where a single
+    TCP session carries thousands of packets. Real malware traffic exposed it.
+
+    Because we hold each connection's start time, the intervals here are true
+    inter-connection gaps, so the full Bowley-skew + MADM score can be computed
+    rather than the dispersion component alone.
+    """
     findings = []
     min_conns = _t('beacon_min_connections')
     alert = _t('beacon_alert_score')
 
-    for flow in session.flows.filter(interval_count__gte=2):
-        if flow.packets_sent < min_conns:
+    pairs = defaultdict(list)
+    for flow in session.flows.all():
+        initiator = flow.initiator_ip or flow.src_ip
+        peer = flow.dst_ip if initiator == flow.src_ip else flow.src_ip
+        pairs[(initiator, peer)].append(flow)
+
+    for (initiator, peer), flows in pairs.items():
+        if len(flows) < min_conns:
+            continue
+        # C2 beaconing is by definition an internal host calling *out* to a
+        # controller. An external host connecting in repeatedly is a scanner,
+        # and RECON_PORT_SCAN already covers it. On a real internet-facing
+        # capture every one of 155 "beacons" was inbound scanning.
+        if not is_internal(initiator) or is_internal(peer):
             continue
 
-        score, detail = score_beacon(flow)
+        flows.sort(key=lambda f: f.first_seen)
+        starts = [f.first_seen.timestamp() for f in flows]
+        intervals = [b - a for a, b in zip(starts, starts[1:])]
+        if len(intervals) < 2:
+            continue
+
+        sizes = [(f.bytes_sent or 0) for f in flows]
+        score, detail = score_connection_beacon(intervals, sizes)
         if score < alert:
             continue
 
-        peer = flow.dst_ip if flow.initiator_ip == flow.src_ip else flow.src_ip
-        period = detail['interval_median_s']
+        period = detail.get('interval_median_s', 0.0)
+        ports = sorted({f.dst_port for f in flows if f.dst_port})
         findings.append(Detection(
-            session=session, flow=flow,
+            session=session, flow=flows[0],
             rule_id='C2_BEACON_PERIODIC',
             title=f'Periodic callback to {peer} every ~{period:.0f}s',
             category='command_and_control',
             severity=Detection.Severity.HIGH if score >= 0.9 else Detection.Severity.MEDIUM,
             method=Detection.Method.RULE,
             confidence=min(score, 1.0),
-            subject_ip=flow.initiator_ip,
+            subject_ip=initiator,
             rationale=(
-                f'{flow.initiator_ip} contacted {peer}:{flow.dst_port} '
-                f'{flow.packets_sent} times at a median interval of {period:.2f}s '
-                f'with a median absolute deviation of {flow.interval_mad:.2f}s '
-                f'(dispersion {flow.interval_dispersion:.3f}). Automated callbacks '
-                f'cluster tightly around a target period; human-driven traffic does not. '
-                f'Scored {score:.3f} against an alert threshold of {alert}. '
-                f'Note: legitimate polling software (NTP, monitoring agents, update '
-                f'checkers) also produces regular intervals and must be ruled out by an analyst.'
+                f'{initiator} opened {len(flows)} separate connections to {peer} '
+                f'(port(s) {", ".join(map(str, ports)) or "n/a"}) at a median interval of '
+                f'{period:.2f}s. Automated callbacks cluster tightly around a target '
+                f'period; human-driven traffic does not. Scored {score:.3f} against an '
+                f'alert threshold of {alert}. Note: legitimate polling software (NTP, '
+                f'monitoring agents, update checkers) also produces regular intervals and '
+                f'must be ruled out by an analyst.'
             ),
             evidence={
                 'observed_score': score,
+                'connection_count': len(flows),
                 **_cite('beacon_alert_score'),
                 'min_connections': _cite('beacon_min_connections'),
                 'algorithm': SRC_RITA,
                 **detail,
+            },
+        ))
+    return findings
+
+
+def rule_beaconing_keepalive(session):
+    """
+    Beaconing *inside* one persistent connection.
+
+    A remote access trojan often holds a single TCP session open and sends
+    periodic keepalives down it. RITA never sees this — it counts connections,
+    and there is only ever one. Scored with RITA's MADM formula so a score here
+    means what a score there means, but the rule itself is ours.
+    """
+    findings = []
+    alert = _t('beacon_alert_score')
+    min_intervals = _t('keepalive_min_intervals')
+
+    for flow in session.flows.filter(interval_count__gte=min_intervals):
+        median = flow.interval_median or 0.0
+        if median <= 0:
+            continue
+
+        initiator, peer, _ = flow_direction(flow)
+        if not is_internal(initiator) or is_internal(peer):
+            continue  # egress only — see rule_beaconing
+
+        # RITA's MADM subscore, applied to intra-connection send intervals.
+        score = _ceil3(max(0.0, 1 - (flow.interval_mad / median)))
+        if score < alert:
+            continue
+
+        peer = flow.dst_ip if (flow.initiator_ip or flow.src_ip) == flow.src_ip else flow.src_ip
+        findings.append(Detection(
+            session=session, flow=flow,
+            rule_id='C2_BEACON_KEEPALIVE',
+            title=f'Regular keepalive to {peer}:{flow.dst_port} every ~{median:.1f}s',
+            category='command_and_control',
+            severity=Detection.Severity.MEDIUM,
+            method=Detection.Method.RULE,
+            confidence=min(score, 1.0),
+            subject_ip=flow.initiator_ip or flow.src_ip,
+            rationale=(
+                f'A single connection to {peer}:{flow.dst_port} stayed open for '
+                f'{flow.duration_seconds:.0f}s and sent {flow.interval_count + 1} packets at a '
+                f'median interval of {median:.2f}s (MAD {flow.interval_mad:.2f}s, '
+                f'dispersion {flow.interval_dispersion:.3f}). Periodicity this tight inside '
+                f'one long-lived session is characteristic of a keepalive, which may be a '
+                f'remote access trojan holding a channel open — or an entirely ordinary '
+                f'application heartbeat. This rule is ours, not RITA\'s: RITA counts '
+                f'connections and would see only one here.'
+            ),
+            evidence={
+                'observed_score': score,
+                'scoring_formula': 'RITA MADM subscore (1 - MAD/median) applied to '
+                                   'intra-connection send intervals',
+                **_cite('beacon_alert_score'),
+                'min_intervals': _cite('keepalive_min_intervals'),
+                'interval_median_s': median,
+                'interval_mad_s': flow.interval_mad,
+                'dispersion': flow.interval_dispersion,
+                'sample_count': flow.interval_count,
+                'rule_provenance': OUR_HEURISTIC,
+            },
+        ))
+    return findings
+
+
+def rule_unknown_long_channel(session):
+    """
+    A sustained conversation on a non-standard port that we cannot identify.
+
+    Neither a recognised application protocol nor a TLS SNI, held open for
+    minutes, to a port outside the well-known range. That combination is not
+    proof of anything — but it is the shape of a covert channel, and it is
+    cheap for an analyst to rule out.
+    """
+    findings = []
+    min_duration = _t('unknown_channel_min_duration')
+
+    for flow in session.flows.filter(
+        duration_seconds__gte=min_duration, protocol='TCP',
+    ):
+        initiator, peer, service_port = flow_direction(flow)
+
+        # Egress only. An external host connecting *in* to an odd port is a
+        # scanner, not a covert channel, and on an internet-facing capture
+        # there are thousands of them.
+        if not is_internal(initiator) or is_internal(peer):
+            continue
+        if service_port in WELL_KNOWN_PORTS:
+            continue
+        if flow.app_protocol or flow.tls_sni:
+            continue
+        if not flow.bytes_sent or not flow.bytes_received:
+            continue  # one-directional: a stalled connection, not a channel
+
+        findings.append(Detection(
+            session=session, flow=flow,
+            rule_id='COVERT_CHANNEL_UNKNOWN_PORT',
+            title=f'Unidentified {flow.duration_seconds:.0f}s channel to '
+                  f'{peer}:{service_port}',
+            category='command_and_control',
+            severity=Detection.Severity.MEDIUM,
+            method=Detection.Method.RULE,
+            confidence=0.6,
+            subject_ip=initiator,
+            rationale=(
+                f'{initiator} held a connection to '
+                f'{peer}:{service_port} open for {flow.duration_seconds:.0f}s, '
+                f'exchanging {flow.bytes_sent:,} bytes out and {flow.bytes_received:,} in. '
+                f'The port is outside the IANA well-known service range, no application '
+                f'protocol was identified, and no TLS SNI was presented — so there is '
+                f'nothing declaring what this traffic is. Ordinary encrypted traffic on 443 '
+                f'announces its destination hostname in the SNI; this does not. Benign '
+                f'explanations exist (peer-to-peer software, games, bespoke line-of-business '
+                f'applications) and an analyst should rule them out.'
+            ),
+            evidence={
+                'duration_seconds': flow.duration_seconds,
+                'service_port': service_port,
+                'initiator': initiator,
+                'peer': peer,
+                'direction': 'egress (initiator inside HOME_NET)',
+                'home_net_source': SRC_HOME_NET,
+                'app_protocol': flow.app_protocol or None,
+                'tls_sni': flow.tls_sni or None,
+                'payload_entropy': flow.payload_entropy,
+                'bytes_sent': flow.bytes_sent,
+                'bytes_received': flow.bytes_received,
+                **_cite('unknown_channel_min_duration'),
+                'port_list_source': _cite('unknown_channel_ports'),
+                'rule_provenance': OUR_HEURISTIC,
             },
         ))
     return findings
@@ -460,6 +743,22 @@ def rule_icmp_tunnel(session):
     for flow in session.flows.filter(protocol='ICMP'):
         if flow.avg_packet_size < size_thresh:
             continue
+
+        # dst_port carries type*256 + code (see processor._classify). Only echo
+        # request (8) and echo reply (0) are candidates: every ICMP tunnel in
+        # the wild — ptunnel, icmpsh, icmptunnel — rides echo. ICMP *error*
+        # messages quote the offending packet's header and 8 bytes of payload
+        # (RFC 792), so a busy server answering scans emits hundreds of large
+        # unreachables that are not tunnels. On a real week-long server capture
+        # that single distinction removed 795 of 799 findings.
+        icmp_type = (flow.dst_port or 0) >> 8
+        if icmp_type not in (0, 8):
+            continue
+
+        total_packets = (flow.packets_sent or 0) + (flow.packets_received or 0)
+        if total_packets < _t('icmp_min_packets'):
+            continue
+
         peer = flow.dst_ip if flow.initiator_ip == flow.src_ip else flow.src_ip
         findings.append(Detection(
             session=session, flow=flow,
@@ -481,6 +780,12 @@ def rule_icmp_tunnel(session):
                 'observed_avg_packet_size': flow.avg_packet_size,
                 'observed_entropy': flow.payload_entropy,
                 'packet_count': flow.packets_sent,
+                'icmp_type': icmp_type,
+                'icmp_type_name': 'echo request' if icmp_type == 8 else 'echo reply',
+                'total_packets': total_packets,
+                **{'min_packets_' + k: v for k, v in _cite('icmp_min_packets').items()},
+                'error_types_excluded': 'ICMP error messages quote the original packet '
+                                        'header (RFC 792) and are large by design',
                 'baseline': SRC_PING,
                 **_cite('icmp_payload_bytes'),
             },
@@ -490,6 +795,8 @@ def rule_icmp_tunnel(session):
 
 RULES = [
     rule_beaconing,
+    rule_beaconing_keepalive,
+    rule_unknown_long_channel,
     rule_dns_tunnelling,
     rule_port_scan,
     rule_exfiltration,

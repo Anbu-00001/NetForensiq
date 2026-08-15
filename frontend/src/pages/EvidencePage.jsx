@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, Collapse,
+  Box, Typography, Chip, Button, CircularProgress, Alert, Collapse, TextField,
 } from '@mui/material';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import {
   listEvidence, getCustodyChain, verifyEvidence, unwrap, formatBytes,
+  listCertificates, issueCertificate, signCertificatePartB, downloadCertificatePdf,
 } from '../services/forensics';
 
 const STATUS_STYLE = {
@@ -29,7 +30,121 @@ function Hash({ label, value }) {
   );
 }
 
-function ExhibitCard({ record, onUpdated }) {
+/**
+ * Certificates under BSA s.63(4)(c) for one exhibit.
+ *
+ * The two parts are deliberately separate actions. s.63(4) requires the person
+ * in charge of the device AND an expert, so a certificate signed by one
+ * account is incomplete and is shown as a draft until countersigned.
+ */
+function CertificatePanel({ record, certificates, onChanged }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [expert, setExpert] = useState({ name: '', designation: '', qualification: '' });
+
+  const mine = certificates.filter((c) => c.evidence === record.id);
+
+  const run = async (key, fn) => {
+    setBusy(key);
+    setError('');
+    try {
+      await fn();
+      await onChanged();
+    } catch (e) {
+      setError(e?.response?.data?.detail ?? 'Request failed');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+        <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#E5E7EB' }}>
+          Section 63 certificates
+        </Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          size="small" variant="outlined" disabled={busy === 'issue'}
+          onClick={() => run('issue', () => issueCertificate(record.id, {}))}
+          sx={{ fontSize: 11.5, borderColor: 'rgba(0,230,138,0.4)', color: '#00E68A' }}
+        >
+          {busy === 'issue' ? 'Issuing…' : 'Issue certificate (Part A)'}
+        </Button>
+      </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 1.5, fontSize: 12 }}>{error}</Alert>}
+
+      {!mine.length ? (
+        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.45)' }}>
+          None issued. Issuing re-verifies the hash first and refuses if it no longer matches.
+        </Typography>
+      ) : mine.map((c) => (
+        <Box key={c.id} sx={{
+          p: 1.5, mb: 1, borderRadius: 1.5,
+          backgroundColor: 'rgba(0,0,0,0.3)',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: 12.5, fontFamily: 'monospace', color: '#E5E7EB' }}>
+              {c.reference}
+            </Typography>
+            <Chip
+              label={c.is_complete ? 'Both parts signed' : 'DRAFT — Part B unsigned'}
+              size="small"
+              sx={{
+                fontSize: 10.5,
+                backgroundColor: c.is_complete ? 'rgba(0,230,138,0.15)' : 'rgba(255,176,32,0.15)',
+                color: c.is_complete ? '#00E68A' : '#FFB020',
+              }}
+            />
+            <Box sx={{ flexGrow: 1 }} />
+            <Button
+              size="small" disabled={busy === `pdf${c.id}`}
+              onClick={() => run(`pdf${c.id}`, () => downloadCertificatePdf(c.id, c.reference))}
+              sx={{ fontSize: 11.5, color: '#00D4FF' }}
+            >
+              Download PDF
+            </Button>
+          </Box>
+
+          {!c.is_complete && (
+            <Box sx={{ mt: 1.2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              {['name', 'designation', 'qualification'].map((field) => (
+                <TextField
+                  key={field} size="small"
+                  placeholder={`Expert ${field}`}
+                  value={expert[field]}
+                  onChange={(e) => setExpert({ ...expert, [field]: e.target.value })}
+                  sx={{
+                    flexGrow: 1, minWidth: 130,
+                    '& .MuiInputBase-input': { fontSize: 12, color: '#E5E7EB' },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.12)',
+                    },
+                  }}
+                />
+              ))}
+              <Button
+                size="small" variant="outlined" disabled={busy === `sign${c.id}`}
+                onClick={() => run(`sign${c.id}`, () => signCertificatePartB(c.id, {
+                  part_b_name: expert.name,
+                  part_b_designation: expert.designation,
+                  part_b_qualification: expert.qualification,
+                }))}
+                sx={{ fontSize: 11.5, borderColor: 'rgba(255,176,32,0.5)', color: '#FFB020' }}
+              >
+                Countersign Part B
+              </Button>
+            </Box>
+          )}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged }) {
   const [chain, setChain] = useState(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -88,6 +203,12 @@ function ExhibitCard({ record, onUpdated }) {
         <Hash label="SHA-256 (primary)" value={record.sha256_hash} />
         <Hash label="MD5 (Schedule also lists MD5; never relied on alone)" value={record.md5_hash} />
 
+        <CertificatePanel
+          record={record}
+          certificates={certificates}
+          onChanged={onCertificatesChanged}
+        />
+
         <Collapse in={open}>
           <Box sx={{ mt: 2 }}>
             {chain && (
@@ -136,11 +257,18 @@ function ExhibitCard({ record, onUpdated }) {
 
 function EvidencePage() {
   const [records, setRecords] = useState([]);
+  const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const refreshCertificates = () =>
+    listCertificates().then((d) => setCertificates(unwrap(d)));
+
   useEffect(() => {
-    listEvidence()
-      .then((d) => setRecords(unwrap(d)))
+    Promise.all([listEvidence(), listCertificates()])
+      .then(([e, c]) => {
+        setRecords(unwrap(e));
+        setCertificates(unwrap(c));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -173,7 +301,11 @@ function EvidencePage() {
             </Alert>
           ) : (
             records.map((r) => (
-              <ExhibitCard key={r.id} record={r} onUpdated={replace} />
+              <ExhibitCard
+                key={r.id} record={r} onUpdated={replace}
+                certificates={certificates}
+                onCertificatesChanged={refreshCertificates}
+              />
             ))
           )}
         </Box>

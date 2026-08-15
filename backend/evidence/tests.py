@@ -14,7 +14,8 @@ from accounts.models import User
 
 from .models import CustodyEvent, EvidenceRecord, hash_file
 from .service import (
-    ingest_evidence, issue_certificate, record_custody, verify_custody_chain,
+    ingest_evidence, issue_certificate, record_custody, sign_part_b,
+    verify_custody_chain,
 )
 
 
@@ -129,8 +130,16 @@ class CustodyChainTests(TestCase):
 class CertificateTests(TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
-            self.record = ingest_evidence(make_capture_file())
+        # Both roots are redirected: issuing a certificate now renders a PDF,
+        # and tests must not write into the project's real evidence store.
+        self.roots = override_settings(
+            EVIDENCE_ROOT=Path(self.tmp) / 'pcaps',
+            CERTIFICATE_ROOT=Path(self.tmp) / 'certificates',
+        )
+        self.roots.enable()
+        self.addCleanup(self.roots.disable)
+
+        self.record = ingest_evidence(make_capture_file())
         self.officer = User.objects.create_user(
             username='officer', password='x', badge_id='GJ-1', department='Cyber',
         )
@@ -148,10 +157,7 @@ class CertificateTests(TestCase):
         cert = issue_certificate(self.record, part_a_user=self.officer)
         self.assertFalse(cert.is_complete)
 
-        cert.part_b_user = self.expert
-        from django.utils import timezone
-        cert.part_b_signed_at = timezone.now()
-        cert.save()
+        cert = sign_part_b(cert, user=self.expert, qualification='M.Tech, CHFI')
         self.assertTrue(cert.is_complete)
 
     def test_certificate_is_refused_when_integrity_fails(self):
@@ -161,9 +167,156 @@ class CertificateTests(TestCase):
         with self.assertRaises(ValueError):
             issue_certificate(self.record, part_a_user=self.officer)
 
+    def test_countersigning_is_refused_when_integrity_fails(self):
+        """An expert must not attest to a hash that no longer matches the file."""
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        with open(self.record.stored_path, 'ab') as fh:
+            fh.write(b'tampered after issue')
+        with self.assertRaises(ValueError):
+            sign_part_b(cert, user=self.expert)
+
     def test_issuing_a_certificate_is_recorded_in_custody(self):
         issue_certificate(self.record, part_a_user=self.officer)
         actions = list(self.record.custody_events.values_list('action', flat=True))
         self.assertIn('certificate', actions)
         ok, problems = verify_custody_chain(self.record)
         self.assertTrue(ok, problems)
+
+
+class CertificatePdfTests(TestCase):
+    """
+    The PDF is the artefact that actually reaches a court, so these check what
+    is on the page — not merely that a file was produced.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.roots = override_settings(
+            EVIDENCE_ROOT=Path(self.tmp) / 'pcaps',
+            CERTIFICATE_ROOT=Path(self.tmp) / 'certificates',
+        )
+        self.roots.enable()
+        self.addCleanup(self.roots.disable)
+
+        self.record = ingest_evidence(
+            make_capture_file(), case_reference='I-CR-2026-0042',
+        )
+        self.officer = User.objects.create_user(
+            username='officer', password='x', badge_id='GJ-1', department='Cyber',
+        )
+        self.expert = User.objects.create_user(
+            username='expert', password='x', badge_id='GJ-2', department='FSL',
+        )
+
+    @staticmethod
+    def _text(path):
+        """
+        Extract page text without a third-party dependency.
+
+        reportlab wraps content streams as ASCII85 *over* Flate by default, so
+        both layers have to come off; decoding only the Flate layer yields an
+        empty string and silently passes every assertion. Both decodes are
+        attempted per stream, in that order, with the raw bytes as a fallback.
+        """
+        import base64
+        import re
+        import zlib
+
+        raw = Path(path).read_bytes()
+        chunks = []
+        for match in re.finditer(rb'stream\r?\n(.*?)endstream', raw, re.S):
+            data = match.group(1).strip()
+            try:
+                data = base64.a85decode(data, adobe=True)
+            except ValueError:
+                pass
+            try:
+                data = zlib.decompress(data)
+            except zlib.error:
+                pass
+            chunks.append(data)
+
+        blob = b'\n'.join(chunks).decode('latin-1')
+        # Text is emitted as (literal) Tj / TJ arrays; recover the literals.
+        literals = re.findall(r'\((?:[^()\\]|\\.)*\)', blob)
+        return ''.join(literals).replace('\\', '')
+
+    def test_pdf_is_written_and_recorded_on_the_certificate(self):
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        self.assertTrue(cert.pdf_path, 'pdf_path must be recorded on the model')
+        path = Path(cert.pdf_path)
+        self.assertTrue(path.exists())
+        self.assertEqual(path.read_bytes()[:4], b'%PDF')
+
+    def test_pdf_reproduces_the_schedule_not_a_paraphrase(self):
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        text = self._text(cert.pdf_path)
+
+        self.assertIn('THE SCHEDULE', text)
+        self.assertIn('See section 63(4)(c)', text)
+        self.assertIn('PART A', text)
+        self.assertIn('PART B', text)
+        self.assertIn('To be filled by the Party', text)
+        self.assertIn('To be filled by the Expert', text)
+        # Wording lifted verbatim from the bare Act
+        self.assertIn('solemnly affirm and sincerely state', text)
+        self.assertIn('Hash report to be enclosed with the certificate', text)
+
+    def test_pdf_carries_the_real_digest(self):
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        text = self._text(cert.pdf_path)
+        self.assertIn(self.record.sha256_hash, text)
+        self.assertIn(self.record.exhibit_number, text)
+
+    def test_schedule_names_all_three_algorithms(self):
+        """
+        The Schedule prints SHA1, SHA256 and MD5. Omitting the line for one we
+        do not compute would misrepresent the prescribed form.
+        """
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        text = self._text(cert.pdf_path)
+        for algorithm in ('SHA1', 'SHA256', 'MD5'):
+            self.assertIn(algorithm, text)
+
+    def test_unsigned_certificate_is_marked_draft(self):
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        text = self._text(cert.pdf_path)
+        self.assertIn('NOT A VALID CERTIFICATE', text)
+        self.assertIn('INCOMPLETE', text)
+
+    def test_fully_signed_certificate_drops_the_draft_marking(self):
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        cert = sign_part_b(
+            cert, user=self.expert, name='Dr A Expert',
+            designation='Assistant Director', organisation='FSL Gandhinagar',
+            qualification='Ph.D. Computer Science',
+        )
+        text = self._text(cert.pdf_path)
+        self.assertNotIn('NOT A VALID CERTIFICATE', text)
+        self.assertIn('Dr A Expert', text)
+        self.assertIn('Ph.D. Computer Science', text)
+
+    def test_unknown_statutory_fields_are_left_blank_not_invented(self):
+        """
+        The Schedule asks for a parent's name and the device colour. We hold
+        neither. They must appear as blank rules for completion in ink — a
+        plausible-looking value would be a forged statutory declaration.
+        """
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        text = self._text(cert.pdf_path)
+        self.assertIn('Son/daughter/spouse of', text)
+        self.assertIn('Color:', text)
+        self.assertIn('_____', text)
+
+    def test_custody_annexure_reports_a_broken_chain(self):
+        """A tampered custody log must be visible on the document itself."""
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+
+        event = self.record.custody_events.get(sequence=1)
+        event.detail = 'falsified'
+        event.save(update_fields=['detail'])
+
+        from .certificate_pdf import render_certificate_pdf
+        render_certificate_pdf(cert)
+        text = self._text(cert.pdf_path)
+        self.assertIn('CHAIN BROKEN', text)

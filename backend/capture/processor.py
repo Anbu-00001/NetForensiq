@@ -165,7 +165,15 @@ class FlowAggregator:
         if UDP in pkt:
             return 'UDP', pkt[UDP].sport, pkt[UDP].dport, ''
         if ICMP in pkt:
-            return 'ICMP', 0, 0, ''
+            # ICMP has no ports. Following the Cisco NetFlow convention, the
+            # type and code are packed into the destination port field as
+            # type*256 + code, so the message kind survives flow aggregation.
+            # Without it every ICMP flow looks alike, and the tunnel rule
+            # cannot tell an echo request carrying data from a destination-
+            # unreachable error — which quotes the original packet headers and
+            # is therefore also large.
+            icmp = pkt[ICMP]
+            return 'ICMP', 0, (int(icmp.type) * 256) + int(icmp.code), ''
         return 'OTHER', 0, 0, ''
 
     def _new_flow(self, key, protocol, src_ip, sport, now):

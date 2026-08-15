@@ -1,3 +1,4 @@
+from django.http import FileResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,8 +7,11 @@ from rest_framework.serializers import BooleanField, CharField, ModelSerializer
 from accounts.models import AuditLog
 from accounts.utils import get_client_ip, log_action
 
+from .certificate_pdf import render_certificate_pdf
 from .models import CustodyEvent, EvidenceRecord, Section63Certificate
-from .service import issue_certificate, record_custody, verify_custody_chain
+from .service import (
+    issue_certificate, record_custody, sign_part_b, verify_custody_chain,
+)
 
 
 class CustodyEventSerializer(ModelSerializer):
@@ -127,3 +131,64 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
 class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Section63Certificate.objects.select_related('evidence')
     serializer_class = Section63CertificateSerializer
+
+    @action(detail=True, methods=['post'])
+    def sign(self, request, pk=None):
+        """
+        Countersign Part B as the expert.
+
+        Separate from issue because s.63(4) contemplates two different people:
+        the person in charge of the device, and an expert. Collapsing them into
+        one call would let a single account produce a complete certificate,
+        which is precisely the thing the two-part form exists to prevent.
+        """
+        certificate = self.get_object()
+        try:
+            certificate = sign_part_b(
+                certificate,
+                user=request.user,
+                name=request.data.get('part_b_name', ''),
+                designation=request.data.get('part_b_designation', ''),
+                organisation=request.data.get('part_b_organisation', ''),
+                qualification=request.data.get('part_b_qualification', ''),
+                actor_ip=get_client_ip(request),
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        log_action(
+            request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=f'Signed Part B of {certificate.reference}',
+        )
+        return Response(Section63CertificateSerializer(certificate).data)
+
+    @action(detail=True, methods=['get'])
+    def pdf(self, request, pk=None):
+        """
+        Download the rendered certificate.
+
+        Re-rendered on request rather than served from disk: the custody
+        annexure and its verdict must reflect the chain as it stands now, not
+        as it stood at issue. Every download is itself a custody event — an
+        exported copy leaving the system is exactly what a court will ask about.
+        """
+        certificate = self.get_object()
+        path = render_certificate_pdf(certificate)
+
+        record_custody(
+            certificate.evidence, CustodyEvent.Action.EXPORTED, actor=request.user,
+            detail=f'Certificate {certificate.reference} exported as PDF',
+            actor_ip=get_client_ip(request),
+        )
+        log_action(
+            request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=f'Downloaded certificate {certificate.reference}',
+        )
+
+        response = FileResponse(
+            open(path, 'rb'), content_type='application/pdf',
+            as_attachment=True, filename=f'{certificate.reference}.pdf',
+        )
+        return response

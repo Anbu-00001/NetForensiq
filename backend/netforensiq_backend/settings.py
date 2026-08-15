@@ -157,6 +157,21 @@ MEDIA_URL = 'media/'
 EVIDENCE_ROOT = MEDIA_ROOT / 'pcaps'
 CERTIFICATE_ROOT = MEDIA_ROOT / 'certificates'
 
+# The address space being investigated, in the sense Snort and Suricata use
+# $HOME_NET. Egress rules (C2 beaconing, covert channels) only fire when the
+# initiator is inside it — otherwise every scanner on the internet reaching in
+# is reported as an internal host calling out.
+#
+# The default suits the common case: a capture taken inside an office or
+# suspect network, where hosts are RFC 1918. It is WRONG for a capture of a
+# public-facing server, whose own addresses are public — set HOME_NET
+# explicitly for those, e.g. HOME_NET=203.0.113.0/24,198.51.100.0/24
+HOME_NET = [
+    entry.strip() for entry in os.getenv(
+        'HOME_NET', '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fd00::/8',
+    ).split(',') if entry.strip()
+]
+
 # Vite's default dev port, plus the fixed port the Playwright suite uses.
 # Both loopback spellings are listed because the browser treats
 # localhost and 127.0.0.1 as distinct origins.

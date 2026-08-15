@@ -137,3 +137,37 @@ test.describe('evidence', () => {
     ).toBeVisible();
   });
 });
+
+test.describe('section 63 certificate', () => {
+  test.beforeEach(async ({ page }) => login(page));
+
+  test('an exhibit exposes its certificates and their completeness', async ({ page }) => {
+    await page.goto('/evidence');
+    await expect(page.getByText(/Section 63 certificates/i).first()).toBeVisible();
+
+    // s.63(4) needs both parts, so a half-signed certificate must say so
+    // rather than presenting itself as valid.
+    const badge = page.getByText(/Both parts signed|DRAFT — Part B unsigned/).first();
+    await expect(badge).toBeVisible();
+  });
+
+  test('the certificate downloads as a real PDF', async ({ page }) => {
+    await page.goto('/evidence');
+
+    const button = page.getByRole('button', { name: /Download PDF/i }).first();
+    const count = await button.count();
+    test.skip(count === 0, 'no certificate issued for any exhibit');
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      button.click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^S63-.*\.pdf$/);
+
+    // Assert it is actually a PDF, not an error page saved with a .pdf name
+    const path = await download.path();
+    const fs = await import('node:fs');
+    const header = fs.readFileSync(path).subarray(0, 5).toString();
+    expect(header).toBe('%PDF-');
+  });
+});
