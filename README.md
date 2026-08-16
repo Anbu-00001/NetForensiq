@@ -1,0 +1,395 @@
+# NetForensiq
+
+**Network and Packet Forensics Platform** — the chain-of-custody layer that makes
+network evidence stand up in an Indian court.
+
+Built for KANAD S.H.I.E.L.D. 2026 · Category 2, Problem Statement #8
+(Cyber Crime Investigation System) · i-Hub Gujarat, Ahmedabad
+
+---
+
+## What This Is
+
+Arkime, Zeek, and Suricata show you packets. None of them produce a
+BSA Section 63 certificate, track the chain of custody with hash-chaining, or explain
+to a judge *why* a flow was flagged — with a citable source for every threshold.
+
+NetForensiq is not another packet analyser. It is the **legal admissibility layer**
+for network evidence in the Indian judicial system.
+
+```mermaid
+graph LR
+    subgraph "What exists today"
+        A["eSakshya<br/>Scene video"] --> B["CCTNS Property Register<br/>Physical objects"]
+    end
+    subgraph "The gap"
+        C["Network evidence<br/>(packet captures)"]
+    end
+    subgraph "NetForensiq"
+        D["Capture + Detect + Certify"]
+    end
+    C -- "falls between" --> A
+    C -- "falls between" --> B
+    C -- "covered by" --> D
+```
+
+> eSakshya seals *scene video*. CCTNS Property Registers track *physical objects*.
+> A packet capture is neither — it has no scene to videograph and no object to log
+> into a malkhana. **Network evidence falls in the gap between the two systems, and
+> nothing currently covers it.**
+
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Frontend ["Frontend (React 19 + Vite + MUI)"]
+        FD[Dashboard Page]
+        FF[Findings Page]
+        FE[Evidence Page]
+        FL[Login / Auth]
+        FS["services/forensics.js"]
+    end
+
+    subgraph Backend ["Backend (Django 6.0 + DRF + Scapy)"]
+        subgraph Capture ["capture app"]
+            PR[Packet Processor]
+            FX[Feature Extractor]
+            DE[Detection Engine<br/>7 rules]
+            SY[Synthetic Generator]
+        end
+        subgraph Evidence ["evidence app"]
+            EI[Evidence Integrity<br/>SHA-256 + MD5]
+            CC[Chain of Custody<br/>hash-chained]
+            CP[Certificate PDF<br/>BSA s.63]
+        end
+        subgraph Auth ["accounts app"]
+            AU[JWT Auth<br/>role + badge + dept]
+            AL[Audit Log]
+        end
+    end
+
+    subgraph Storage
+        DB[(SQLite / PostgreSQL)]
+        ES[Evidence Store<br/>sealed PCAPs]
+    end
+
+    FL --> AU
+    FS --> Capture
+    FS --> Evidence
+    FD --> FS
+    FF --> FS
+    FE --> FS
+
+    PR --> DB
+    FX --> DE
+    DE --> DB
+    EI --> ES
+    EI --> DB
+    CC --> DB
+    CP --> ES
+
+    AU --> AL
+    AL --> DB
+```
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- No database server required (SQLite by default)
+
+### Backend
+
+```bash
+cd backend
+python3 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+./.venv/bin/python manage.py migrate
+
+# Generate labeled synthetic traffic and import it
+./.venv/bin/python manage.py generate_traffic --scenario mixed --seed 7
+./.venv/bin/python manage.py import_pcap synthetic_captures/demo_storyline.pcap --name demo
+
+# Run detection over the imported session
+./.venv/bin/python manage.py analyze_session
+
+# Start the API server
+./.venv/bin/python manage.py runserver 127.0.0.1:8011
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Run Tests
+
+```bash
+# Backend: 54 tests
+cd backend && ./.venv/bin/python manage.py test
+
+# Frontend: 10 Playwright E2E tests
+cd frontend && npx playwright test
+```
+
+---
+
+## How It Works
+
+### 1. Capture and Ingest
+
+```mermaid
+flowchart LR
+    A[PCAP File] --> B["import_pcap<br/>management command"]
+    B --> C["SHA-256 + MD5<br/>computed at ingest<br/>(streamed, one pass)"]
+    C --> D["Sealed copy in<br/>evidence_store/"]
+    B --> E["Packet Processor<br/>(Scapy streaming)"]
+    E --> F["Flow assembly<br/>+ feature extraction"]
+    F --> G[(Database)]
+    C --> H["CustodyEvent #1<br/>ACQUIRED"]
+```
+
+The PCAP is hashed the moment it enters the system. The sealed copy is never
+modified. Every subsequent access — verification, export, certificate generation —
+is logged as a `CustodyEvent`, and each event digests its predecessor so that
+altering any past entry breaks every link after it.
+
+### 2. Detection Engine
+
+Rules first, model second. A police panel will ask "why did it flag this?" — a
+rule answers, a black box does not.
+
+```mermaid
+flowchart TD
+    S[Capture Session] --> A[Flow Features]
+    A --> R1["C2_BEACON_PERIODIC<br/>RITA MADM model"]
+    A --> R2["C2_BEACON_KEEPALIVE<br/>persistent-session variant"]
+    A --> R3["COVERT_CHANNEL_UNKNOWN_PORT<br/>sustained egress, no SNI"]
+    A --> R4["DNS_TUNNEL_ENTROPY<br/>Shannon entropy + label length"]
+    A --> R5["RECON_PORT_SCAN<br/>per-source port fan-out"]
+    A --> R6["EXFIL_VOLUME_ASYMMETRY<br/>relative p95 outbound"]
+    A --> R7["ICMP_TUNNEL_OVERSIZED<br/>large echo payloads"]
+
+    R1 --> F[Findings]
+    R2 --> F
+    R3 --> F
+    R4 --> F
+    R5 --> F
+    R6 --> F
+    R7 --> F
+
+    F --> T{"Analyst triage<br/>confirm / dismiss / escalate"}
+    T --> D[(Stored decision<br/>+ reviewer identity)]
+```
+
+**Key design decisions:**
+
+- Every threshold carries its source, published at `GET /api/detections/thresholds/`.
+  Values we invented are tagged `[OUR HEURISTIC]` and that tag travels into each finding.
+- DNS findings aggregate per (source, parent domain) — one alert per tunnel, not 54
+  near-identical rows.
+- Exfiltration volume is relative to the capture (p95 outbound, floored at 100 KB).
+  A fixed byte threshold cannot work across capture scales.
+- `HOME_NET` (like Snort's `$HOME_NET`) ensures egress rules fire only on internal hosts.
+
+### 3. Evidence Integrity and BSA Section 63 Certificates
+
+```mermaid
+flowchart TD
+    A["Evidence Record<br/>SHA-256 + MD5 at ingest"] --> B{"Verify endpoint<br/>re-hash and compare"}
+    B -->|match| C["Status: sealed"]
+    B -->|mismatch| D["Status: tampered"]
+
+    A --> E["Issue Certificate"]
+    E --> F["Part A<br/>(person in charge of device)"]
+    E --> G["Part B<br/>(expert countersignature)"]
+
+    F --> H{"Both parts signed?"}
+    G --> H
+    H -->|no| I["PDF watermarked<br/>DRAFT — NOT A VALID CERTIFICATE"]
+    H -->|yes| J["Valid BSA s.63 certificate"]
+
+    J --> K["Annexure 1: Hash Report"]
+    J --> L["Annexure 2: Chain of Custody"]
+    J --> M["Annexure 3: Analyst Findings<br/>(labelled as opinion, not evidence)"]
+```
+
+The certificate PDF reproduces THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023
+verbatim — the same wording, field order, and tick-boxes that appear in the bare Act.
+Two rules govern the renderer:
+
+1. **Statutory blanks stay blank.** Where we do not hold a fact the Schedule asks for
+   (a parent's name, the device's colour), the line is printed empty for a human to
+   complete in ink. Filling it with a plausible value would be forging a statutory
+   declaration.
+
+2. **An unsigned certificate is visibly unsigned.** Section 63(4) requires Part A and
+   Part B conjunctively. A PDF missing either is watermarked `DRAFT — NOT A VALID
+   CERTIFICATE` across every page.
+
+---
+
+## API Reference
+
+### Capture and Detection
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/sessions/` | List capture sessions |
+| GET | `/api/sessions/{id}/` | Session detail |
+| POST | `/api/sessions/{id}/analyse/` | Run detection rules |
+| GET | `/api/sessions/{id}/summary/` | Dashboard aggregates |
+| GET | `/api/sessions/{id}/timeline/` | Activity bucketed over time |
+| GET | `/api/flows/` | List flows (filter by session, protocol, IP, flagged) |
+| GET | `/api/flows/{id}/` | Flow detail with all features |
+| GET | `/api/dns/` | DNS records (filter by session, label length) |
+| GET | `/api/detections/` | Detection findings (filter by session, severity, triage) |
+| POST | `/api/detections/{id}/triage/` | Analyst confirm / dismiss / escalate |
+| GET | `/api/detections/thresholds/` | Every threshold with its provenance |
+
+### Evidence and Certificates
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/evidence/` | List evidence records |
+| GET | `/api/evidence/{id}/` | Evidence detail (hashes, device info) |
+| POST | `/api/evidence/{id}/verify/` | Re-hash and compare against stored digest |
+| POST | `/api/evidence/{id}/certificate/` | Issue a BSA s.63 certificate |
+| GET | `/api/evidence/{id}/custody/` | Chain of custody with integrity verdict |
+| GET | `/api/certificates/` | List issued certificates |
+| POST | `/api/certificates/{id}/sign/` | Countersign Part B (expert) |
+| GET | `/api/certificates/{id}/pdf/` | Download rendered certificate PDF |
+
+### Authentication
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/auth/register/` | Register (role, badge_id, department) |
+| POST | `/api/auth/login/` | Obtain JWT token pair |
+| POST | `/api/auth/refresh/` | Refresh access token |
+| POST | `/api/auth/logout/` | Blacklist refresh token |
+
+All endpoints require authentication (`IsAuthenticated`) by default.
+Registration requires admin approval before the account is active.
+
+---
+
+## Detection Rules
+
+| Rule ID | What It Detects | Threshold Source |
+|---|---|---|
+| `C2_BEACON_PERIODIC` | Repeated connections with regular timing (RITA model) | RITA `analyzer.go` — MADM / median interval |
+| `C2_BEACON_KEEPALIVE` | Periodic traffic inside a single persistent session | Same MADM formula, applied intra-connection |
+| `COVERT_CHANNEL_UNKNOWN_PORT` | Sustained egress to a non-well-known port with no TLS SNI | `[OUR HEURISTIC]` |
+| `DNS_TUNNEL_ENTROPY` | High-entropy, long DNS labels (tunnelling signature) | SANS/Palo Alto practitioner thresholds |
+| `RECON_PORT_SCAN` | A single source probing many destination ports | Per-source aggregation across flows |
+| `EXFIL_VOLUME_ASYMMETRY` | Outbound volume exceeding p95 for the capture | Relative threshold, floored at 100 KB |
+| `ICMP_TUNNEL_OVERSIZED` | Oversized ICMP echo payloads in a sustained stream | Cisco NetFlow ICMP encoding convention |
+
+---
+
+## Project Structure
+
+```
+NetForensiq/
+  backend/
+    accounts/           Auth, roles, audit log
+    capture/            Packet processing, flow assembly, detection engine
+      detection.py      7 detection rules + threshold registry
+      features.py       Shannon entropy, DNS features
+      processor.py      Scapy streaming parser with TLS SNI extraction
+      synthetic.py      Labeled attack scenario generator
+    evidence/           Evidence integrity, chain of custody, BSA s.63 certificates
+      certificate_pdf.py  536-line PDF renderer reproducing THE SCHEDULE
+      models.py         EvidenceRecord, CustodyEvent, Section63Certificate
+      service.py        Issue, sign, verify, custody operations
+    netforensiq_backend/  Django project settings and URL routing
+  frontend/
+    src/
+      pages/            Dashboard, Findings, Evidence, Login
+      services/         API client (forensics.js, auth.js)
+      components/       Reusable UI components
+    e2e/                Playwright test suite
+  research/             19 research documents (legal, technical, intelligence)
+  docs/                 Project analysis and build history
+```
+
+---
+
+## Validation Against Real Traffic
+
+The detection engine was tested against two captures from
+[malware-traffic-analysis.net](https://www.malware-traffic-analysis.net), neither
+produced by us:
+
+| Capture | Purpose | Result |
+|---|---|---|
+| AsyncRAT + XWorm infection (44 MB, 46k packets) | True positive test | Found 5 of 7 documented C2 flows, 0 false positives |
+| One week of server scans (28 MB, 362k packets) | False positive test | Reduced from 7,052 to 262 alerts after fixes |
+
+This validation found 5 defects that were invisible to the synthetic corpus.
+Full details: [research/96_REAL_TRAFFIC_VALIDATION.md](research/96_REAL_TRAFFIC_VALIDATION.md)
+
+---
+
+## Research Backing
+
+| Document | Content |
+|---|---|
+| [SPEC_01_EVIDENCE_INTEGRITY.md](research/SPEC_01_EVIDENCE_INTEGRITY.md) | BSA s.63 verbatim, THE SCHEDULE field list, schema |
+| [SPEC_02_DETECTION_ALGORITHMS.md](research/SPEC_02_DETECTION_ALGORITHMS.md) | RITA/Snort/binwalk/JA3 parameters with sources |
+| [SPEC_03_CONNECTORS_AND_MCP.md](research/SPEC_03_CONNECTORS_AND_MCP.md) | Open feeds worth wiring in; Indian gov APIs |
+| [93_NETFORENSIQ_CODE_REVIEW.md](research/93_NETFORENSIQ_CODE_REVIEW.md) | End-to-end code review that produced the build plan |
+| [95_ESAKSHYA_VERIFIED_FINDINGS.md](research/95_ESAKSHYA_VERIFIED_FINDINGS.md) | eSakshya gap analysis, claim-by-claim verification |
+| [96_REAL_TRAFFIC_VALIDATION.md](research/96_REAL_TRAFFIC_VALIDATION.md) | Real-traffic test results and defects found |
+
+---
+
+## Test Coverage
+
+- **54 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+  false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
+  detection, custody-chain breakage, certificate refusal on failed integrity
+- **10 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+  placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
+  download
+
+---
+
+## Configuration
+
+Copy `backend/.env.example` to `backend/.env` and adjust as needed:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SECRET_KEY` | auto-generated | Django secret key (set for production) |
+| `DEBUG` | `False` | Django debug mode |
+| `DB_NAME` | (none -- uses SQLite) | PostgreSQL database name |
+| `HOME_NET` | `10.0.0.0/8,...` (RFC 1918) | Address space being defended |
+| `CORS_EXTRA_ORIGINS` | (none) | Additional allowed CORS origins |
+
+---
+
+## Ground Rules
+
+1. **No hardcoded demo data.** Every number on screen comes from the database.
+2. **No invented thresholds.** Detection parameters carry a citation or are explicitly
+   labelled `[OUR HEURISTIC]`.
+3. **No overclaiming.** Synthetic-data performance is reported as such.
+4. Test at the end of every phase.
+
+---
+
+## License
+
+This project was built for the KANAD S.H.I.E.L.D. 2026 hackathon. Licensing terms
+to be determined.
