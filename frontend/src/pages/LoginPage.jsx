@@ -162,7 +162,7 @@ function LoginPage() {
                 <TextField
                   fullWidth size="small" value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="username / badge id"
+                  placeholder="username"
                   autoComplete="username"
                   sx={consoleField}
                 />
@@ -423,7 +423,7 @@ export function TelemetryPanel() {
           color: 'rgba(229,231,235,0.35)',
         }}
       >
-        WHAT THIS SYSTEM DOES
+        CAPABILITIES
       </Typography>
 
 
@@ -450,7 +450,7 @@ export function TelemetryPanel() {
       */}
       {[
         ['Packet analysis', 'PCAP', '#00E68A'],
-        ['Detection', '7 CITED RULES', '#00E68A'],
+        ['Detection', '7 RULES, SOURCED OR TAGGED', '#00E68A'],
         ['Evidence', 'SHA-256 SEALED', '#00D4FF'],
         ['Certificate', 'BSA s.63', '#FFB020'],
       ].map(([k, v, c], i) => (

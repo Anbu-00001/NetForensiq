@@ -327,6 +327,34 @@ class CertificatePdfTests(TestCase):
         self.assertIn('Color:', text)
         self.assertIn('_____', text)
 
+    def test_timestamps_labelled_IST_are_actually_IST(self):
+        """
+        Datetimes are stored UTC-aware, and strftime formats in the object's own
+        tzinfo — so a bare format string under a label reading "Time (IST)"
+        printed UTC while claiming IST. Five and a half hours wrong on a
+        statutory declaration, with the date rolling back a day for anything
+        before 05:30 IST.
+        """
+        from datetime import datetime, timezone as dt_timezone
+        from zoneinfo import ZoneInfo
+
+        # 22:00 UTC on 1 Jan is 03:30 IST on 2 Jan — wrong hour AND wrong date
+        moment = datetime(2026, 1, 1, 22, 0, 0, tzinfo=dt_timezone.utc)
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        cert.part_a_signed_at = moment
+        cert.save(update_fields=['part_a_signed_at'])
+
+        from .certificate_pdf import render_certificate_pdf
+        render_certificate_pdf(cert)
+        text = self._text(cert.pdf_path)
+
+        local = moment.astimezone(ZoneInfo('Asia/Kolkata'))
+        self.assertEqual((local.hour, local.minute, local.day), (3, 30, 2))
+
+        self.assertIn(f'{local:%d/%m/%Y}', text)
+        self.assertIn(f'{local:%H:%M}', text)
+        self.assertNotIn('22:00', text)
+
     def test_custody_annexure_reports_a_broken_chain(self):
         """A tampered custody log must be visible on the document itself."""
         cert = issue_certificate(self.record, part_a_user=self.officer)

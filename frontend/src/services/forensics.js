@@ -29,6 +29,28 @@ export const getFlow = (id) =>
 export const listDetections = (params = {}) =>
   api.get('/detections/', { params }).then((r) => r.data);
 
+/**
+ * Every finding for a session, following DRF's pagination.
+ *
+ * The page used to call listDetections() with no session filter and no paging,
+ * then render data.results — the first 50 rows of every session pooled
+ * together — while the "awaiting review" chip counted only what had loaded.
+ * On the real server capture that is 50 of 307, presented as the whole set.
+ */
+export const listAllDetections = async (params = {}) => {
+  const collected = [];
+  let response = await api.get('/detections/', { params }).then((r) => r.data);
+
+  if (Array.isArray(response)) return response;
+
+  collected.push(...(response.results ?? []));
+  while (response.next) {
+    response = await api.get(response.next).then((r) => r.data);
+    collected.push(...(response.results ?? []));
+  }
+  return collected;
+};
+
 export const triageDetection = (id, status, note = '') =>
   api.post(`/detections/${id}/triage/`, { status, note }).then((r) => r.data);
 
@@ -81,6 +103,10 @@ export const downloadCertificatePdf = async (id, reference) => {
 export const unwrap = (data) => (Array.isArray(data) ? data : data?.results ?? []);
 
 export const formatBytes = (bytes) => {
+  // A missing value is not a measured zero. formatCount beside this already
+  // returns an em dash; without the same distinction here an absent byte
+  // total printed as "0 B" as though it had been observed.
+  if (bytes === null || bytes === undefined) return '—';
   if (!bytes) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);

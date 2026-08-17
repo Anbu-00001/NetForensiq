@@ -20,6 +20,11 @@ from .serializers import (
 class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
     """Capture sessions, plus the analysis and summary actions over them."""
 
+    # Running detection rewrites the whole finding set for a session, so it
+    # is a write however it is spelled. Without this a Viewer could trigger
+    # it from a one-click button.
+    permission_classes = [IsInvestigatorOrReadOnly]
+
     serializer_class = CaptureSessionSerializer
 
     def get_queryset(self):

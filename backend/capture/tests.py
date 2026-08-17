@@ -529,3 +529,88 @@ class ThresholdsAreActuallyAppliedTests(TestCase):
                     '[OUR HEURISTIC', source,
                     f'{key} mentions a heuristic without the machine-readable tag',
                 )
+
+
+class TriageSurvivesReanalysisTests(TestCase):
+    """
+    Re-running detection used to delete every rule-generated finding and
+    recreate it as NEW, discarding the whole session's triage record — from a
+    one-click button whose docstring called the deletion a safeguard.
+    """
+
+    def _session(self):
+        packets = generate_c2_beaconing_connections(
+            beacon_count=40, base_time=1_700_000_000.0)
+        path = write_pcap(packets)
+        session, _ = run_pcap_import(path, name='triage-survival')
+        analyse_session(session)
+        return session
+
+    def test_a_reviewed_finding_keeps_its_decision(self):
+        from accounts.models import User
+        session = self._session()
+        officer = User.objects.create_user(
+            username='io-triage', password='x', badge_id='T-1', department='Cyber')
+
+        finding = session.detections.first()
+        self.assertIsNotNone(finding)
+        finding.triage_status = Detection.Triage.DISMISSED
+        finding.reviewed_by = officer
+        finding.review_note = 'known monitoring agent'
+        finding.save()
+
+        summary = analyse_session(session)
+
+        self.assertEqual(summary['triage_decisions_carried_forward'], 1)
+        restored = session.detections.get(
+            rule_id=finding.rule_id, subject_ip=finding.subject_ip)
+        self.assertEqual(restored.triage_status, Detection.Triage.DISMISSED)
+        self.assertEqual(restored.reviewed_by_id, officer.pk)
+        self.assertEqual(restored.review_note, 'known monitoring agent')
+
+    def test_untouched_findings_stay_new(self):
+        session = self._session()
+        analyse_session(session)
+        self.assertTrue(
+            all(d.triage_status == Detection.Triage.NEW
+                for d in session.detections.all()),
+            'nothing was reviewed, so nothing should come back reviewed',
+        )
+
+
+class SeverityOrderingTests(TestCase):
+    """
+    Ordering on the severity CharField sorted alphabetically: descending gave
+    medium > low > high > critical, so the Findings list put the least urgent
+    rows first under severity-coloured chips implying rank.
+    """
+
+    def test_high_severity_findings_come_before_medium(self):
+        from capture.models import CaptureSession
+
+        session = CaptureSession.objects.create(name='ordering')
+        for severity in (Detection.Severity.MEDIUM, Detection.Severity.LOW,
+                         Detection.Severity.CRITICAL, Detection.Severity.HIGH):
+            Detection.objects.create(
+                session=session, rule_id=f'T_{severity}', title=str(severity),
+                category='test', severity=severity,
+                method=Detection.Method.RULE, confidence=0.5,
+            )
+
+        order = list(session.detections.values_list('severity', flat=True))
+        self.assertEqual(
+            order,
+            ['critical', 'high', 'medium', 'low'],
+            'findings must be ordered by urgency, not alphabetically',
+        )
+
+    def test_rank_is_set_when_findings_are_bulk_created(self):
+        """analyse_session uses bulk_create, which bypasses Model.save()."""
+        packets = generate_port_scan(base_time=1_700_000_000.0)
+        path = write_pcap(packets)
+        session, _ = run_pcap_import(path, name='rank-bulk')
+        analyse_session(session)
+
+        for d in session.detections.all():
+            self.assertEqual(d.severity_rank, Detection.SEVERITY_RANK[d.severity])
+            self.assertGreater(d.severity_rank, 0)

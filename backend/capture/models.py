@@ -180,6 +180,17 @@ class Detection(models.Model):
         HIGH = 'high', 'High'
         CRITICAL = 'critical', 'Critical'
 
+    # Ordering by the CharField itself sorts alphabetically, and descending
+    # that gives medium > low > high > critical — so the Findings list put
+    # medium- and low-severity rows *above* high and critical ones, under
+    # severity-coloured chips implying rank. Rank is now explicit.
+    SEVERITY_RANK = {
+        Severity.LOW: 10,
+        Severity.MEDIUM: 35,
+        Severity.HIGH: 70,
+        Severity.CRITICAL: 95,
+    }
+
     class Method(models.TextChoices):
         RULE = 'rule', 'Deterministic rule'
         MODEL = 'model', 'Unsupervised model'
@@ -224,6 +235,12 @@ class Detection(models.Model):
         DISMISSED = 'dismissed', 'Dismissed — false positive'
         ESCALATED = 'escalated', 'Escalated'
 
+    severity_rank = models.PositiveSmallIntegerField(
+        default=0, db_index=True,
+        help_text='Numeric rank of severity, so ordering is by urgency rather '
+                  'than by the alphabet.',
+    )
+
     triage_status = models.CharField(
         max_length=12, choices=Triage.choices, default=Triage.NEW, db_index=True,
     )
@@ -235,7 +252,14 @@ class Detection(models.Model):
     review_note = models.TextField(blank=True)
 
     class Meta:
-        ordering = ['-severity', '-confidence']
+        # Severity is ranked, not sorted alphabetically — see SEVERITY_RANK.
+        ordering = ['-severity_rank', '-confidence']
+
+    def save(self, *args, **kwargs):
+        # Denormalised so the database can order on it; bulk_create bypasses
+        # save(), so analyse_session sets it explicitly too.
+        self.severity_rank = self.SEVERITY_RANK.get(self.severity, 0)
+        super().save(*args, **kwargs)
         indexes = [
             models.Index(fields=['session', 'severity']),
             models.Index(fields=['rule_id']),

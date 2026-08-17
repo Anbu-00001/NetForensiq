@@ -6,7 +6,7 @@ import {
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import {
-  listDetections, triageDetection, listThresholds, unwrap, SEVERITY_COLOR,
+  listAllDetections, triageDetection, listThresholds, unwrap, SEVERITY_COLOR,
 } from '../services/forensics';
 
 const TRIAGE_ACTIONS = [
@@ -146,7 +146,7 @@ function DetectionsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([listDetections(), listThresholds()])
+    Promise.all([listAllDetections(), listThresholds()])
       .then(([d, t]) => {
         setDetections(unwrap(d));
         setThresholds(t);

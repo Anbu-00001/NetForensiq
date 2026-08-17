@@ -179,7 +179,14 @@ THRESHOLDS = {
     'exfil_absolute_floor': (100 * 1024, OUR_HEURISTIC + ' — 100 KB, suppresses trivial flows only'),
 
     # ── ICMP tunnelling ──
-    'icmp_payload_bytes': (100, OUR_HEURISTIC + f' — grounded in {SRC_PING}'),
+    # The rule compares avg_packet_size, which is the whole frame — IP and
+    # ICMP headers included. Naming it 'payload' and citing a payload
+    # baseline described a stricter test than the code performs: a stock
+    # Linux ping is 56 B of payload in an 84 B packet, so a '100-byte
+    # payload' gate is really a ~72-byte payload gate.
+    'icmp_packet_bytes': (100, OUR_HEURISTIC + f' — measured on the whole frame. '
+                              f'{SRC_PING}, which is 84 B and 60 B on the wire '
+                              f'once the 20 B IP and 8 B ICMP headers are counted'),
     # A tunnel is a sustained exchange. A single oversized echo reply is an
     # ordinary answer to a scanner that sent a large ping payload — echo
     # replies mirror the request. On a real week-long capture, 238 of 461
@@ -195,6 +202,15 @@ THRESHOLDS = {
     # the same thing in both.
     'keepalive_min_intervals': (20, OUR_HEURISTIC + ' — below ~20 samples the MAD estimate '
                                                     'is too unstable to act on'),
+
+    # risk_score is a 0-100 figure on the dashboard's "Flagged flows" card and
+    # the default sort of the flow table. It came from four bare literals with
+    # no source and no tag — exactly what the provenance endpoint exists to
+    # prevent. Published here and read from here.
+    'risk_score_low': (10, OUR_HEURISTIC + ' — flow risk score for a low-severity finding'),
+    'risk_score_medium': (35, OUR_HEURISTIC + ' — medium'),
+    'risk_score_high': (70, OUR_HEURISTIC + ' — high'),
+    'risk_score_critical': (95, OUR_HEURISTIC + ' — critical'),
 
     # ── severity and confidence ──
     # These decide the colour, the ranking and the urgency an officer sees, so
@@ -947,7 +963,7 @@ def rule_exfiltration(session):
 
 def rule_icmp_tunnel(session):
     findings = []
-    size_thresh = _t('icmp_payload_bytes')
+    size_thresh = _t('icmp_packet_bytes')
 
     for flow in session.flows.filter(protocol='ICMP'):
         if flow.avg_packet_size < size_thresh:
@@ -980,13 +996,15 @@ def rule_icmp_tunnel(session):
             subject_ip=flow.initiator_ip,
             rationale=(
                 f'{flow.initiator_ip} sent {flow.packets_sent} ICMP packets to {peer} '
-                f'averaging {flow.avg_packet_size:.0f} bytes with payload entropy '
-                f'{flow.payload_entropy:.2f}. Standard ping sends a 56-byte payload on '
-                f'Linux and 32 bytes on Windows; sustained payloads above {size_thresh} '
-                f'bytes indicate data carried inside echo requests.'
+                f'averaging {flow.avg_packet_size:.0f} bytes per packet (payload entropy '
+                f'{flow.payload_entropy:.2f}). Standard ping sends 56 bytes of payload on '
+                f'Linux and 32 on Windows — 84 and 60 bytes on the wire once headers are '
+                f'counted. Sustained packets above {size_thresh} bytes carry more than a '
+                f'ping needs, which is what a tunnel through echo requests looks like.'
             ),
             evidence={
                 'observed_avg_packet_size': flow.avg_packet_size,
+                'measured_on': 'whole frame including IP and ICMP headers',
                 'observed_entropy': flow.payload_entropy,
                 'packet_count': flow.packets_sent,
                 'icmp_type': icmp_type,
@@ -996,7 +1014,7 @@ def rule_icmp_tunnel(session):
                 'error_types_excluded': 'ICMP error messages quote the original packet '
                                         'header (RFC 792) and are large by design',
                 'baseline': SRC_PING,
-                **_cite('icmp_payload_bytes'),
+                **_cite('icmp_packet_bytes'),
             },
         ))
     return findings
@@ -1012,11 +1030,14 @@ RULES = [
     rule_icmp_tunnel,
 ]
 
+# Single source of truth, shared with Detection.Meta ordering. Published in
+# THRESHOLDS so the 0-100 risk_score shown on the dashboard is not an
+# unexplained number.
 SEVERITY_WEIGHT = {
-    Detection.Severity.LOW: 10,
-    Detection.Severity.MEDIUM: 35,
-    Detection.Severity.HIGH: 70,
-    Detection.Severity.CRITICAL: 95,
+    Detection.Severity.LOW: _t('risk_score_low'),
+    Detection.Severity.MEDIUM: _t('risk_score_medium'),
+    Detection.Severity.HIGH: _t('risk_score_high'),
+    Detection.Severity.CRITICAL: _t('risk_score_critical'),
 }
 
 
@@ -1025,15 +1046,49 @@ def analyse_session(session, clear_existing=True):
     """
     Run every rule over a completed capture and persist the findings.
 
-    Returns a summary dict. Re-running replaces prior rule output so an
-    analyst's triage decisions are never silently duplicated.
+    **Triage decisions survive re-analysis.** Re-running used to delete every
+    rule-generated row and recreate it as NEW — which discarded triage_status,
+    reviewed_by, reviewed_at and review_note for the whole session. The
+    docstring called that a safeguard against duplication; what it actually did
+    was erase the investigators' record from a one-click button.
+
+    A finding is now matched to its predecessor on (rule_id, subject_ip,
+    title), and any decision recorded against that predecessor is carried
+    forward. Those three together identify the same claim about the same host:
+    the rule that made it, who it is about, and what it said. If a rule's
+    thresholds change enough to alter the title, the finding is genuinely a
+    different assertion and correctly arrives unreviewed.
     """
+    carried = {}
     if clear_existing:
-        session.detections.filter(method=Detection.Method.RULE).delete()
+        previous = session.detections.filter(method=Detection.Method.RULE)
+        for old_finding in previous:
+            if old_finding.triage_status != Detection.Triage.NEW:
+                carried[(old_finding.rule_id, old_finding.subject_ip, old_finding.title)] = {
+                    'triage_status': old_finding.triage_status,
+                    'reviewed_by_id': old_finding.reviewed_by_id,
+                    'reviewed_at': old_finding.reviewed_at,
+                    'review_note': old_finding.review_note,
+                }
+        previous.delete()
 
     findings = []
     for rule in RULES:
         findings.extend(rule(session))
+
+    # Restore analyst decisions before the rows are written.
+    restored = 0
+    for finding in findings:
+        prior = carried.get((finding.rule_id, finding.subject_ip, finding.title))
+        if prior:
+            for field, value in prior.items():
+                setattr(finding, field, value)
+            restored += 1
+
+    # bulk_create bypasses Model.save(), so the rank must be set here or
+    # every finding sorts as 0.
+    for finding in findings:
+        finding.severity_rank = SEVERITY_WEIGHT.get(finding.severity, 0)
 
     Detection.objects.bulk_create(findings, batch_size=500)
 
@@ -1057,6 +1112,8 @@ def analyse_session(session, clear_existing=True):
 
     return {
         'total': len(findings),
+        'triage_decisions_carried_forward': restored,
+        'triage_decisions_lost': max(len(carried) - restored, 0),
         'by_severity': dict(by_severity),
         'by_rule': dict(by_rule),
         'flows_flagged': len(per_flow),
