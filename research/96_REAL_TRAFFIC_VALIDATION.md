@@ -8,7 +8,7 @@ This document records what happened when the engine was run against two real
 captures from [malware-traffic-analysis.net](https://www.malware-traffic-analysis.net),
 neither produced by us, both with independently published ground truth.
 
-**It found five defects.** Every one of them was invisible to the synthetic corpus.
+**It found six defects.** Every one of them was invisible to the synthetic corpus.
 
 ---
 
@@ -153,6 +153,40 @@ ping is ordinary. A tunnel carries a stream, so a minimum packet count was added
 
 **799 → 25.**
 
+## Defect 6 — a 5-tuple was being treated as a connection
+
+The server capture contained flows reporting **22,736 seconds of duration while
+carrying 148 bytes**. Clients reuse ephemeral ports, and with no idle timeout
+the same 5-tuple recurring hours apart merged into a single record. Every
+duration, interval and rate derived from such a flow is meaningless — and those
+feed the exfiltration, covert-channel and beacon rules.
+
+Flows are now split on two independent signals:
+
+- **A fresh SYN** on a tuple that already carries traffic. Exact, not
+  heuristic: the client reused the port, so it is a new connection.
+- **An idle gap**, for everything else — UDP, ICMP, and captures that begin
+  mid-stream and never show a SYN.
+
+Timeouts are Zeek's, taken from its source rather than its documentation
+(`scripts/base/init-bare.zeek`): `tcp_inactivity_timeout` 5 min line 1791,
+`udp_inactivity_timeout` 1 min line 1797, `icmp_inactivity_timeout` 1 min line
+1803.
+
+This also broke how DNS records were linked back to flows — they were matched
+by 5-tuple, which now maps to many flows, so every record would attach to
+whichever was created last. Flows carry a unique id instead.
+
+| | Before | After |
+|---|---|---|
+| Longest flow (server capture) | 22,736 s | **201 s** |
+| Flows over 1 h carrying under 1 KB | present | **0** |
+| Flows (same 361,992 packets) | 141,638 | 166,093 |
+| AsyncRAT longest flow | 206 s | **206 s** — genuine C2 sessions untouched |
+
+It removed a further 27 false positives on the server capture: the remaining
+ICMP and exfiltration findings were artifacts of merged flows, not signal.
+
 ---
 
 ## Where it stands
@@ -161,10 +195,12 @@ ping is ordinary. A tunnel carries a stream, so a minimum packet count was added
 |---|---|---|
 | `COVERT_CHANNEL_UNKNOWN_PORT` | **5** — all documented C2 | 0 |
 | `RECON_PORT_SCAN` | 0 | 235 — **235 distinct scanning hosts** |
-| `ICMP_TUNNEL_OVERSIZED` | 0 | 25 |
-| `EXFIL_VOLUME_ASYMMETRY` | 0 | 2 |
-| `C2_BEACON_*` | 0 (see Defect 2) | 0 with correct HOME_NET; 7 when set to the server's own /24 |
-| **Total** | **5** | **262** |
+| `ICMP_TUNNEL_OVERSIZED` | 0 | 0 |
+| `EXFIL_VOLUME_ASYMMETRY` | 0 | 0 |
+| `C2_BEACON_*` | 0 (see Defect 2) | 0 |
+| **Total** | **5** | **235** |
+
+**7,052 → 235**, while the AsyncRAT true positives went **0 → 5**.
 
 The 235 port-scan findings are not noise. The capture is titled *"one week of
 server scans and probes"*; finding 235 distinct scanning hosts in it is the rule
@@ -178,16 +214,24 @@ working. One alert per scanner, not per probe.
   than 3.5 minutes; on this sample they are simply not enough.
 - Two captures is not an evaluation. There is no measured precision or recall,
   and none should be claimed.
-- A separate defect was found and **not yet fixed**: flow aggregation has no
-  idle timeout, so a reused ephemeral port merges conversations hours apart into
-  one "flow". The server capture contains flows reporting 22,736 s duration
-  carrying 148 bytes. Recorded in PROGRESS.md.
+- The server capture's 235 findings have not been individually confirmed. They
+  are consistent with a capture titled *"one week of server scans and probes"*,
+  but "consistent with" is not "verified".
+- Import is slow: 362k packets take ~110 s to parse and aggregate, almost all
+  of it inside scapy's dissector. Acceptable for a demo, not for a multi-
+  gigabyte seizure.
 
 ## Reproducing
 
 ```bash
-# password scheme is infected_YYYYMMDD, per the post date
-unzip -P infected_20240314 2024-03-14-AsyncRAT-and-XWorm-infection-traffic.pcap.zip
-python manage.py import_pcap <file> --name REAL-AsyncRAT
+./scripts/fetch_reference_captures.sh          # ~72 MB, not committed
+python manage.py import_pcap reference_captures/<file> --name REAL-AsyncRAT
 python manage.py analyze_session <id>
+```
+
+The server capture's addresses are public, so the default RFC 1918 HOME_NET is
+wrong for it:
+
+```bash
+HOME_NET="203.161.44.0/24" python manage.py analyze_session <id>
 ```

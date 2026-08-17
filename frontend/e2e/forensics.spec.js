@@ -171,3 +171,118 @@ test.describe('section 63 certificate', () => {
     expect(header).toBe('%PDF-');
   });
 });
+
+test.describe('air-gapped operation', () => {
+  /**
+   * The venue may have no usable internet. A page that quietly depends on a
+   * CDN font or a remote script looks fine on a developer laptop and falls
+   * apart on the day, so this proves the app needs nothing beyond localhost.
+   *
+   * Every request to any other host is aborted, and any attempt is recorded
+   * and asserted against — a failed background fetch that the UI swallows
+   * would otherwise pass unnoticed.
+   */
+  test('the app works with every non-local request blocked', async ({ page }) => {
+    const blocked = [];
+
+    await page.route('**', (route) => {
+      const url = new URL(route.request().url());
+      const local = ['127.0.0.1', 'localhost', '::1'].includes(url.hostname);
+      if (local || url.protocol === 'data:' || url.protocol === 'blob:') {
+        return route.continue();
+      }
+      blocked.push(url.href);
+      return route.abort();
+    });
+
+    await page.goto('/dashboard');
+    await page.waitForURL(/dashboard/, { timeout: 20_000 });
+
+    // Wait for data to actually arrive, rather than asserting against a
+    // half-rendered shell — the sidebar alone would satisfy a loose match.
+    await expect(page.getByText(/Packets/i).first()).toBeVisible({ timeout: 20_000 });
+
+    expect(
+      blocked,
+      `the app reached for external hosts: ${blocked.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  test('findings and evidence pages need no external hosts either', async ({ page }) => {
+    const blocked = [];
+    await page.route('**', (route) => {
+      const url = new URL(route.request().url());
+      const local = ['127.0.0.1', 'localhost', '::1'].includes(url.hostname);
+      if (local || url.protocol === 'data:' || url.protocol === 'blob:') {
+        return route.continue();
+      }
+      blocked.push(url.href);
+      return route.abort();
+    });
+
+    await page.goto('/detections');
+    await expect(page.getByText(/Findings/i).first()).toBeVisible();
+
+    await page.goto('/evidence');
+    await expect(page.getByText(/Evidence register/i)).toBeVisible();
+
+    expect(blocked, `external hosts requested: ${blocked.join(', ')}`).toEqual([]);
+  });
+});
+
+test.describe('the interface claims nothing it cannot do', () => {
+  test.beforeEach(async ({ page }) => login(page));
+
+  test('no controls for actions this tool cannot perform', async ({ page }) => {
+    // These were live-looking buttons wired to nothing. On a tool whose whole
+    // claim is evidentiary integrity, an inert "Purge buffer" control next to
+    // the evidence register is worse than useless.
+    const body = await page.locator('body').innerText();
+    for (const phantom of ['Purge buffer', 'Rotate storage']) {
+      expect(body).not.toContain(phantom);
+    }
+  });
+
+  test('the sidebar capture window reflects the real session', async ({ page }) => {
+    const session = await page.evaluate(async () => {
+      const token = sessionStorage.getItem('access_token');
+      const r = await fetch('http://127.0.0.1:8011/api/sessions/', {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((x) => x.json());
+      const list = Array.isArray(r) ? r : r.results;
+      return list?.length ? list[0] : null;
+    });
+
+    test.skip(!session?.capture_start, 'no capture session seeded');
+
+    // The old build showed a hardcoded 2026-08-02 09:14:07 and "2d 04h 11m"
+    const body = await page.locator('body').innerText();
+    expect(body).not.toContain('2d 04h 11m');
+
+    const year = new Date(session.capture_start).getFullYear();
+    expect(body).toContain(String(year));
+  });
+
+  test('search filters findings instead of doing nothing', async ({ page }) => {
+    await page.goto('/detections');
+
+    const subject = await page.evaluate(async () => {
+      const token = sessionStorage.getItem('access_token');
+      const r = await fetch('http://127.0.0.1:8011/api/detections/', {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((x) => x.json());
+      const list = Array.isArray(r) ? r : r.results;
+      return list?.length ? list[0].subject_ip : null;
+    });
+
+    test.skip(!subject, 'no detections seeded');
+
+    await page.goto(`/detections?q=${encodeURIComponent(subject)}`);
+    await expect(page.getByText(/filtered:/i)).toBeVisible();
+
+    // A filter that matches nothing would also show a chip; assert findings survived
+    await expect(
+      page.locator('text=/C2_BEACON|DNS_TUNNEL|RECON_|EXFIL_|ICMP_|COVERT_/').first(),
+    ).toBeVisible();
+  });
+});

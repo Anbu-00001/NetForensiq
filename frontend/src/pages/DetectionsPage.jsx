@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, Collapse, TextField,
 } from '@mui/material';
@@ -137,6 +138,8 @@ function DetectionCard({ detection, onTriaged }) {
 }
 
 function DetectionsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = (searchParams.get('q') ?? '').trim().toLowerCase();
   const [detections, setDetections] = useState([]);
   const [thresholds, setThresholds] = useState([]);
   const [showThresholds, setShowThresholds] = useState(false);
@@ -154,7 +157,20 @@ function DetectionsPage() {
   const replace = (updated) =>
     setDetections((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
 
-  const pending = detections.filter((d) => d.triage_status === 'new').length;
+  // Filtering happens here rather than server-side because the finding set for
+  // one capture is small and already loaded; a round-trip would add latency
+  // without adding accuracy.
+  const visible = useMemo(() => {
+    if (!query) return detections;
+    return detections.filter((d) => {
+      const haystack = [
+        d.subject_ip, d.rule_id, d.title, d.category, d.rationale,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [detections, query]);
+
+  const pending = visible.filter((d) => d.triage_status === 'new').length;
 
   return (
     <Box sx={{ display: 'flex', backgroundColor: '#080B14', minHeight: '100vh' }}>
@@ -169,6 +185,17 @@ function DetectionsPage() {
             <Chip label={`${pending} awaiting review`} size="small" sx={{
               backgroundColor: 'rgba(255,176,32,0.15)', color: '#FFB020', fontSize: 11.5,
             }} />
+            {query && (
+              // A filter that is not visible is a filter that misleads: without
+              // this the page looks like the full finding set.
+              <Chip
+                label={`filtered: "${query}" (${visible.length}/${detections.length})`}
+                size="small" onDelete={() => setSearchParams({})}
+                sx={{
+                  backgroundColor: 'rgba(0,212,255,0.15)', color: '#00D4FF', fontSize: 11.5,
+                }}
+              />
+            )}
             <Box sx={{ flexGrow: 1 }} />
             <Button size="small" onClick={() => setShowThresholds((v) => !v)}
               sx={{ fontSize: 12, color: 'rgba(229,231,235,0.6)' }}>
@@ -210,12 +237,14 @@ function DetectionsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
               <CircularProgress sx={{ color: '#00D4FF' }} />
             </Box>
-          ) : !detections.length ? (
+          ) : !visible.length ? (
             <Alert severity="info">
-              No findings yet. Import a capture and run detection from the dashboard.
+              {query
+                ? `No findings match "${query}".`
+                : 'No findings yet. Import a capture and run detection from the dashboard.'}
             </Alert>
           ) : (
-            detections.map((d) => (
+            visible.map((d) => (
               <DetectionCard key={d.id} detection={d} onTriaged={replace} />
             ))
           )}

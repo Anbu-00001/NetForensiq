@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Menu, MenuItem } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { useNavigate } from 'react-router-dom';
 import { logout, getCurrentUser } from '../../services/auth';
-import { Box, Typography, InputBase, Badge, Avatar } from '@mui/material';
+import { Box, Typography, InputBase, Avatar } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 
 function TopBar() {
   const [anchorEl, setAnchorEl] = useState(null);
+  const [term, setTerm] = useState('');
+  const navigate = useNavigate();
 const user = getCurrentUser();
 const initials = user?.first_name
   ? user.first_name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -65,7 +67,14 @@ const initials = user?.first_name
       >
         <SearchIcon sx={{ fontSize: 17, color: 'rgba(229,231,235,0.4)' }} />
         <InputBase
-          placeholder="Search IP, domain, hash…"
+          placeholder="Search IP, domain, rule…"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return;
+            const q = term.trim();
+            navigate(q ? `/detections?q=${encodeURIComponent(q)}` : '/detections');
+          }}
           sx={{
             fontSize: 13,
             color: '#E5E7EB',
@@ -75,14 +84,6 @@ const initials = user?.first_name
         />
       </Box>
 
-      <Badge
-        variant="dot"
-        sx={{ '& .MuiBadge-dot': { backgroundColor: '#FF3B5C', boxShadow: '0 0 8px #FF3B5C' } }}
-      >
-        <NotificationsNoneIcon
-          sx={{ fontSize: 21, color: 'rgba(229,231,235,0.65)', cursor: 'pointer' }}
-        />
-      </Badge>
 
       <Box
         onClick={(e) => setAnchorEl(e.currentTarget)}
