@@ -351,3 +351,130 @@ class DirectionAndNoiseTests(TestCase):
         self.assertEqual(initiator, '203.0.113.9')
         self.assertEqual(peer, '192.168.10.5')
         self.assertEqual(service_port, 5985)
+
+
+class FlowSplittingTests(TestCase):
+    """
+    A 5-tuple is not a connection.
+
+    Clients reuse ephemeral ports, so over a long capture the same tuple
+    recurs for conversations far apart in time. Without splitting they merge
+    into one record whose duration and intervals are meaningless — a real
+    week-long server capture produced flows reporting 22,736 seconds while
+    carrying 148 bytes.
+    """
+
+    @staticmethod
+    def _tcp(src, dst, sport, dport, flags, when, payload=b''):
+        from scapy.layers.inet import IP, TCP
+        pkt = IP(src=src, dst=dst) / TCP(sport=sport, dport=dport, flags=flags)
+        if payload:
+            pkt = pkt / Raw(load=payload)
+        pkt.time = when
+        return pkt
+
+    def _import(self, packets, name):
+        path = write_pcap(packets)
+        session, _ = run_pcap_import(path, name=name)
+        return session
+
+    def test_a_new_syn_on_a_reused_port_starts_a_new_flow(self):
+        """Exact, not heuristic: a SYN on a tuple already carrying traffic."""
+        t = 1_700_000_000.0
+        packets = []
+        for conn in range(3):
+            base = t + conn * 10  # well inside the 300s TCP idle timeout
+            packets += [
+                self._tcp('192.168.1.10', '203.0.113.5', 51000, 443, 'S', base),
+                self._tcp('203.0.113.5', '192.168.1.10', 443, 51000, 'SA', base + 0.02),
+                self._tcp('192.168.1.10', '203.0.113.5', 51000, 443, 'PA', base + 0.05, b'x' * 40),
+                self._tcp('192.168.1.10', '203.0.113.5', 51000, 443, 'FA', base + 0.09),
+            ]
+
+        session = self._import(packets, 'syn-reuse')
+        self.assertEqual(
+            session.flows.count(), 3,
+            'three connections on one reused ephemeral port must be three flows',
+        )
+
+    def test_an_idle_gap_ends_a_flow(self):
+        """
+        Captures often begin mid-stream and never show a SYN, so the timeout
+        has to stand on its own. UDP idles out after 60s.
+        """
+        from scapy.layers.inet import IP, UDP
+        t = 1_700_000_000.0
+        packets = []
+        for offset in (0, 1, 2, 500, 501):     # a 498s silence in the middle
+            pkt = IP(src='192.168.1.10', dst='203.0.113.5') / UDP(sport=40000, dport=9999)
+            pkt.time = t + offset
+            packets.append(pkt)
+
+        session = self._import(packets, 'udp-idle')
+        self.assertEqual(session.flows.count(), 2)
+
+    def test_traffic_within_the_timeout_stays_one_flow(self):
+        """The mirror: normal conversation must not be shredded into fragments."""
+        t = 1_700_000_000.0
+        packets = [
+            self._tcp('192.168.1.10', '203.0.113.5', 51000, 443, 'S', t),
+            self._tcp('203.0.113.5', '192.168.1.10', 443, 51000, 'SA', t + 0.02),
+        ]
+        for i in range(20):
+            packets.append(self._tcp(
+                '192.168.1.10', '203.0.113.5', 51000, 443, 'PA', t + 1 + i * 5, b'y' * 60))
+
+        session = self._import(packets, 'single-conn-intact')
+        self.assertEqual(session.flows.count(), 1)
+
+    def test_split_flows_report_their_own_durations(self):
+        """
+        The defect this fixes: duration must describe the conversation, not
+        the span between unrelated reuses of the same port.
+        """
+        t = 1_700_000_000.0
+        packets = []
+        for conn in range(2):
+            base = t + conn * 4000        # far apart, as in a week-long capture
+            packets += [
+                self._tcp('192.168.1.10', '203.0.113.5', 51000, 443, 'S', base),
+                self._tcp('203.0.113.5', '192.168.1.10', 443, 51000, 'SA', base + 0.02),
+                self._tcp('192.168.1.10', '203.0.113.5', 51000, 443, 'PA', base + 1.0, b'z' * 50),
+            ]
+
+        session = self._import(packets, 'durations')
+        durations = sorted(f.duration_seconds for f in session.flows.all())
+        self.assertEqual(len(durations), 2)
+        for d in durations:
+            self.assertLess(
+                d, 10.0,
+                f'flow duration {d}s spans the gap between separate connections',
+            )
+
+    def test_dns_records_link_to_the_right_flow_instance(self):
+        """
+        DNS records used to be matched back by 5-tuple. Once one tuple can
+        yield several flows, that attaches every record to whichever flow
+        happened to be created last.
+        """
+        from scapy.layers.inet import IP, UDP
+        from scapy.layers.dns import DNS, DNSQR
+
+        t = 1_700_000_000.0
+        packets = []
+        for i, offset in enumerate((0, 500)):   # second query after a UDP idle-out
+            pkt = (IP(src='192.168.1.10', dst='8.8.8.8')
+                   / UDP(sport=40000, dport=53)
+                   / DNS(rd=1, qd=DNSQR(qname=f'host{i}.example.com')))
+            pkt.time = t + offset
+            packets.append(pkt)
+
+        session = self._import(packets, 'dns-split')
+        self.assertEqual(session.flows.count(), 2)
+
+        linked = [r for r in session.dns_records.all() if r.flow_id]
+        self.assertEqual(len(linked), 2)
+        self.assertEqual(
+            len({r.flow_id for r in linked}), 2,
+            'each DNS query must attach to the flow it was actually seen in',
+        )

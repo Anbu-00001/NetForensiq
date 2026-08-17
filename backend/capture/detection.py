@@ -78,6 +78,8 @@ SRC_SNORT3 = 'Snort 3 port_scan inspector defaults (Cisco Talos)'
 SRC_FARNHAM = 'Farnham & Atlasis (2013), DNS tunnelling label length — secondary source only'
 SRC_PING = 'ping(8) default payload: 56 bytes Linux / 32 bytes Windows'
 OUR_HEURISTIC = '[OUR HEURISTIC] no citable source; see SPEC_02 heuristics table'
+SRC_ZEEK_IDLE = ('Zeek scripts/base/init-bare.zeek — tcp_inactivity_timeout 5 min, '
+                 'udp_inactivity_timeout 1 min (verified against source, not docs)')
 
 
 # Ports where an unrecognised, long-lived encrypted channel is unremarkable.
@@ -146,6 +148,11 @@ THRESHOLDS = {
     # the same thing in both.
     'keepalive_min_intervals': (20, OUR_HEURISTIC + ' — below ~20 samples the MAD estimate '
                                                     'is too unstable to act on'),
+
+    # ── flow aggregation (not a detection threshold, but it shapes every one
+    #    of them: it decides where one conversation ends and the next begins) ──
+    'flow_idle_timeout_tcp': (300, SRC_ZEEK_IDLE),
+    'flow_idle_timeout_udp': (60, SRC_ZEEK_IDLE),
 
     # ── unrecognised long-lived channel ──
     'unknown_channel_min_duration': (60, OUR_HEURISTIC + ' — long enough to be a session '

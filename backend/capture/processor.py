@@ -25,6 +25,26 @@ WELL_KNOWN_PORTS = {
 MAX_ENTROPY_SAMPLES = 40
 ENTROPY_SAMPLE_BYTES = 512
 
+# A 5-tuple is not a connection. Clients reuse ephemeral ports, so over a long
+# capture the same tuple recurs for conversations hours apart; without a
+# timeout they merge into one "flow" whose duration and intervals are
+# meaningless. A real week-long server capture produced flows reporting 22,736
+# seconds while carrying 148 bytes.
+#
+# Values are Zeek's, verified against its source rather than its docs:
+# scripts/base/init-bare.zeek declares
+#   const tcp_inactivity_timeout  = 5 min   (line 1791)
+#   const udp_inactivity_timeout  = 1 min   (line 1797)
+#   const icmp_inactivity_timeout = 1 min   (line 1803)
+# Zeek also defines a timeout for unknown IP protocols; 1 min is used here for
+# anything not listed, matching its UDP/ICMP choice.
+IDLE_TIMEOUT_SECONDS = {'TCP': 300.0, 'UDP': 60.0, 'ICMP': 60.0}
+DEFAULT_IDLE_TIMEOUT = 60.0
+SRC_ZEEK_TIMEOUT = (
+    'Zeek scripts/base/init-bare.zeek — tcp_inactivity_timeout 5 min, '
+    'udp_inactivity_timeout 1 min, icmp_inactivity_timeout 1 min'
+)
+
 
 def packet_timestamp(pkt):
     """
@@ -75,7 +95,14 @@ class FlowAggregator:
     """
 
     def __init__(self):
+        # Active flows, keyed by 5-tuple. A flow leaves here and joins
+        # `completed` when the connection ends or goes idle, so a reused
+        # ephemeral port starts a fresh record rather than extending an old one.
         self.flows = {}
+        self.completed = []
+        # A 5-tuple can now yield several flows, so DNS records cannot be
+        # linked back by tuple. Each flow gets a unique id instead.
+        self._next_uid = 0
         self.dns_records = []
         self.total_packets = 0
         self.total_bytes = 0
@@ -85,11 +112,13 @@ class FlowAggregator:
     # ── ingestion ────────────────────────────────────────────────────────
 
     def process(self, pkt):
-        if IP in pkt:
-            ip_layer = pkt[IP]
-        elif IPv6 in pkt:
-            ip_layer = pkt[IPv6]
-        else:
+        # Each `X in pkt` / `pkt[X]` pair walks the layer chain, and this
+        # method used to do six such walks per packet (IP, IPv6, TCP, UDP,
+        # ICMP, DNS) plus more inside the helpers. getlayer() returns the layer
+        # or None in one traversal, so every lookup below happens exactly once
+        # and the resolved layer is passed down rather than re-fetched.
+        ip_layer = pkt.getlayer(IP) or pkt.getlayer(IPv6)
+        if ip_layer is None:
             return
 
         src_ip, dst_ip = ip_layer.src, ip_layer.dst
@@ -104,10 +133,17 @@ class FlowAggregator:
         if self.last_packet_time is None or now > self.last_packet_time:
             self.last_packet_time = now
 
-        protocol, sport, dport, flags = self._classify(pkt)
+        protocol, sport, dport, flags, transport = self._classify(pkt)
         key = flow_key(src_ip, dst_ip, sport, dport, protocol)
 
+        is_syn = (protocol == 'TCP' and 'S' in flags and 'A' not in flags)
+
         f = self.flows.get(key)
+        if f is not None and self._starts_new_flow(f, protocol, now, is_syn):
+            self.completed.append(f)
+            del self.flows[key]
+            f = None
+
         if f is None:
             f = self._new_flow(key, protocol, src_ip, sport, now)
             self.flows[key] = f
@@ -115,7 +151,7 @@ class FlowAggregator:
         # Establish direction. A TCP SYN without ACK is definitive proof of
         # who opened the conversation, and overrides the first-seen guess —
         # captures frequently start mid-stream.
-        if protocol == 'TCP' and 'S' in flags and 'A' not in flags:
+        if is_syn:
             f['initiator_ip'] = src_ip
             f['initiator_port'] = sport
             f['initiator_confirmed'] = True
@@ -146,25 +182,37 @@ class FlowAggregator:
                 WELL_KNOWN_PORTS.get(dport) or WELL_KNOWN_PORTS.get(sport) or ''
             )
 
-        payload = self._payload_of(pkt, protocol)
+        payload = self._payload_of(transport)
         if payload and len(f['entropy_samples']) < MAX_ENTROPY_SAMPLES:
             f['entropy_samples'].append(
                 shannon_entropy(payload[:ENTROPY_SAMPLE_BYTES])
             )
 
-        if DNS in pkt:
+        # `DNS in pkt` walks the layer chain on every packet. DNS rides port
+        # 53, and a tunnel must use 53 too — that is the whole point of the
+        # technique, it is the port allowed out. Gating on the port first
+        # skips the traversal for the overwhelming majority of packets.
+        if 53 in (sport, dport):
             self._process_dns(pkt, f, src_ip, now)
 
         if protocol == 'TCP' and payload:
             self._process_app_layer(payload, f, dport)
 
     def _classify(self, pkt):
-        """Return (protocol, sport, dport, tcp_flags)."""
-        if TCP in pkt:
-            return 'TCP', pkt[TCP].sport, pkt[TCP].dport, self._decode_tcp_flags(pkt[TCP].flags)
-        if UDP in pkt:
-            return 'UDP', pkt[UDP].sport, pkt[UDP].dport, ''
-        if ICMP in pkt:
+        """
+        Return (protocol, sport, dport, tcp_flags, transport_layer).
+
+        The transport layer is returned so callers can read its payload
+        without walking the chain again.
+        """
+        tcp = pkt.getlayer(TCP)
+        if tcp is not None:
+            return 'TCP', tcp.sport, tcp.dport, self._decode_tcp_flags(tcp.flags), tcp
+        udp = pkt.getlayer(UDP)
+        if udp is not None:
+            return 'UDP', udp.sport, udp.dport, '', udp
+        icmp = pkt.getlayer(ICMP)
+        if icmp is not None:
             # ICMP has no ports. Following the Cisco NetFlow convention, the
             # type and code are packed into the destination port field as
             # type*256 + code, so the message kind survives flow aggregation.
@@ -172,12 +220,35 @@ class FlowAggregator:
             # cannot tell an echo request carrying data from a destination-
             # unreachable error — which quotes the original packet headers and
             # is therefore also large.
-            icmp = pkt[ICMP]
-            return 'ICMP', 0, (int(icmp.type) * 256) + int(icmp.code), ''
-        return 'OTHER', 0, 0, ''
+            return 'ICMP', 0, (int(icmp.type) * 256) + int(icmp.code), '', icmp
+        return 'OTHER', 0, 0, '', None
+
+    def _starts_new_flow(self, f, protocol, now, is_syn):
+        """
+        Whether this packet begins a new conversation on an existing 5-tuple.
+
+        Two independent signals:
+
+        * **A fresh SYN.** A TCP SYN without ACK on a tuple that already
+          carries traffic is a new connection by definition — the client
+          reused the ephemeral port. This is exact, not heuristic.
+        * **Idle gap.** For everything else (UDP, ICMP, captures that begin
+          mid-stream and never show a SYN), a silence longer than the
+          protocol's inactivity timeout ends the flow, as Zeek does.
+
+        Only forward gaps count: packets can arrive slightly out of order and
+        a negative gap must never split a flow.
+        """
+        if is_syn and (f['packets_sent'] + f['packets_received']) > 0:
+            return True
+
+        timeout = IDLE_TIMEOUT_SECONDS.get(protocol, DEFAULT_IDLE_TIMEOUT)
+        return (now - f['last_seen']) > timeout
 
     def _new_flow(self, key, protocol, src_ip, sport, now):
+        self._next_uid += 1
         return {
+            '_uid': self._next_uid,
             'src_ip': key[0], 'src_port': key[1],
             'dst_ip': key[2], 'dst_port': key[3],
             'protocol': protocol,
@@ -201,17 +272,13 @@ class FlowAggregator:
             'tls_sni': '',
         }
 
-    def _payload_of(self, pkt, protocol):
+    def _payload_of(self, transport):
+        if transport is None:
+            return b''
         try:
-            if protocol == 'TCP':
-                return bytes(pkt[TCP].payload)
-            if protocol == 'UDP':
-                return bytes(pkt[UDP].payload)
-            if protocol == 'ICMP':
-                return bytes(pkt[ICMP].payload)
+            return bytes(transport.payload)
         except Exception:
             return b''
-        return b''
 
     def _decode_tcp_flags(self, flag_value):
         return ''.join(
@@ -219,8 +286,11 @@ class FlowAggregator:
         )
 
     def _process_dns(self, pkt, f, src_ip, now):
-        dns = pkt[DNS]
-        if dns.qr != 0 or not dns.qd:
+        # Callers gate on port 53, which is necessary but not sufficient:
+        # traffic on 53 that scapy did not dissect as DNS (truncated, or
+        # something else entirely on that port) has no DNS layer.
+        dns = pkt.getlayer(DNS)
+        if dns is None or dns.qr != 0 or not dns.qd:
             return
 
         try:
@@ -248,7 +318,7 @@ class FlowAggregator:
             'label_count': feats['label_count'],
             'query_entropy': feats['query_entropy'],
             'timestamp': datetime.fromtimestamp(now, tz=dt_timezone.utc),
-            'flow_key': (f['src_ip'], f['src_port'], f['dst_ip'], f['dst_port'], f['protocol']),
+            'flow_uid': f['_uid'],
         })
 
     def _process_app_layer(self, payload, f, dport):
@@ -313,7 +383,8 @@ class FlowAggregator:
     def finalize(self):
         """Convert in-memory state into database-ready dicts."""
         results = []
-        for key, f in self.flows.items():
+        # Flows retired mid-capture plus those still open at the end.
+        for f in [*self.completed, *self.flows.values()]:
             metrics = compute_flow_metrics(f)
             results.append({
                 'src_ip': f['src_ip'],
@@ -338,7 +409,7 @@ class FlowAggregator:
                 'max_dns_entropy': round(f['max_dns_entropy'], 4),
                 'http_host': f['http_host'],
                 'tls_sni': f['tls_sni'],
-                '_key': key,
+                '_uid': f['_uid'],
                 '_timestamps': f['timestamps'],
                 **metrics,
             })

@@ -31,9 +31,12 @@ def persist_results(session, flows, dns_records, aggregator):
 
     for idx, f in enumerate(flows):
         record = dict(f)
-        key = record.pop('_key')
+        # Flows are identified by a unique id, not by 5-tuple: with idle
+        # timeouts one tuple can produce many flows, and keying by tuple would
+        # attach every DNS record to whichever of them happened to be last.
+        uid = record.pop('_uid')
         record.pop('_timestamps', None)          # timing already reduced to features
-        key_to_index[key] = idx
+        key_to_index[uid] = idx
         flow_objects.append(Flow(session=session, **record))
 
     created_flows = Flow.objects.bulk_create(flow_objects, batch_size=500)
@@ -41,7 +44,7 @@ def persist_results(session, flows, dns_records, aggregator):
     dns_objects = []
     for rec in dns_records:
         record = dict(rec)
-        fkey = record.pop('flow_key', None)
+        fkey = record.pop('flow_uid', None)
         linked_flow = None
         if fkey is not None and fkey in key_to_index:
             linked_flow = created_flows[key_to_index[fkey]]

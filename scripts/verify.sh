@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+#
+# End-of-phase verification. One command, everything checked.
+#
+#   ./scripts/verify.sh
+#
+# Why this exists: the Playwright suite needs a running API on :8011 with a
+# seeded analyst account and at least one analysed capture. When that was left
+# as a manual precondition it silently drifted — the server would be stopped,
+# or running code from before the last edit, and the E2E run would fail for
+# reasons unrelated to the change under test. This script owns the whole
+# sequence so a phase is either green or it is not.
+#
+# It starts the API only if one is not already listening, and stops only what
+# it started, so it is safe to run against a dev server you have open.
+
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKEND="$ROOT/backend"
+FRONTEND="$ROOT/frontend"
+PY="$BACKEND/.venv/bin/python"
+API_PORT=8011
+API_URL="http://127.0.0.1:$API_PORT"
+
+STARTED_API=""
+FAILED=0
+
+cleanup() {
+  if [[ -n "$STARTED_API" ]]; then
+    echo "→ stopping the API this script started (pid $STARTED_API)"
+    kill "$STARTED_API" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+step() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
+fail() { printf '\033[31m✘ %s\033[0m\n' "$1"; FAILED=1; }
+ok()   { printf '\033[32m✔ %s\033[0m\n' "$1"; }
+
+# ── 1. backend unit + integration tests ──────────────────────────────────
+step "Backend tests"
+if (cd "$BACKEND" && "$PY" manage.py test 2>&1 | tail -5); then
+  ok "backend suite passed"
+else
+  fail "backend suite FAILED"
+fi
+
+# ── 2. demo data ─────────────────────────────────────────────────────────
+# The E2E assertions compare on-screen figures against the API, so there has
+# to be something to compare. Seeded only when missing — re-seeding every run
+# would discard triage decisions made by hand while demoing.
+step "Demo data"
+NEEDS_SEED=$(cd "$BACKEND" && "$PY" manage.py shell -c "
+from capture.models import CaptureSession, Detection
+print('yes' if not Detection.objects.exists() else 'no')
+" 2>/dev/null | tail -1)
+
+if [[ "$NEEDS_SEED" == "yes" ]]; then
+  echo "→ no detections present; generating and analysing the demo capture"
+  (cd "$BACKEND" \
+    && "$PY" manage.py generate_traffic --scenario mixed --seed 7 >/dev/null \
+    && "$PY" manage.py import_pcap synthetic_captures/demo_storyline.pcap --name demo >/dev/null \
+    && "$PY" manage.py analyze_session >/dev/null) \
+    && ok "demo data seeded" || fail "could not seed demo data"
+else
+  ok "demo data already present"
+fi
+
+# ── 3. API ───────────────────────────────────────────────────────────────
+step "API on :$API_PORT"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$API_URL/api/" || true)
+
+if [[ "$CODE" == "000" ]]; then
+  echo "→ nothing listening; starting one"
+  (cd "$BACKEND" && "$PY" manage.py runserver "127.0.0.1:$API_PORT" --noreload \
+      >/tmp/netforensiq-verify-api.log 2>&1) &
+  STARTED_API=$!
+  for _ in $(seq 1 20); do
+    CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "$API_URL/api/" || true)
+    [[ "$CODE" == "401" ]] && break
+    sleep 1
+  done
+fi
+
+# 401 is the healthy answer: the API denies by default, so an unauthenticated
+# probe reaching it proves both that it is up and that the guard is on.
+if [[ "$CODE" == "401" ]]; then
+  ok "API responding (401 unauthenticated, as it should)"
+elif [[ "$CODE" == "200" ]]; then
+  fail "API returned 200 to an unauthenticated request — the permission guard is OFF"
+else
+  fail "API not reachable (got '$CODE'); see /tmp/netforensiq-verify-api.log"
+fi
+
+# ── 4. E2E ───────────────────────────────────────────────────────────────
+step "Playwright E2E"
+if [[ "$FAILED" == "1" ]]; then
+  echo "skipped — fix the failures above first"
+else
+  if (cd "$FRONTEND" && npx playwright test 2>&1 | tail -18); then
+    ok "E2E suite passed"
+  else
+    fail "E2E suite FAILED"
+  fi
+fi
+
+# ── 5. verdict ───────────────────────────────────────────────────────────
+step "Result"
+if [[ "$FAILED" == "0" ]]; then
+  printf '\033[32mPhase verified.\033[0m\n'
+else
+  printf '\033[31mPhase NOT verified — see failures above.\033[0m\n'
+fi
+exit "$FAILED"

@@ -155,3 +155,4 @@ dmypy.json
 
 # Serena / code-intelligence local state
 .serena/
+backend/reference_captures/
