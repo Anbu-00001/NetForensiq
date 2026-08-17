@@ -6,9 +6,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.models import AuditLog
+from accounts.permissions import IsInvestigatorOrReadOnly
 from accounts.utils import log_action
 
-from .detection import THRESHOLDS, analyse_session
+from .detection import INFORMATIONAL_THRESHOLDS, THRESHOLDS, analyse_session
 from .models import CaptureSession, DNSRecord, Detection, Flow
 from .serializers import (
     CaptureSessionSerializer, DNSRecordSerializer, DetectionSerializer,
@@ -163,6 +164,7 @@ class DNSRecordViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsInvestigatorOrReadOnly]
     """Findings, plus the analyst triage action."""
 
     serializer_class = DetectionSerializer
@@ -229,6 +231,11 @@ class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
                 # as "[OUR HEURISTIC, informed by practitioner sources]", and an
                 # exact-match check would silently report those as sourced.
                 'is_heuristic': '[OUR HEURISTIC' in source,
+                # Aggregation parameters shape what the rules see but are
+                # not themselves a test any rule performs. Presenting them
+                # identically to detection thresholds overstates what the
+                # engine checks.
+                'is_informational': key in INFORMATIONAL_THRESHOLDS,
             }
             for key, (value, source) in sorted(THRESHOLDS.items())
         ])

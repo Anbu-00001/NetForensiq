@@ -224,6 +224,14 @@ function DetectionsPage() {
                         backgroundColor: 'rgba(255,176,32,0.15)', color: '#FFB020',
                       }} />
                     )}
+                    {t.is_informational && (
+                      // Not a test any rule performs — it decides where one
+                      // conversation ends and the next begins.
+                      <Chip label="aggregation, not a rule" size="small" sx={{
+                        ml: 1, height: 17, fontSize: 10,
+                        backgroundColor: 'rgba(122,134,153,0.2)', color: '#9AA5B4',
+                      }} />
+                    )}
                   </Typography>
                   <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.45)' }}>
                     {t.source}

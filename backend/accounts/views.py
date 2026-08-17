@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from .serializers import RegisterSerializer, UserSerializer
 from .models import User
 from .utils import log_action
@@ -109,3 +111,40 @@ class ApprovalStatusView(APIView):
             'submitted_at': user.created_at,
             'approved_at': user.approved_at,
         })
+
+class LogoutView(APIView):
+    """
+    End a session for real.
+
+    Sign-out used to be a purely client-side act: the browser dropped its
+    sessionStorage and redirected. The refresh token stayed valid for its full
+    day, so anyone who had captured it could keep minting access tokens from a
+    session the officer believed they had closed — and nothing recorded that
+    the session ended, leaving AuditLog.Action.LOGOUT defined and never used.
+
+    Blacklisting requires rest_framework_simplejwt.token_blacklist, which is in
+    INSTALLED_APPS. A token that is already blacklisted, expired or malformed
+    still yields success: the caller's intent is to end the session, and that
+    outcome has been achieved either way.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get('refresh')
+        blacklisted = False
+
+        if refresh:
+            try:
+                RefreshToken(refresh).blacklist()
+                blacklisted = True
+            except TokenError:
+                blacklisted = False
+
+        log_action(
+            request, AuditLog.Action.LOGOUT, user=request.user,
+            username_attempted=request.user.username,
+            detail=('Signed out; refresh token blacklisted' if blacklisted
+                    else 'Signed out; no valid refresh token supplied to blacklist'),
+        )
+        return Response({'detail': 'Signed out.', 'token_blacklisted': blacklisted})

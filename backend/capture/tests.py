@@ -478,3 +478,54 @@ class FlowSplittingTests(TestCase):
             len({r.flow_id for r in linked}), 2,
             'each DNS query must attach to the flow it was actually seen in',
         )
+
+
+class ThresholdsAreActuallyAppliedTests(TestCase):
+    """
+    The provenance panel publishes every THRESHOLDS entry to the user as if it
+    governed detection. Eight of them did not: a 15-minute scan window that was
+    never implemented, an entropy gate the DNS rule never consulted, a binwalk
+    falling edge with no sequence to apply it to, and idle timeouts restated as
+    literals somewhere else. A published threshold that nothing reads is a
+    false statement about how the system works.
+    """
+
+    def test_every_published_threshold_is_read_by_the_engine(self):
+        import re
+        from pathlib import Path as _Path
+
+        source = _Path(__file__).with_name('detection.py').read_text()
+
+        # Keys reached through _t(...) / _cite(...) anywhere in the module
+        used = set(re.findall(r"_(?:t|cite)\(\s*'([a-z0-9_]+)'", source))
+        # Keys resolved dynamically, e.g. _cite(x if cond else y)
+        used |= set(re.findall(r"'([a-z0-9_]+)'\s+if\s+", source))
+        used |= set(re.findall(r"else\s+'([a-z0-9_]+)'", source))
+
+        # Aggregation parameters are published deliberately and are exempt,
+        # but only because they are explicitly listed as such.
+        from .detection import INFORMATIONAL_THRESHOLDS
+        unused = sorted(set(THRESHOLDS) - used - INFORMATIONAL_THRESHOLDS)
+        self.assertEqual(
+            unused, [],
+            'these thresholds are published to users but read by no rule: '
+            + ', '.join(unused),
+        )
+
+    def test_every_threshold_names_a_source(self):
+        for key, (_value, source) in THRESHOLDS.items():
+            self.assertTrue(source and source.strip(),
+                            f'{key} has no source string')
+
+    def test_no_threshold_claims_a_citation_it_does_not_have(self):
+        """
+        A source that says [OUR HEURISTIC] anywhere must carry the tag at a
+        position the API's prefix check can see, or the UI reports our own
+        invention as though it were sourced.
+        """
+        for key, (_value, source) in THRESHOLDS.items():
+            if 'HEURISTIC' in source:
+                self.assertIn(
+                    '[OUR HEURISTIC', source,
+                    f'{key} mentions a heuristic without the machine-readable tag',
+                )

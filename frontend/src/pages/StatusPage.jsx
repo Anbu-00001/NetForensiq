@@ -8,17 +8,24 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { ConsoleBar, FieldLabel, consoleField } from './LoginPage';
 import { checkApprovalStatus } from '../services/auth';
 
+// Three stages, because the backend has three states.
+//
+// There used to be a fourth, "02 Identity verification", and stageIndex()
+// returned 2 for any pending account — so it rendered COMPLETE with a green
+// tick. Nothing in the codebase verifies anyone's identity: ApprovalStatusView
+// reports submitted, approved or rejected, and an administrator's judgement is
+// the only check that happens. Telling an applicant their identity had been
+// verified was inventing a control.
 const STAGES = [
   { key: 'submitted', num: '01', label: 'Credentials submitted' },
-  { key: 'verification', num: '02', label: 'Identity verification' },
-  { key: 'authorization', num: '03', label: 'Admin authorization' },
-  { key: 'granted', num: '04', label: 'Access granted' },
+  { key: 'authorization', num: '02', label: 'Administrator review' },
+  { key: 'granted', num: '03', label: 'Access granted' },
 ];
 
 function stageIndex(stage) {
-  if (stage === 'approved') return 3;
+  if (stage === 'approved') return 2;
   if (stage === 'rejected') return -1;
-  return 2;
+  return 1;   // submitted; awaiting an administrator
 }
 
 function StatusPage() {

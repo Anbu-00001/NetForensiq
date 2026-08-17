@@ -16,11 +16,12 @@ const roles = [
   { value: 'viewer', label: 'Viewer' },
 ];
 
+// Only the stages that exist. "Identity verification" was advertised here and
+// on the status page; nothing in the system performs it.
 const pipeline = [
   ['01', 'Submit credentials', '#00D4FF', 'YOU ARE HERE'],
-  ['02', 'Identity verification', 'rgba(229,231,235,0.3)', 'PENDING'],
-  ['03', 'Admin authorization', 'rgba(229,231,235,0.3)', 'PENDING'],
-  ['04', 'Access granted', 'rgba(229,231,235,0.3)', 'LOCKED'],
+  ['02', 'Administrator review', 'rgba(229,231,235,0.3)', 'PENDING'],
+  ['03', 'Access granted', 'rgba(229,231,235,0.3)', 'LOCKED'],
 ];
 
 function RegisterPage() {

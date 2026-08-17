@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import BooleanField, CharField, ModelSerializer
 
 from accounts.models import AuditLog
+from accounts.permissions import IsInvestigatorOrReadOnly
 from accounts.utils import get_client_ip, log_action
 
 from .certificate_pdf import render_certificate_pdf
@@ -48,6 +49,7 @@ class Section63CertificateSerializer(ModelSerializer):
 
 
 class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsInvestigatorOrReadOnly]
     queryset = EvidenceRecord.objects.all()
     serializer_class = EvidenceRecordSerializer
 
@@ -129,6 +131,7 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsInvestigatorOrReadOnly]
     queryset = Section63Certificate.objects.select_related('evidence')
     serializer_class = Section63CertificateSerializer
 

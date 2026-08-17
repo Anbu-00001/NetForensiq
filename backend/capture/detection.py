@@ -237,6 +237,18 @@ THRESHOLDS = {
 }
 
 
+# Entries that shape detection without being applied by any single rule.
+# They are published because they change what the rules see — where one
+# conversation ends and the next begins — but a reader must not take them for
+# a test some rule performs.
+INFORMATIONAL_THRESHOLDS = frozenset({
+    'flow_idle_timeout_tcp',
+    'flow_idle_timeout_udp',
+    'flow_idle_timeout_icmp',
+    'flow_idle_timeout_default',
+})
+
+
 def _t(name):
     """Threshold value only."""
     return THRESHOLDS[name][0]
@@ -635,22 +647,30 @@ def rule_dns_tunnelling(session):
         'samples': [], 'flow': None,
     })
 
-    # Two ways in, because label length alone is not the whole signal.
+    # Length AND entropy, not length OR entropy.
     #
-    #   * A label at or past the 52-character mark is suspicious on its own —
-    #     tunnels pack up to RFC 1035's 63-octet ceiling.
-    #   * A shorter label that is nonetheless high-entropy is also encoded
-    #     payload. Tunnels under a long parent domain have less room per label
-    #     (dnscat2 subtracts the domain from its budget), so a length-only test
-    #     misses them entirely.
+    # The widening form was tried first — flag anything past 52 characters, or
+    # anything past 20 characters that is also high-entropy — on the reasoning
+    # that a tunnel under a long parent domain has less room per label. On real
+    # traffic it immediately flagged
+    # `sunshine-bizrate-inc-software.trycloudflare.com` as DNS tunnelling.
     #
-    # The entropy test is floored at a minimum label length because Shannon
-    # entropy over a handful of characters is too unstable to act on: a
-    # 6-character label of distinct letters scores near the maximum.
+    # That host is genuinely malicious: it is the AsyncRAT campaign's payload
+    # delivery infrastructure, named in the published ground truth. But it is a
+    # Cloudflare quick-tunnel hostname made of dictionary words, not encoded
+    # payload, and calling it a DNS tunnel is a wrong finding that happens to
+    # point at a right host. An officer acting on the stated reason would be
+    # looking for something that is not there.
+    #
+    # Hyphenated English words sit at roughly the same Shannon entropy as
+    # hex-encoded payload (~3.5-4.0 bits/char), so entropy cannot widen the net
+    # on its own. It can usefully narrow it: a label that is both at tunnel
+    # length and high-entropy is a stronger call than length alone. The minimum
+    # length guard remains because entropy over a handful of characters is too
+    # unstable to act on.
     matches = session.dns_records.filter(
-        Q(subdomain_length__gte=label_len)
-        | Q(subdomain_length__gte=entropy_min_len,
-            query_entropy__gte=entropy_thresh)
+        subdomain_length__gte=max(label_len, entropy_min_len),
+        query_entropy__gte=entropy_thresh,
     )
     for record in matches:
         labels = record.query_name.split('.')
@@ -671,15 +691,17 @@ def rule_dns_tunnelling(session):
             category='exfiltration',
             severity=Detection.Severity.HIGH,
             method=Detection.Method.RULE,
-            confidence=min(entry['max_len'] / (label_len * 2), 1.0),
+            confidence=min(entry['max_len'] / (label_len * _t('confidence_scale_multiplier')), 1.0),
             subject_ip=src_ip,
             rationale=(
                 f'{src_ip} issued {entry["count"]} queries under {parent} whose subdomain '
                 f'labels reach {entry["max_len"]} characters (peak entropy '
                 f'{entry["max_entropy"]:.2f} bits/char). DNS tunnelling encodes payload into '
                 f'subdomain labels, producing long high-entropy names; ordinary domains do '
-                f'not. Flagged at {label_len} characters, or from {entropy_min_len} '
-                f'characters when entropy reaches {entropy_thresh} bits/char. Antivirus '
+                f'not. Flagged only when a label reaches both {label_len} characters '
+                f'and {entropy_thresh} bits/char — length alone catches hostnames made of '
+                f'dictionary words, which are suspicious for other reasons but are not '
+                f'tunnels. Antivirus '
                 f'reputation lookups and some CDNs legitimately use long encoded labels '
                 f'and must be ruled out.'
             ),
@@ -689,10 +711,7 @@ def rule_dns_tunnelling(session):
                 'observed_max_entropy': entry['max_entropy'],
                 'parent_domain': parent,
                 'samples': entry['samples'],
-                'matched_on': (
-                    'label length' if entry['max_len'] >= label_len
-                    else 'entropy of a shorter label'
-                ),
+                'matched_on': 'label length AND entropy, both required',
                 **_cite('dns_label_length'),
                 'entropy_threshold': _cite('dns_label_entropy'),
                 'entropy_min_length': _cite('dns_entropy_min_label_len'),
@@ -716,7 +735,7 @@ def rule_dns_tunnelling(session):
             category='exfiltration',
             severity=Detection.Severity.MEDIUM,
             method=Detection.Method.RULE,
-            confidence=min(len(names) / (uniq_thresh * 4), 1.0),
+            confidence=min(len(names) / (uniq_thresh * _t('confidence_scale_multiplier')), 1.0),
             subject_ip=src_ip,
             rationale=(
                 f'{src_ip} resolved {len(names)} distinct subdomains under {parent} '
@@ -738,106 +757,125 @@ def rule_dns_tunnelling(session):
 
 def rule_port_scan(session):
     """
-    Port scanning, following ncsa/bro-simple-scan's actual model.
+    Port scanning, using ncsa/bro-simple-scan's thresholds with one deliberate
+    departure from its aggregation.
 
-    Three things that citation implies and this rule previously did not do:
+    Taken from that tool, verified against its source:
 
-    * **scan_timeout is an inactivity timeout, not a window.** Its comment
-      reads "Failed connection attempts are tracked until not seen for this
-      interval". Probing is therefore one episode until the source goes quiet
-      for 15 minutes, so a slow sweep spread over a week is several episodes
-      rather than one giant one — and each is judged on its own.
-    * **Local hosts get a far higher threshold** — 250 against 25. An internal
-      backup agent or monitoring box legitimately touches many ports, and
-      holding it to a remote scanner's bar is how a NOC ends up ignoring the
-      rule.
-    * **The count is of host+port combinations**, so probing one port across
-      many hosts counts too — which a per-destination port count misses
-      entirely.
+    * `scan_threshold = 25` unique **host+port combinations** — so probing one
+      port across many hosts counts, which a per-destination port count misses.
+    * `local_scan_threshold = 250`. A host inside HOME_NET gets a far higher
+      bar: internal backup agents, monitoring boxes and the organisation's own
+      vulnerability scanners legitimately touch many ports.
+    * `scan_timeout = 15min`, which its comment defines as an inactivity
+      timeout — "tracked until not seen for this interval" — not a rolling
+      window. An earlier version of this rule cited it as a window and
+      implemented neither.
+
+    **Where we depart, and why.** bro-simple-scan is a streaming detector: it
+    can only hold state for so long, so probing that resumes after the timeout
+    starts a fresh count and a slow sweep never trips it. Its own comment
+    concedes this ("A higher interval will detect slower scanners"). Applying
+    that model to a stored capture measured what the tool would have alerted on
+    in real time, not what is in the evidence: on a week of real traffic it
+    reported 100 episodes from 16 sources, having discarded 291 other hosts
+    that scanned the same server slowly.
+    
+    Slow-and-low is precisely what a careful attacker does, and a forensic tool
+    holds the whole capture, so the count here is cumulative per source. The
+    timeout is still applied — to describe the shape of the activity, and to
+    report the largest single burst — but it no longer decides what is seen.
     """
     findings = []
     remote_thresh = _t('scan_unique_ports')
     local_thresh = _t('scan_unique_ports_local')
     timeout = _t('scan_inactivity_timeout')
 
-    # Gather every probe per source, ordered in time, so episodes can be cut.
     per_source = defaultdict(list)
     for flow in session.flows.filter(protocol='TCP').order_by('first_seen'):
         initiator, peer, service_port = flow_direction(flow)
-        if not initiator:
-            continue
-        per_source[initiator].append((flow.first_seen, peer, service_port, flow))
+        if initiator:
+            per_source[initiator].append((flow.first_seen, peer, service_port, flow))
 
     for source, probes in per_source.items():
+        combos = {(peer, port) for _, peer, port, _ in probes}
         threshold = local_thresh if is_internal(source) else remote_thresh
+        if len(combos) < threshold:
+            continue
 
-        episode = []
-        last_seen = None
+        # Episode structure: how concentrated was the probing?
         episodes = []
+        current = []
+        previous = None
         for entry in probes:
-            when = entry[0]
-            if last_seen is not None and (when - last_seen).total_seconds() > timeout:
-                episodes.append(episode)
-                episode = []
-            episode.append(entry)
-            last_seen = when
-        if episode:
-            episodes.append(episode)
+            if previous is not None and (entry[0] - previous).total_seconds() > timeout:
+                episodes.append(current)
+                current = []
+            current.append(entry)
+            previous = entry[0]
+        if current:
+            episodes.append(current)
 
-        for group in episodes:
-            combos = {(peer, port) for _, peer, port, _ in group}
-            if len(combos) < threshold:
-                continue
+        largest = max(
+            (len({(peer, port) for _, peer, port, _ in ep}) for ep in episodes),
+            default=0,
+        )
+        targets = {peer for _, peer, _, _ in probes}
+        syn_only = sum(
+            1 for _, _, _, f in probes
+            if 'S' in (f.tcp_flags_seen or '') and 'A' not in (f.tcp_flags_seen or '')
+        )
+        syn_ratio = syn_only / len(probes) if probes else 0
+        span = (probes[-1][0] - probes[0][0]).total_seconds()
+        target_label = next(iter(targets)) if len(targets) == 1 else f'{len(targets)} hosts'
+        slow = len(episodes) > 1 and largest < threshold
 
-            targets = {peer for _, peer, _, _ in group}
-            syn_only = sum(
-                1 for _, _, _, f in group
-                if 'S' in (f.tcp_flags_seen or '') and 'A' not in (f.tcp_flags_seen or '')
-            )
-            syn_ratio = syn_only / len(group) if group else 0
-            span = (group[-1][0] - group[0][0]).total_seconds()
-            target_label = (
-                next(iter(targets)) if len(targets) == 1
-                else f'{len(targets)} hosts'
-            )
-
-            findings.append(Detection(
-                session=session, flow=group[0][3],
-                rule_id='RECON_PORT_SCAN',
-                title=f'Port scan: {source} probed {len(combos)} host+port '
-                      f'combinations on {target_label}',
-                category='reconnaissance',
-                severity=(Detection.Severity.HIGH
-                          if syn_ratio > _t('scan_syn_ratio_high')
-                          else Detection.Severity.MEDIUM),
-                method=Detection.Method.RULE,
-                confidence=min(len(combos) / (threshold * 4), 1.0),
-                subject_ip=source,
-                rationale=(
-                    f'{source} probed {len(combos)} distinct host+port combinations across '
-                    f'{len(targets)} host(s) in a single episode lasting {span:.0f}s. '
-                    f'{syn_only} of {len(group)} connections were SYN without a completed '
-                    f'handshake ({syn_ratio:.0%}), the half-open scan signature. Threshold '
-                    f'{threshold} combinations, applied because this source is '
-                    f'{"inside" if is_internal(source) else "outside"} the monitored '
-                    f'network. An episode ends when the source goes quiet for '
-                    f'{timeout:.0f}s. Vulnerability scanners and monitoring systems '
-                    f'produce identical traffic and should be whitelisted.'
-                ),
-                evidence={
-                    'observed_host_port_combinations': len(combos),
-                    'observed_target_hosts': len(targets),
-                    'syn_only_connections': syn_only,
-                    'total_connections': len(group),
-                    'episode_span_seconds': round(span, 1),
-                    'source_is_internal': is_internal(source),
-                    'threshold_applied': threshold,
-                    'home_net_source': SRC_HOME_NET,
-                    **_cite('scan_unique_ports' if not is_internal(source)
-                            else 'scan_unique_ports_local'),
-                    'inactivity_timeout': _cite('scan_inactivity_timeout'),
-                },
-            ))
+        findings.append(Detection(
+            session=session, flow=probes[0][3],
+            rule_id='RECON_PORT_SCAN',
+            title=f'Port scan: {source} probed {len(combos)} host+port combinations '
+                  f'on {target_label}',
+            category='reconnaissance',
+            severity=(Detection.Severity.HIGH
+                      if syn_ratio > _t('scan_syn_ratio_high')
+                      else Detection.Severity.MEDIUM),
+            method=Detection.Method.RULE,
+            confidence=min(len(combos) / (threshold * _t('confidence_scale_multiplier')), 1.0),
+            subject_ip=source,
+            rationale=(
+                f'{source} probed {len(combos)} distinct host+port combinations across '
+                f'{len(targets)} host(s) over {span:.0f}s, in {len(episodes)} episode(s) '
+                f'separated by gaps of more than {timeout:.0f}s. The largest single episode '
+                f'reached {largest} combinations. {syn_only} of {len(probes)} connections '
+                f'were SYN without a completed handshake ({syn_ratio:.0%}), the half-open '
+                f'scan signature. Threshold {threshold} combinations, applied because this '
+                f'source is {"inside" if is_internal(source) else "outside"} the monitored '
+                f'network.'
+                + (' No single episode reached the threshold on its own — this is slow '
+                   'probing spread across the capture, which a streaming detector holding '
+                   'state for only 15 minutes would not have reported.' if slow else '')
+                + ' Vulnerability scanners and monitoring systems produce identical traffic '
+                  'and should be whitelisted.'
+            ),
+            evidence={
+                'observed_host_port_combinations': len(combos),
+                'observed_target_hosts': len(targets),
+                'episode_count': len(episodes),
+                'largest_episode_combinations': largest,
+                'spread_below_streaming_threshold': slow,
+                'total_span_seconds': round(span, 1),
+                'syn_only_connections': syn_only,
+                'total_connections': len(probes),
+                'source_is_internal': is_internal(source),
+                'threshold_applied': threshold,
+                'aggregation': 'cumulative across the capture, not per episode — see the '
+                               'rule docstring for why this departs from bro-simple-scan',
+                'home_net_source': SRC_HOME_NET,
+                **_cite('scan_unique_ports' if not is_internal(source)
+                        else 'scan_unique_ports_local'),
+                'inactivity_timeout': _cite('scan_inactivity_timeout'),
+            },
+        ))
     return findings
 
 
@@ -879,7 +917,7 @@ def rule_exfiltration(session):
             severity=Detection.Severity.HIGH if high_entropy and not tls_caveat
             else Detection.Severity.MEDIUM,
             method=Detection.Method.RULE,
-            confidence=min(ratio / (ratio_thresh * 5), 1.0),
+            confidence=min(ratio / (ratio_thresh * _t('confidence_scale_multiplier')), 1.0),
             subject_ip=flow.initiator_ip,
             rationale=(
                 f'{flow.initiator_ip} sent {total_out:,} bytes to {peer}:{flow.dst_port} '
@@ -938,7 +976,7 @@ def rule_icmp_tunnel(session):
             category='covert_channel',
             severity=Detection.Severity.HIGH,
             method=Detection.Method.RULE,
-            confidence=min(flow.avg_packet_size / (size_thresh * 8), 1.0),
+            confidence=min(flow.avg_packet_size / (size_thresh * _t('confidence_scale_multiplier')), 1.0),
             subject_ip=flow.initiator_ip,
             rationale=(
                 f'{flow.initiator_ip} sent {flow.packets_sent} ICMP packets to {peer} '
