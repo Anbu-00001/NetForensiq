@@ -17,6 +17,25 @@ async function login(page) {
   await page.waitForURL(/dashboard/, { timeout: 20_000 });
 }
 
+/**
+ * How many rows the API holds for an endpoint.
+ *
+ * Skips must be decided from server state, never from `locator.count()`.
+ * `count()` returns 0 for "not rendered yet" as readily as for "does not
+ * exist", so a skip guarded that way turns a real UI regression into a green
+ * run — which is exactly what happened here before this helper existed.
+ */
+async function apiCount(page, path) {
+  return page.evaluate(async (p) => {
+    const token = sessionStorage.getItem('access_token');
+    const r = await fetch(`http://127.0.0.1:8011/api/${p}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((x) => x.json());
+    const list = Array.isArray(r) ? r : r.results;
+    return list?.length ?? 0;
+  }, path);
+}
+
 test.describe('authentication', () => {
   test('protected routes redirect anonymous users to login', async ({ anonymousPage }) => {
     await anonymousPage.goto('http://127.0.0.1:5199/dashboard');
@@ -127,10 +146,11 @@ test.describe('evidence', () => {
     await page.goto('/evidence');
     await expect(page.getByText(/Evidence register/i)).toBeVisible();
 
-    const chainButton = page.getByRole('button', { name: /chain of custody/i }).first();
-    const count = await chainButton.count();
-    test.skip(count === 0, 'no evidence seeded');
+    test.skip(await apiCount(page, 'evidence/') === 0, 'no evidence seeded');
 
+    // Auto-waiting locator, so a slow render fails loudly instead of skipping
+    const chainButton = page.getByRole('button', { name: /chain of custody/i }).first();
+    await expect(chainButton).toBeVisible();
     await chainButton.click();
     await expect(
       page.getByText(/Custody chain intact|Custody chain BROKEN/i).first(),
@@ -154,9 +174,13 @@ test.describe('section 63 certificate', () => {
   test('the certificate downloads as a real PDF', async ({ page }) => {
     await page.goto('/evidence');
 
+    test.skip(
+      await apiCount(page, 'certificates/') === 0,
+      'no certificate issued for any exhibit',
+    );
+
     const button = page.getByRole('button', { name: /Download PDF/i }).first();
-    const count = await button.count();
-    test.skip(count === 0, 'no certificate issued for any exhibit');
+    await expect(button).toBeVisible();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -284,5 +308,48 @@ test.describe('the interface claims nothing it cannot do', () => {
     await expect(
       page.locator('text=/C2_BEACON|DNS_TUNNEL|RECON_|EXFIL_|ICMP_|COVERT_/').first(),
     ).toBeVisible();
+  });
+});
+
+test.describe('public pages make no false claims', () => {
+  /**
+   * The landing page escaped every earlier check because the suite only ever
+   * visited authenticated routes. It was still rendering "Evidence sealed
+   * 2,417", "Packets / sec 84.2 K" and "UPTIME 2d 04h" over Math.sin
+   * sparklines — months after PROGRESS.md recorded removing exactly those.
+   * These run anonymously, which is how a judge first sees the product.
+   */
+  const PUBLIC = ['/', '/login', '/register'];
+
+  const FABRICATED = [
+    '2,417', '84.2 K', '512.0 M', '1,482',   // invented telemetry figures
+    '2d 04h',                                 // invented uptime
+    'ISOLATION FOREST',                       // no model exists in the codebase
+    'D3 GRAPH ENGINE',                        // no flow-graph page exists
+    'LIVE CAPTURE PREVIEW',                   // nothing is capturing live
+    'LIVE SYSTEM TELEMETRY',                  // pre-auth, nothing could back it
+    'AUTHORIZED DEPLOYMENT',                  // no authority deployed this
+    'TLS 1.3 CHANNEL',                        // demo stack runs over plain HTTP
+  ];
+
+  for (const path of PUBLIC) {
+    test(`${path} shows no fabricated figures or capabilities`, async ({ anonymousPage }) => {
+      await anonymousPage.goto(`http://127.0.0.1:5199${path}`);
+      await anonymousPage.waitForLoadState('networkidle');
+      const body = await anonymousPage.locator('body').innerText();
+
+      for (const phrase of FABRICATED) {
+        expect(body, `${path} still shows "${phrase}"`).not.toContain(phrase);
+      }
+    });
+  }
+
+  test('the landing page does not claim to be tamper-proof', async ({ anonymousPage }) => {
+    // The custody model's own docstring says tamper-EVIDENT, "which is the
+    // honest claim to make about a database table". The marketing copy must
+    // not promise more than the code is willing to.
+    await anonymousPage.goto('http://127.0.0.1:5199/');
+    const body = await anonymousPage.locator('body').innerText();
+    expect(body.toLowerCase()).not.toContain('tamper-proof');
   });
 });

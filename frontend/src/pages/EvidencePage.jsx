@@ -41,6 +41,8 @@ function CertificatePanel({ record, certificates, onChanged }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [expert, setExpert] = useState({ name: '', designation: '', qualification: '' });
+  const [partA, setPartA] = useState({ name: '', designation: '', organisation: '' });
+  const [showPartA, setShowPartA] = useState(false);
 
   const mine = certificates.filter((c) => c.evidence === record.id);
 
@@ -66,12 +68,69 @@ function CertificatePanel({ record, certificates, onChanged }) {
         <Box sx={{ flexGrow: 1 }} />
         <Button
           size="small" variant="outlined" disabled={busy === 'issue'}
-          onClick={() => run('issue', () => issueCertificate(record.id, {}))}
+          onClick={() => setShowPartA((v) => !v)}
           sx={{ fontSize: 11.5, borderColor: 'rgba(0,230,138,0.4)', color: '#00E68A' }}
         >
-          {busy === 'issue' ? 'Issuing…' : 'Issue certificate (Part A)'}
+          {showPartA ? 'Cancel' : 'Issue certificate (Part A)'}
         </Button>
       </Box>
+
+      {/*
+        Part A is a statutory declaration. It used to be issued by a single
+        click sending an empty body, which recorded the officer as having
+        solemnly affirmed something they were never shown and never filled in.
+        The declaration is now displayed and the Schedule's fields collected
+        before anything is signed.
+      */}
+      <Collapse in={showPartA}>
+        <Box sx={{
+          p: 1.5, mb: 1.5, borderRadius: 1.5,
+          backgroundColor: 'rgba(0,0,0,0.3)',
+          border: '1px solid rgba(0,230,138,0.25)',
+        }}>
+          <Typography sx={{
+            fontSize: 11.5, lineHeight: 1.6, color: 'rgba(229,231,235,0.7)', mb: 1.2,
+          }}>
+            You are about to affirm, under THE SCHEDULE to the Bharatiya Sakshya
+            Adhiniyam 2023, that you produced this electronic record from a device
+            under your lawful control, that it was working properly, and that the
+            hash values recorded are those of the record produced. Your name is
+            printed on Part A of the certificate.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            {['name', 'designation', 'organisation'].map((field) => (
+              <TextField
+                key={field} size="small"
+                placeholder={`Your ${field}`}
+                value={partA[field]}
+                onChange={(e) => setPartA({ ...partA, [field]: e.target.value })}
+                sx={{
+                  flexGrow: 1, minWidth: 130,
+                  '& .MuiInputBase-input': { fontSize: 12, color: '#E5E7EB' },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255,255,255,0.12)',
+                  },
+                }}
+              />
+            ))}
+            <Button
+              size="small" variant="outlined"
+              disabled={busy === 'issue' || !partA.name.trim()}
+              onClick={() => run('issue', async () => {
+                await issueCertificate(record.id, {
+                  part_a_name: partA.name,
+                  part_a_designation: partA.designation,
+                  part_a_organisation: partA.organisation,
+                });
+                setShowPartA(false);
+              })}
+              sx={{ fontSize: 11.5, borderColor: 'rgba(0,230,138,0.5)', color: '#00E68A' }}
+            >
+              {busy === 'issue' ? 'Signing…' : 'Affirm and sign Part A'}
+            </Button>
+          </Box>
+        </Box>
+      </Collapse>
 
       {error && <Alert severity="error" sx={{ mb: 1.5, fontSize: 12 }}>{error}</Alert>}
 

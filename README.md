@@ -134,10 +134,10 @@ npm run dev
 ### Run Tests
 
 ```bash
-# Backend: 54 tests
+# Backend: 61 tests
 cd backend && ./.venv/bin/python manage.py test
 
-# Frontend: 10 Playwright E2E tests
+# Frontend: 15 Playwright E2E tests
 cd frontend && npx playwright test
 ```
 
@@ -174,7 +174,7 @@ flowchart TD
     A --> R1["C2_BEACON_PERIODIC<br/>RITA MADM model"]
     A --> R2["C2_BEACON_KEEPALIVE<br/>persistent-session variant"]
     A --> R3["COVERT_CHANNEL_UNKNOWN_PORT<br/>sustained egress, no SNI"]
-    A --> R4["DNS_TUNNEL_ENTROPY<br/>Shannon entropy + label length"]
+    A --> R4["DNS_TUNNEL_LONG_LABEL<br/>subdomain label length"]
     A --> R5["RECON_PORT_SCAN<br/>per-source port fan-out"]
     A --> R6["EXFIL_VOLUME_ASYMMETRY<br/>relative p95 outbound"]
     A --> R7["ICMP_TUNNEL_OVERSIZED<br/>large echo payloads"]
@@ -275,8 +275,13 @@ Two rules govern the renderer:
 |---|---|---|
 | POST | `/api/auth/register/` | Register (role, badge_id, department) |
 | POST | `/api/auth/login/` | Obtain JWT token pair |
-| POST | `/api/auth/refresh/` | Refresh access token |
-| POST | `/api/auth/logout/` | Blacklist refresh token |
+| POST | `/api/auth/login/refresh/` | Refresh access token |
+| GET | `/api/auth/me/` | Current user |
+| GET | `/api/auth/status/` | Registration approval status |
+
+There is deliberately **no logout endpoint**. Sign-out clears the browser's
+sessionStorage only; the refresh token stays valid until it expires. Blacklisting
+it server-side is listed under Known Gaps.
 
 All endpoints require authentication (`IsAuthenticated`) by default.
 Registration requires admin approval before the account is active.
@@ -290,10 +295,11 @@ Registration requires admin approval before the account is active.
 | `C2_BEACON_PERIODIC` | Repeated connections with regular timing (RITA model) | RITA `analyzer.go` — MADM / median interval |
 | `C2_BEACON_KEEPALIVE` | Periodic traffic inside a single persistent session | Same MADM formula, applied intra-connection |
 | `COVERT_CHANNEL_UNKNOWN_PORT` | Sustained egress to a non-well-known port with no TLS SNI | `[OUR HEURISTIC]` |
-| `DNS_TUNNEL_ENTROPY` | High-entropy, long DNS labels (tunnelling signature) | SANS/Palo Alto practitioner thresholds |
-| `RECON_PORT_SCAN` | A single source probing many destination ports | Per-source aggregation across flows |
+| `DNS_TUNNEL_LONG_LABEL` | Subdomain labels longer than 52 characters | RFC 1035 §2.3.4 (label ≤63); dnscat2 `MAX_FIELD_LENGTH=62`; iodine `-M` |
+| `DNS_TUNNEL_SUBDOMAIN_VOLUME` | Many unique subdomains under one parent domain | `[OUR HEURISTIC]` |
+| `RECON_PORT_SCAN` | One source probing many service ports on one host | Snort 3 `port_scan` ports=25; ncsa/bro-simple-scan |
 | `EXFIL_VOLUME_ASYMMETRY` | Outbound volume exceeding p95 for the capture | Relative threshold, floored at 100 KB |
-| `ICMP_TUNNEL_OVERSIZED` | Oversized ICMP echo payloads in a sustained stream | Cisco NetFlow ICMP encoding convention |
+| `ICMP_TUNNEL_OVERSIZED` | Oversized ICMP echo payloads in a sustained stream | ping(8) baseline (56 B Linux / 32 B Windows) + `[OUR HEURISTIC]` |
 
 ---
 
@@ -334,10 +340,18 @@ produced by us:
 | Capture | Purpose | Result |
 |---|---|---|
 | AsyncRAT + XWorm infection (44 MB, 46k packets) | True positive test | Found 5 of 7 documented C2 flows, 0 false positives |
-| One week of server scans (28 MB, 362k packets) | False positive test | Reduced from 7,052 to 262 alerts after fixes |
+| One week of server scans (28 MB, 362k packets) | False positive test | Reduced from 7,052 to 307 alerts after fixes |
 
-This validation found 5 defects that were invisible to the synthetic corpus.
+This validation found six defects that were invisible to the synthetic corpus.
 Full details: [research/96_REAL_TRAFFIC_VALIDATION.md](research/96_REAL_TRAFFIC_VALIDATION.md)
+
+**What these numbers are not.** Two captures is not an evaluation. There is no
+measured precision or recall here and none should be claimed. The 5-of-7 result
+is against one sample's published ground truth; the two missed flows lasted 7 s
+and 13 s, below the sustained-session floor. The 307 findings on the server
+capture are consistent with a capture titled *"one week of server scans and
+probes"* — each is a distinct scanning host — but they have not been
+individually confirmed.
 
 ---
 
@@ -356,10 +370,10 @@ Full details: [research/96_REAL_TRAFFIC_VALIDATION.md](research/96_REAL_TRAFFIC_
 
 ## Test Coverage
 
-- **54 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **61 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
-- **10 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+- **15 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
   placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
   download
 

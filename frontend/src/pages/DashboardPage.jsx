@@ -153,8 +153,9 @@ function DashboardPage() {
                     secondary="conversations" color="#00E68A" />
                   <StatCard title="DNS queries" primary={formatCount(totals?.dns_queries)}
                     secondary="resolved names" color="#A855F7" />
-                  <StatCard title="Detections" primary={formatCount(totals?.detections)}
-                    secondary="awaiting triage" color="#FFB020" />
+                  <StatCard title="Findings" primary={formatCount(totals?.detections)}
+                    secondary={`${formatCount(totals?.detections_pending ?? 0)} awaiting triage`}
+                    color="#FFB020" />
                   <StatCard title="Flagged flows" primary={formatCount(totals?.flagged_flows)}
                     secondary="risk score > 0" color="#FF3B5C" />
                 </Box>

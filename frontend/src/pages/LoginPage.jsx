@@ -249,8 +249,8 @@ function LoginPage() {
                     color: 'rgba(229,231,235,0.42)',
                   }}
                 >
-                  RESTRICTED SYSTEM · ALL ACCESS ATTEMPTS ARE LOGGED,
-                  <br />TRACED AND REPORTED UNDER APPLICABLE CYBER LAW
+                  SIGN-IN ATTEMPTS ARE RECORDED WITH TIMESTAMP,
+                  <br />USERNAME AND SOURCE ADDRESS
                 </Typography>
               </Box>
             </Box>
@@ -307,9 +307,9 @@ export function ConsoleBar() {
         overflow: 'hidden', whiteSpace: 'nowrap',
       }}
     >
-      <Dot color="#00E68A" label="NODE-01 ONLINE" />
-      <Dot color="#00D4FF" label="TLS 1.3 CHANNEL" />
-      <Dot color="#FFB020" label="SESSION MONITORED" />
+      <Dot color="#00E68A" label="NETWORK FORENSICS" />
+      <Dot color="#00D4FF" label="CHAIN OF CUSTODY" />
+      <Dot color="#FFB020" label="COURT-READY OUTPUT" />
       <Box sx={{ flexGrow: 1 }} />
       <Typography
         sx={{
@@ -319,7 +319,7 @@ export function ConsoleBar() {
           display: { xs: 'none', sm: 'block' },
         }}
       >
-        CYBER CRIME BRANCH · AUTHORIZED DEPLOYMENT
+        BUILT FOR CYBER CRIME INVESTIGATION · KANAD S.H.I.E.L.D. 2026
       </Typography>
     </Box>
   );
@@ -423,7 +423,7 @@ export function TelemetryPanel() {
           color: 'rgba(229,231,235,0.35)',
         }}
       >
-        LIVE SYSTEM TELEMETRY
+        WHAT THIS SYSTEM DOES
       </Typography>
 
 
@@ -438,14 +438,21 @@ export function TelemetryPanel() {
           color: 'rgba(229,231,235,0.35)',
         }}
       >
-        SUBSYSTEM STATUS
+        CAPABILITIES
       </Typography>
 
+      {/*
+        These were rendered as live status — "Capture engine ACTIVE",
+        "Detection model ACTIVE" — from hardcoded strings, on a page shown
+        before anyone has authenticated, so no API could have backed them.
+        "Detection model" was doubly untrue: there is no model, only rules.
+        They now describe what the system does, not what it is doing.
+      */}
       {[
-        ['Capture engine', 'ACTIVE', '#00E68A'],
-        ['Detection model', 'ACTIVE', '#00E68A'],
-        ['Evidence vault', 'SEALED', '#00D4FF'],
-        ['Audit logger', 'RECORDING', '#FFB020'],
+        ['Packet analysis', 'PCAP', '#00E68A'],
+        ['Detection', '7 CITED RULES', '#00E68A'],
+        ['Evidence', 'SHA-256 SEALED', '#00D4FF'],
+        ['Certificate', 'BSA s.63', '#FFB020'],
       ].map(([k, v, c], i) => (
         <Box
           key={k}

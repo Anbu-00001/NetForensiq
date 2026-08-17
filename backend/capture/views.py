@@ -79,6 +79,11 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
                 'bytes': session.byte_count,
                 'dns_queries': session.dns_records.count(),
                 'detections': session.detections.count(),
+                # Reported separately because the dashboard used to label
+                # the total as "awaiting triage" — a figure that never
+                # dropped however many findings an analyst reviewed.
+                'detections_pending': session.detections.filter(
+                    triage_status=Detection.Triage.NEW).count(),
                 'flagged_flows': flows.filter(risk_score__gt=0).count(),
             },
             'protocols': protocols,

@@ -215,6 +215,22 @@ def sign_part_b(certificate, user, name='', designation='', organisation='',
     """
     from django.utils import timezone
 
+    # s.63(4) contemplates two different people: the person in charge of the
+    # device, and an expert. If one account can sign both parts, the two-part
+    # form guarantees nothing — and this code previously only *described* that
+    # safeguard in a comment while allowing exactly it.
+    if (
+        certificate.part_a_user_id
+        and getattr(user, 'pk', None)
+        and certificate.part_a_user_id == user.pk
+    ):
+        raise ValueError(
+            f"Refusing to countersign {certificate.reference}: Part A was signed by "
+            f"'{getattr(user, 'username', user)}'. Section 63(4) requires the person in "
+            f"charge of the device and an expert to be different people; a certificate "
+            f"signed twice by one account attests to nothing."
+        )
+
     ok, computed = certificate.evidence.verify()
     if not ok:
         raise ValueError(

@@ -109,7 +109,9 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'netforensiq.sqlite3',
+            # Overridable so a clean-start check, or a second demo dataset, can
+            # run without clobbering the database you have been working in.
+            'NAME': os.getenv('SQLITE_NAME') or (BASE_DIR / 'netforensiq.sqlite3'),
         }
     }
 

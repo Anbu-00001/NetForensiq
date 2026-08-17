@@ -76,6 +76,17 @@ SRC_BINWALK = 'binwalk shipped entropy defaults (7.6 rising / 6.8 falling, 1024-
 SRC_SIMPLE_SCAN = 'ncsa/bro-simple-scan current defaults (25 remote host+port combos / 15 min)'
 SRC_SNORT3 = 'Snort 3 port_scan inspector defaults (Cisco Talos)'
 SRC_FARNHAM = 'Farnham & Atlasis (2013), DNS tunnelling label length — secondary source only'
+# Stronger than the Farnham secondary citation: the tunnel tools themselves.
+# RFC 1035 §2.3.4 caps a label at 63 octets and a whole name at 255. Tunnels
+# have to fill that budget to move data, so they sit just under the ceiling —
+# dnscat2 hardcodes MAX_FIELD_LENGTH 62, one octet below the maximum, and
+# iodine's -M defaults to the full 255-octet hostname. Ordinary hostnames are
+# nowhere near it, which is what makes label length discriminating at all.
+SRC_DNS_TUNNEL_TOOLS = (
+    'RFC 1035 §2.3.4 (label ≤63, name ≤255 octets); dnscat2 '
+    'client/tunnel_drivers/driver_dns.c MAX_FIELD_LENGTH=62 (verified against '
+    'source); iodine iodine(8) -M max upstream hostname, default 255'
+)
 SRC_PING = 'ping(8) default payload: 56 bytes Linux / 32 bytes Windows'
 OUR_HEURISTIC = '[OUR HEURISTIC] no citable source; see SPEC_02 heuristics table'
 SRC_ZEEK_IDLE = ('Zeek scripts/base/init-bare.zeek — tcp_inactivity_timeout 5 min, '
@@ -109,7 +120,10 @@ THRESHOLDS = {
     'beacon_ds_smallness_norm': (65535, SRC_RITA + ' — data-size smallness normaliser'),
 
     # ── DNS tunnelling ──
-    'dns_label_length': (52, SRC_FARNHAM),
+    'dns_label_length': (52, f'{SRC_DNS_TUNNEL_TOOLS}. Set below the 62–63 octet '
+                             f'ceiling the tools actually emit, so a tunnel that '
+                             f'pads slightly short is still caught. Corroborated by '
+                             f'{SRC_FARNHAM}'),
     'dns_label_entropy': (3.5, OUR_HEURISTIC + ' — grounded in Base32/64 alphabet-entropy ceiling'),
     'dns_entropy_min_label_len': (20, OUR_HEURISTIC),
     'dns_unique_subdomains': (50, OUR_HEURISTIC + ' — scaled down from resolver-scale figures'),
@@ -638,9 +652,14 @@ def rule_port_scan(session):
 
     per_pair = defaultdict(lambda: {'ports': set(), 'syn_only': 0, 'flows': 0})
     for flow in session.flows.filter(protocol='TCP'):
-        peer = flow.dst_ip if flow.initiator_ip == flow.src_ip else flow.src_ip
-        entry = per_pair[(flow.initiator_ip, peer)]
-        entry['ports'].add(flow.dst_port)
+        # Must be the responder's port. Reading dst_port directly yields the
+        # initiator's own ephemeral port whenever the capture recorded the
+        # responder as the source, which would count 30 random high ports as a
+        # "scan". This is the same defect that made the covert-channel rule
+        # fire 5,853 times on a real capture.
+        initiator, peer, service_port = flow_direction(flow)
+        entry = per_pair[(initiator, peer)]
+        entry['ports'].add(service_port)
         entry['flows'] += 1
         # A SYN with no ACK ever returned is the half-open scan signature.
         if 'S' in (flow.tcp_flags_seen or '') and 'A' not in (flow.tcp_flags_seen or ''):

@@ -352,6 +352,59 @@ def generate_icmp_tunnel(packet_count=120, base_time=None, host='10.45.57.37'):
 
 # ─────────────────────── ORCHESTRATION ───────────────────────
 
+def generate_covert_channel(
+    base_time=None, infected='10.45.57.41', c2_server='198.51.100.77',
+    port=3232, duration=200.0, exchanges=60,
+):
+    """
+    A sustained conversation on a non-standard port that declares nothing.
+
+    Modelled directly on real AsyncRAT traffic (malware-traffic-analysis.net,
+    2024-03-14): a long-lived TCP session to port 3232 carrying encrypted
+    payload, with no recognisable application protocol and — unlike every
+    benign TLS flow beside it — no SNI announcing where it is going.
+
+    That combination, not timing, is what identified the real sample. Its
+    beacon period was not statistically detectable in 3.5 minutes of capture;
+    the shape of the channel was. See research/96_REAL_TRAFFIC_VALIDATION.md.
+    """
+    packets = []
+    t = base_time or time.time()
+    sport = random.randint(49152, 65535)
+    seq = random.randint(1000, 900000)
+
+    syn = IP(src=infected, dst=c2_server) / TCP(sport=sport, dport=port, flags='S', seq=seq)
+    syn.time = t
+    packets.append(syn)
+
+    synack = IP(src=c2_server, dst=infected) / TCP(
+        sport=port, dport=sport, flags='SA', ack=seq + 1)
+    synack.time = t + 0.03
+    packets.append(synack)
+
+    ack = IP(src=infected, dst=c2_server) / TCP(sport=sport, dport=port, flags='A')
+    ack.time = t + 0.05
+    packets.append(ack)
+
+    # Encrypted-looking payload both ways, spread across the session
+    step = duration / max(exchanges, 1)
+    for i in range(exchanges):
+        when = t + 0.1 + (i * step)
+        out = (IP(src=infected, dst=c2_server)
+               / TCP(sport=sport, dport=port, flags='PA')
+               / Raw(load=_rand_bytes(random.randint(60, 240))))
+        out.time = when
+        packets.append(out)
+
+        back = (IP(src=c2_server, dst=infected)
+                / TCP(sport=port, dport=sport, flags='PA')
+                / Raw(load=_rand_bytes(random.randint(40, 180))))
+        back.time = when + random.uniform(0.05, 0.4)
+        packets.append(back)
+
+    return packets
+
+
 SCENARIOS = {
     'benign': generate_benign,
     'dns_tunnel': generate_dns_tunneling,
@@ -359,6 +412,8 @@ SCENARIOS = {
     'port_scan': generate_port_scan,
     'c2_beacon': generate_c2_beaconing,
     'icmp_tunnel': generate_icmp_tunnel,
+    'c2_beacon_connections': generate_c2_beaconing_connections,
+    'covert_channel': generate_covert_channel,
 }
 
 
@@ -378,8 +433,14 @@ def build_mixed_capture(output_path, benign_packets=1500, include_attacks=True, 
     if include_attacks:
         all_packets += generate_dns_tunneling(base_time=start + 420)
         all_packets += generate_port_scan(base_time=start + 900)
+        # Both beacon shapes are present deliberately: one session held
+        # open with keepalives, and repeated short connections. They are
+        # detected by different rules, and having only the first in the corpus
+        # is what let a broken beacon rule look correct for weeks.
         all_packets += generate_c2_beaconing(base_time=start + 1200)
+        all_packets += generate_c2_beaconing_connections(base_time=start + 1500)
         all_packets += generate_icmp_tunnel(base_time=start + 1800)
+        all_packets += generate_covert_channel(base_time=start + 2100)
         all_packets += generate_data_exfiltration(base_time=start + 2400)
 
     all_packets.sort(key=lambda p: p.time)

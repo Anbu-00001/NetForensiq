@@ -167,6 +167,25 @@ class CertificateTests(TestCase):
         with self.assertRaises(ValueError):
             issue_certificate(self.record, part_a_user=self.officer)
 
+    def test_one_account_cannot_sign_both_parts(self):
+        """
+        s.63(4) contemplates two people: the person in charge of the device and
+        an expert. A certificate one account signed twice attests to nothing,
+        and this safeguard was previously only described in a comment.
+        """
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        with self.assertRaises(ValueError) as ctx:
+            sign_part_b(cert, user=self.officer)
+        self.assertIn('different people', str(ctx.exception))
+
+        cert.refresh_from_db()
+        self.assertFalse(cert.is_complete)
+
+    def test_a_different_expert_can_countersign(self):
+        cert = issue_certificate(self.record, part_a_user=self.officer)
+        cert = sign_part_b(cert, user=self.expert, qualification='M.Tech')
+        self.assertTrue(cert.is_complete)
+
     def test_countersigning_is_refused_when_integrity_fails(self):
         """An expert must not attest to a hash that no longer matches the file."""
         cert = issue_certificate(self.record, part_a_user=self.officer)

@@ -280,7 +280,7 @@ function RegisterPage() {
                   <TextField
                     select fullWidth size="small" sx={consoleField}
                     value={formData.role} onChange={handleChange('role')}
-                    SelectProps={{
+                    slotProps={{ select: {
                       displayEmpty: true,
                       renderValue: (v) => v
                         ? roles.find((r) => r.value === v)?.label
@@ -294,7 +294,7 @@ function RegisterPage() {
                           },
                         },
                       },
-                    }}
+                    } }}
                   >
                     {roles.map((o) => (
                       <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
@@ -320,7 +320,7 @@ function RegisterPage() {
                       fullWidth size="small" sx={consoleField} placeholder="min. 8 characters"
                       type={showPassword ? 'text' : 'password'}
                       value={formData.password} onChange={handleChange('password')}
-                      InputProps={{
+                      slotProps={{ input: {
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton size="small" onClick={() => setShowPassword(!showPassword)}
@@ -329,7 +329,7 @@ function RegisterPage() {
                             </IconButton>
                           </InputAdornment>
                         ),
-                      }}
+                      } }}
                     />
                   </Box>
                   <Box>
@@ -338,7 +338,7 @@ function RegisterPage() {
                       fullWidth size="small" sx={consoleField} placeholder="re-enter"
                       type={showConfirm ? 'text' : 'password'}
                       value={formData.confirmPassword} onChange={handleChange('confirmPassword')}
-                      InputProps={{
+                      slotProps={{ input: {
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton size="small" onClick={() => setShowConfirm(!showConfirm)}
@@ -347,7 +347,7 @@ function RegisterPage() {
                             </IconButton>
                           </InputAdornment>
                         ),
-                      }}
+                      } }}
                     />
                   </Box>
                 </Box>

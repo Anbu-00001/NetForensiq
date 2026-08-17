@@ -30,7 +30,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f'\nGenerated {count:,} packets → {written}\n'
                 f'  Contains: benign baseline + DNS tunnel + port scan\n'
-                f'            + C2 beaconing + ICMP tunnel + exfiltration'
+                f'            + C2 beaconing, both shapes (one persistent session\n'
+                f'              with keepalives, and repeated short connections)\n'
+                f'            + covert channel on a non-standard port\n'
+                f'            + ICMP tunnel + exfiltration'
             ))
 
         elif scenario == 'benign':

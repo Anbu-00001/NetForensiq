@@ -8,27 +8,31 @@ import RadarIcon from '@mui/icons-material/Radar';
 import HubIcon from '@mui/icons-material/Hub';
 import GavelIcon from '@mui/icons-material/Gavel';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import { ConsoleBar, MiniSpark } from './LoginPage';
-
-const spark = (s) =>
-  Array.from({ length: 20 }, (_, i) => 18 + Math.abs(Math.sin(i * s) * 48) + (i % 3) * 6);
+import { ConsoleBar } from './LoginPage';
 
 const features = [
-  { icon: <RadarIcon />, title: 'AI Anomaly Detection', tag: 'ISOLATION FOREST',
-    desc: 'Unsupervised behavioural modelling flags exfiltration, covert tunnels and insider activity without prior signatures.', color: '#00D4FF' },
-  { icon: <HubIcon />, title: 'Flow Visualization', tag: 'D3 GRAPH ENGINE',
-    desc: 'Source-to-destination mapping with suspicious node highlighting and timeline-correlated attack progression.', color: '#00E68A' },
-  { icon: <GavelIcon />, title: 'Forensic Workflow', tag: 'CASE MANAGEMENT',
-    desc: 'Session reconstruction, historical search and investigator case files built around real procedural workflow.', color: '#FFB020' },
+  { icon: <RadarIcon />, title: 'Explainable Detection', tag: 'CITED THRESHOLDS',
+    desc: 'Seven deterministic rules for beaconing, DNS tunnelling, port scanning, exfiltration and covert channels. Every threshold carries its source, and values we invented say so.', color: '#00D4FF' },
+  { icon: <HubIcon />, title: 'Analyst Triage', tag: 'HUMAN IN THE LOOP',
+    desc: 'Nothing is auto-actioned. Each finding states the value observed, the threshold it crossed and where that threshold came from, then waits for an officer to confirm, dismiss or escalate.', color: '#00E68A' },
+  { icon: <GavelIcon />, title: 'Section 63 Certificate', tag: 'BSA 2023 SCHEDULE',
+    desc: 'Generates the certificate prescribed by THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023, Parts A and B, with the hash report the Schedule requires enclosed.', color: '#FFB020' },
   { icon: <VerifiedUserIcon />, title: 'Sealed Evidence', tag: 'SHA-256 CUSTODY',
-    desc: 'Every artefact hashed at capture with immutable chain-of-custody records and court-ready report generation.', color: '#A855F7' },
+    desc: 'Each exhibit is hashed before anything reads it. The custody log is hash-chained, so an altered or removed entry breaks every later link — tamper-evident, which is what a database table can honestly claim.', color: '#A855F7' },
 ];
 
 function LandingPage() {
   const canvasRef = useRef(null);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    // Deferred to the next frame rather than set synchronously in the effect:
+    // setting state directly in an effect re-renders immediately and the
+    // entry transition never runs, because the element is mounted with its
+    // final styles already applied.
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -166,7 +170,7 @@ function LandingPage() {
                   fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.6)',
                 }}
               >
-                CYBER CRIME BRANCH · AUTHORIZED DEPLOYMENT
+                BUILT FOR CYBER CRIME INVESTIGATION · KANAD S.H.I.E.L.D. 2026
               </Typography>
             </Box>
 
@@ -199,9 +203,9 @@ function LandingPage() {
                 transition: 'all 0.7s ease 0.2s',
               }}
             >
-              Real-time packet capture, AI-driven anomaly detection and tamper-proof
-              evidence generation — engineered for investigations that must survive
-              legal scrutiny, not just detect a threat.
+              Packet analysis with every finding traced to a cited threshold, and a
+              hash-chained custody record behind it — engineered for investigations
+              that must survive legal scrutiny, not just detect a threat.
             </Typography>
 
             <Box
@@ -264,55 +268,63 @@ function LandingPage() {
                   fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.35)',
                 }}
               >
-                LIVE CAPTURE PREVIEW
-              </Typography>
-              <Box
-                sx={{
-                  width: 6, height: 6, borderRadius: '50%', backgroundColor: '#FF3B5C',
-                  boxShadow: '0 0 8px #FF3B5C',
-                  animation: 'blip 1.6s ease-in-out infinite',
-                  '@keyframes blip': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.25 } },
-                }}
-              />
-              <Typography
-                sx={{
-                  fontSize: 9.5, ml: 0.7, letterSpacing: 0.8,
-                  fontFamily: "'JetBrains Mono', monospace", color: '#FF3B5C',
-                }}
-              >
-                REC
+                HOW A CAPTURE BECOMES EVIDENCE
               </Typography>
             </Box>
 
-            <MiniSpark label="Packets / sec" value="84.2 K" delta="6%" color="#00D4FF" data={spark(0.5)} delay={0.5} />
-            <MiniSpark label="Flows analysed" value="512.0 M" delta="7%" color="#00E68A" data={spark(0.8)} delay={0.57} />
-            <MiniSpark label="Anomalies open" value="1,482" delta="3%" color="#FFB020" data={spark(1.1)} delay={0.64} up={false} />
-            <MiniSpark label="Evidence sealed" value="2,417" delta="9%" color="#A855F7" data={spark(1.4)} delay={0.71} />
+            {/*
+              This panel previously showed "Packets / sec 84.2 K", "Evidence
+              sealed 2,417" and a pulsing REC indicator over Math.sin
+              sparklines — none of it real, and nothing in the product records
+              anything live. It is pre-authentication, so no API can back it
+              either. It now describes the pipeline instead of pretending to
+              measure it.
+            */}
+            {[
+              ['01', 'Seal', 'The capture is hashed with SHA-256 before any analysis reads it.'],
+              ['02', 'Analyse', 'Flows are reconstructed and seven cited rules run over them.'],
+              ['03', 'Triage', 'An officer confirms, dismisses or escalates each finding.'],
+              ['04', 'Certify', 'A Section 63 certificate is issued with the hash report enclosed.'],
+            ].map(([step, title, body], i) => (
+              <Box
+                key={step}
+                sx={{
+                  display: 'flex', gap: 1.6, mb: 1.8,
+                  opacity: mounted ? 1 : 0,
+                  transform: mounted ? 'none' : 'translateX(10px)',
+                  transition: `all 0.6s ease ${0.45 + i * 0.07}s`,
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: 11, fontWeight: 700, minWidth: 20,
+                    fontFamily: "'JetBrains Mono', monospace", color: '#00D4FF',
+                  }}
+                >
+                  {step}
+                </Typography>
+                <Box>
+                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB' }}>
+                    {title}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(229,231,235,0.5)' }}>
+                    {body}
+                  </Typography>
+                </Box>
+              </Box>
+            ))}
 
             <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', my: 1.8 }} />
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              {[['UPTIME', '2d 04h'], ['NODES', '03'], ['INTEGRITY', '100%']].map(([k, v]) => (
-                <Box key={k}>
-                  <Typography
-                    sx={{
-                      fontSize: 9, letterSpacing: 1,
-                      fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.3)',
-                    }}
-                  >
-                    {k}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 13, fontWeight: 600,
-                      fontFamily: "'JetBrains Mono', monospace", color: '#E5E7EB',
-                    }}
-                  >
-                    {v}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+            <Typography
+              sx={{
+                fontSize: 11, lineHeight: 1.6, color: 'rgba(229,231,235,0.45)',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >
+              No figures are shown here because none would be real until a
+              capture is loaded. Sign in to see live ones.
+            </Typography>
           </Box>
         </Box>
       </Box>
@@ -408,7 +420,7 @@ function LandingPage() {
             fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.3)',
           }}
         >
-          NETFORENSIQ v1.0 · RESTRICTED DEPLOYMENT
+          NETFORENSIQ v1.0
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
         <Typography
@@ -417,7 +429,7 @@ function LandingPage() {
             fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.3)',
           }}
         >
-          ALL ACCESS LOGGED &amp; AUDITED
+          Sign-in attempts are recorded
         </Typography>
       </Box>
     </Box>
