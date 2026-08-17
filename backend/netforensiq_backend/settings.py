@@ -116,6 +116,30 @@ else:
     }
 
 
+# Cache
+#
+# This is not incidental configuration: DRF's throttling stores its counters
+# here, so the cache backend decides whether the login rate limit is real.
+#
+# Django's default is LocMemCache, which is per-process. Under it:
+#   * every worker keeps its own counter, so a limit of 8/hour becomes
+#     8 x (number of workers) against the deployment as a whole;
+#   * all throttle state is lost on restart, so a brute-force attempt is
+#     cleared by any deploy or crash.
+#
+# A file-based cache is shared between processes and survives restarts, which
+# is the least a rate limit has to do to mean anything. Point CACHE_LOCATION
+# at a Redis/Memcached URL in a real deployment.
+CACHES = {
+    'default': {
+        'BACKEND': os.getenv(
+            'CACHE_BACKEND', 'django.core.cache.backends.filebased.FileBasedCache',
+        ),
+        'LOCATION': os.getenv('CACHE_LOCATION', str(BASE_DIR / '.cache')),
+    }
+}
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 

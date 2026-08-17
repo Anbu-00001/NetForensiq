@@ -19,8 +19,10 @@ from collections import defaultdict
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 
 from .models import Detection, Flow
+from .processor import DEFAULT_IDLE_TIMEOUT, IDLE_TIMEOUT_SECONDS
 
 
 # Snort and Suricata both define $HOME_NET — the address space you are
@@ -73,7 +75,11 @@ def flow_direction(flow):
 
 SRC_RITA = 'RITA (Active Countermeasures) pkg/beacon/analyzer.go + etc/rita.yaml'
 SRC_BINWALK = 'binwalk shipped entropy defaults (7.6 rising / 6.8 falling, 1024-byte blocks)'
-SRC_SIMPLE_SCAN = 'ncsa/bro-simple-scan current defaults (25 remote host+port combos / 15 min)'
+SRC_SIMPLE_SCAN = (
+    'ncsa/bro-simple-scan scripts/scan.zeek, read from source: scan_threshold=25 '
+    '(unique host+port combinations for a REMOTE scanner), local_scan_threshold=250 '
+    '(for a LOCAL one), scan_timeout=15min'
+)
 SRC_SNORT3 = 'Snort 3 port_scan inspector defaults (Cisco Talos)'
 SRC_FARNHAM = 'Farnham & Atlasis (2013), DNS tunnelling label length — secondary source only'
 # Stronger than the Farnham secondary citation: the tunnel tools themselves.
@@ -93,19 +99,28 @@ SRC_ZEEK_IDLE = ('Zeek scripts/base/init-bare.zeek — tcp_inactivity_timeout 5 
                  'udp_inactivity_timeout 1 min (verified against source, not docs)')
 
 
-# Ports where an unrecognised, long-lived encrypted channel is unremarkable.
-# Sourced from the IANA Service Name and Transport Protocol Port Number
-# Registry (system/well-known range) restricted to services that legitimately
-# carry sustained sessions. Membership is deliberately generous: a false
-# negative here is better than flagging routine traffic.
+# Ports on which a long-lived, unidentified channel is unremarkable.
+#
+# This is NOT the IANA well-known range and must not be described as one. That
+# range is 0-1023; more than a third of the entries below sit outside it
+# (3306, 3389, 5432, 5985, 6379, 8080, 9200, 27017 …) and a few — 8000, 8888,
+# 34567 — are conventions rather than IANA assignments at all. It is a curated
+# list, seeded from the IANA registry and extended with the services that in
+# practice hold sustained sessions on a corporate network.
+#
+# Curated means heuristic, so it is tagged as one. Membership is deliberately
+# generous: a false negative here is better than flagging routine traffic.
 WELL_KNOWN_PORTS = frozenset({
     20, 21, 22, 23, 25, 53, 67, 68, 69, 80, 110, 119, 123, 135, 137, 138, 139,
     143, 161, 162, 179, 389, 443, 445, 465, 514, 515, 587, 631, 636, 873, 989,
     990, 993, 995, 1194, 1433, 1521, 1723, 3128, 3306, 3389, 5060, 5061, 5222,
     5432, 5900, 5985, 5986, 6379, 8000, 8080, 8443, 8888, 9200, 27017,
 })
-SRC_IANA = ('IANA Service Name and Transport Protocol Port Number Registry '
-            '— well-known service ports')
+SRC_PORT_LIST = (
+    OUR_HEURISTIC + ' — curated list of ports carrying sustained sessions, seeded '
+    'from the IANA Service Name and Transport Protocol Port Number Registry but '
+    'deliberately extended beyond the 0-1023 well-known range'
+)
 
 
 THRESHOLDS = {
@@ -129,12 +144,30 @@ THRESHOLDS = {
     'dns_unique_subdomains': (50, OUR_HEURISTIC + ' — scaled down from resolver-scale figures'),
 
     # ── port scan ──
-    'scan_unique_ports': (25, f'{SRC_SIMPLE_SCAN}; matches Snort 3 port_scan ports=25 ({SRC_SNORT3})'),
-    'scan_window_seconds': (900, SRC_SIMPLE_SCAN + ' — 15-minute rolling window'),
+    'scan_unique_ports': (25, f'{SRC_SIMPLE_SCAN}; the same figure as Snort 3 '
+                              f'port_scan ports=25 ({SRC_SNORT3})'),
+    # bro-simple-scan holds a host inside HOME_NET to a far higher bar, because
+    # internal hosts legitimately touch many ports (backup agents, monitoring,
+    # vulnerability scanners run by the organisation itself).
+    'scan_unique_ports_local': (250, SRC_SIMPLE_SCAN + ' — local_scan_threshold'),
+    # NOT a fixed rolling window. bro-simple-scan's comment is explicit:
+    # "Failed connection attempts are tracked until not seen for this
+    # interval" — an inactivity timeout. An earlier version of this file cited
+    # it as a 15-minute rolling window and implemented neither.
+    'scan_inactivity_timeout': (900, SRC_SIMPLE_SCAN + ' — scan_timeout, an INACTIVITY '
+                                                       'timeout: probing is one episode '
+                                                       'until the source goes quiet for '
+                                                       'this long'),
 
     # ── exfiltration ──
-    'exfil_entropy_high': (7.6, SRC_BINWALK),
-    'exfil_entropy_falling': (6.8, SRC_BINWALK),
+    # binwalk's 7.6/6.8 pair is hysteresis for walking *through* a file:
+    # entropy rising past 7.6 opens a high-entropy region, falling below 6.8
+    # closes it. We hold one averaged figure per flow, with no sequence to
+    # track, so only the rising edge transfers. The falling edge was published
+    # here for a while and applied by nothing.
+    'exfil_entropy_high': (7.6, SRC_BINWALK + ' — rising edge only; the falling edge is '
+                                'hysteresis for intra-file scanning and has no meaning '
+                                'for a per-flow average'),
     'exfil_ratio': (10.0, OUR_HEURISTIC + ' — outbound:inbound, loosely informed by practitioner guidance'),
     # An absolute byte floor cannot work across capture scales: 50 MB is
     # reasonable on a day of enterprise traffic and absurd on a 40-minute
@@ -163,16 +196,44 @@ THRESHOLDS = {
     'keepalive_min_intervals': (20, OUR_HEURISTIC + ' — below ~20 samples the MAD estimate '
                                                     'is too unstable to act on'),
 
+    # ── severity and confidence ──
+    # These decide the colour, the ranking and the urgency an officer sees, so
+    # they are as consequential as any detection threshold. They were literals
+    # buried in the rule bodies with no source and no heuristic tag, which is
+    # exactly the thing the provenance endpoint exists to prevent.
+    'beacon_severity_high_score': (0.90, OUR_HEURISTIC + ' — beacon score at which a '
+                                                         'finding is raised from medium '
+                                                         'to high'),
+    'scan_syn_ratio_high': (0.80, OUR_HEURISTIC + ' — share of connections that are SYN '
+                                                  'without a completed handshake before a '
+                                                  'scan is raised to high'),
+    'unknown_channel_confidence': (0.60, OUR_HEURISTIC + ' — fixed confidence: the rule is '
+                                                         'categorical, so there is no '
+                                                         'observed magnitude to scale'),
+    # Confidence is reported as observed/(threshold x N), capped at 1.0. N is a
+    # presentation choice about how far past a threshold counts as certain, not
+    # a measured quantity, and is labelled as such.
+    'confidence_scale_multiplier': (4, OUR_HEURISTIC + ' — a finding reaches full '
+                                                       'confidence at four times its '
+                                                       'threshold'),
+
     # ── flow aggregation (not a detection threshold, but it shapes every one
     #    of them: it decides where one conversation ends and the next begins) ──
-    'flow_idle_timeout_tcp': (300, SRC_ZEEK_IDLE),
-    'flow_idle_timeout_udp': (60, SRC_ZEEK_IDLE),
+    # Read from processor.IDLE_TIMEOUT_SECONDS rather than restated, so the
+    # published figure cannot drift from the one actually applied. These
+    # were duplicated as literals here and happened to agree.
+    'flow_idle_timeout_tcp': (IDLE_TIMEOUT_SECONDS['TCP'], SRC_ZEEK_IDLE),
+    'flow_idle_timeout_udp': (IDLE_TIMEOUT_SECONDS['UDP'], SRC_ZEEK_IDLE),
+    'flow_idle_timeout_icmp': (IDLE_TIMEOUT_SECONDS['ICMP'], SRC_ZEEK_IDLE),
+    'flow_idle_timeout_default': (DEFAULT_IDLE_TIMEOUT,
+                                  SRC_ZEEK_IDLE + ' — protocols not listed above'),
 
     # ── unrecognised long-lived channel ──
     'unknown_channel_min_duration': (60, OUR_HEURISTIC + ' — long enough to be a session '
                                                          'rather than a probe or a failed '
                                                          'connection attempt'),
-    'unknown_channel_ports': ('not in IANA well-known service list', SRC_IANA),
+    'unknown_channel_ports': ('not in the curated sustained-session port list',
+                              SRC_PORT_LIST),
 }
 
 
@@ -397,7 +458,9 @@ def rule_beaconing(session):
             rule_id='C2_BEACON_PERIODIC',
             title=f'Periodic callback to {peer} every ~{period:.0f}s',
             category='command_and_control',
-            severity=Detection.Severity.HIGH if score >= 0.9 else Detection.Severity.MEDIUM,
+            severity=(Detection.Severity.HIGH
+                      if score >= _t('beacon_severity_high_score')
+                      else Detection.Severity.MEDIUM),
             method=Detection.Method.RULE,
             confidence=min(score, 1.0),
             subject_ip=initiator,
@@ -522,13 +585,13 @@ def rule_unknown_long_channel(session):
             category='command_and_control',
             severity=Detection.Severity.MEDIUM,
             method=Detection.Method.RULE,
-            confidence=0.6,
+            confidence=_t('unknown_channel_confidence'),
             subject_ip=initiator,
             rationale=(
                 f'{initiator} held a connection to '
                 f'{peer}:{service_port} open for {flow.duration_seconds:.0f}s, '
                 f'exchanging {flow.bytes_sent:,} bytes out and {flow.bytes_received:,} in. '
-                f'The port is outside the IANA well-known service range, no application '
+                f'The port is not one we recognise as carrying sustained sessions, no application '
                 f'protocol was identified, and no TLS SNI was presented — so there is '
                 f'nothing declaring what this traffic is. Ordinary encrypted traffic on 443 '
                 f'announces its destination hostname in the SNI; this does not. Benign '
@@ -559,6 +622,8 @@ def rule_dns_tunnelling(session):
     findings = []
     label_len = _t('dns_label_length')
     uniq_thresh = _t('dns_unique_subdomains')
+    entropy_thresh = _t('dns_label_entropy')
+    entropy_min_len = _t('dns_entropy_min_label_len')
 
     # Long, high-entropy labels.
     # Aggregated per (source, parent domain) rather than raised per query: one
@@ -570,7 +635,24 @@ def rule_dns_tunnelling(session):
         'samples': [], 'flow': None,
     })
 
-    for record in session.dns_records.filter(subdomain_length__gte=label_len):
+    # Two ways in, because label length alone is not the whole signal.
+    #
+    #   * A label at or past the 52-character mark is suspicious on its own —
+    #     tunnels pack up to RFC 1035's 63-octet ceiling.
+    #   * A shorter label that is nonetheless high-entropy is also encoded
+    #     payload. Tunnels under a long parent domain have less room per label
+    #     (dnscat2 subtracts the domain from its budget), so a length-only test
+    #     misses them entirely.
+    #
+    # The entropy test is floored at a minimum label length because Shannon
+    # entropy over a handful of characters is too unstable to act on: a
+    # 6-character label of distinct letters scores near the maximum.
+    matches = session.dns_records.filter(
+        Q(subdomain_length__gte=label_len)
+        | Q(subdomain_length__gte=entropy_min_len,
+            query_entropy__gte=entropy_thresh)
+    )
+    for record in matches:
         labels = record.query_name.split('.')
         parent = '.'.join(labels[-2:]) if len(labels) >= 2 else record.query_name
         entry = long_label[(record.src_ip, parent)]
@@ -596,8 +678,10 @@ def rule_dns_tunnelling(session):
                 f'labels reach {entry["max_len"]} characters (peak entropy '
                 f'{entry["max_entropy"]:.2f} bits/char). DNS tunnelling encodes payload into '
                 f'subdomain labels, producing long high-entropy names; ordinary domains do '
-                f'not. Threshold {label_len} chars. Antivirus reputation lookups and some '
-                f'CDNs legitimately use long encoded labels and must be ruled out.'
+                f'not. Flagged at {label_len} characters, or from {entropy_min_len} '
+                f'characters when entropy reaches {entropy_thresh} bits/char. Antivirus '
+                f'reputation lookups and some CDNs legitimately use long encoded labels '
+                f'and must be ruled out.'
             ),
             evidence={
                 'observed_query_count': entry['count'],
@@ -605,7 +689,13 @@ def rule_dns_tunnelling(session):
                 'observed_max_entropy': entry['max_entropy'],
                 'parent_domain': parent,
                 'samples': entry['samples'],
+                'matched_on': (
+                    'label length' if entry['max_len'] >= label_len
+                    else 'entropy of a shorter label'
+                ),
                 **_cite('dns_label_length'),
+                'entropy_threshold': _cite('dns_label_entropy'),
+                'entropy_min_length': _cite('dns_entropy_min_label_len'),
             },
         ))
 
@@ -647,52 +737,107 @@ def rule_dns_tunnelling(session):
 
 
 def rule_port_scan(session):
+    """
+    Port scanning, following ncsa/bro-simple-scan's actual model.
+
+    Three things that citation implies and this rule previously did not do:
+
+    * **scan_timeout is an inactivity timeout, not a window.** Its comment
+      reads "Failed connection attempts are tracked until not seen for this
+      interval". Probing is therefore one episode until the source goes quiet
+      for 15 minutes, so a slow sweep spread over a week is several episodes
+      rather than one giant one — and each is judged on its own.
+    * **Local hosts get a far higher threshold** — 250 against 25. An internal
+      backup agent or monitoring box legitimately touches many ports, and
+      holding it to a remote scanner's bar is how a NOC ends up ignoring the
+      rule.
+    * **The count is of host+port combinations**, so probing one port across
+      many hosts counts too — which a per-destination port count misses
+      entirely.
+    """
     findings = []
-    port_thresh = _t('scan_unique_ports')
+    remote_thresh = _t('scan_unique_ports')
+    local_thresh = _t('scan_unique_ports_local')
+    timeout = _t('scan_inactivity_timeout')
 
-    per_pair = defaultdict(lambda: {'ports': set(), 'syn_only': 0, 'flows': 0})
-    for flow in session.flows.filter(protocol='TCP'):
-        # Must be the responder's port. Reading dst_port directly yields the
-        # initiator's own ephemeral port whenever the capture recorded the
-        # responder as the source, which would count 30 random high ports as a
-        # "scan". This is the same defect that made the covert-channel rule
-        # fire 5,853 times on a real capture.
+    # Gather every probe per source, ordered in time, so episodes can be cut.
+    per_source = defaultdict(list)
+    for flow in session.flows.filter(protocol='TCP').order_by('first_seen'):
         initiator, peer, service_port = flow_direction(flow)
-        entry = per_pair[(initiator, peer)]
-        entry['ports'].add(service_port)
-        entry['flows'] += 1
-        # A SYN with no ACK ever returned is the half-open scan signature.
-        if 'S' in (flow.tcp_flags_seen or '') and 'A' not in (flow.tcp_flags_seen or ''):
-            entry['syn_only'] += 1
-
-    for (src, dst), entry in per_pair.items():
-        if len(entry['ports']) < port_thresh:
+        if not initiator:
             continue
-        syn_ratio = entry['syn_only'] / entry['flows'] if entry['flows'] else 0
-        findings.append(Detection(
-            session=session, flow=None,
-            rule_id='RECON_PORT_SCAN',
-            title=f'Port scan: {src} probed {len(entry["ports"])} ports on {dst}',
-            category='reconnaissance',
-            severity=Detection.Severity.HIGH if syn_ratio > 0.8 else Detection.Severity.MEDIUM,
-            method=Detection.Method.RULE,
-            confidence=min(len(entry['ports']) / (port_thresh * 4), 1.0),
-            subject_ip=src,
-            rationale=(
-                f'{src} contacted {len(entry["ports"])} distinct TCP ports on {dst}. '
-                f'{entry["syn_only"]} of {entry["flows"]} connections were SYN without a '
-                f'completed handshake ({syn_ratio:.0%}), the half-open scan signature. '
-                f'Threshold {port_thresh} distinct ports. Vulnerability scanners and '
-                f'monitoring systems produce identical traffic and should be whitelisted.'
-            ),
-            evidence={
-                'observed_unique_ports': len(entry['ports']),
-                'syn_only_connections': entry['syn_only'],
-                'total_connections': entry['flows'],
-                'target': dst,
-                **_cite('scan_unique_ports'),
-            },
-        ))
+        per_source[initiator].append((flow.first_seen, peer, service_port, flow))
+
+    for source, probes in per_source.items():
+        threshold = local_thresh if is_internal(source) else remote_thresh
+
+        episode = []
+        last_seen = None
+        episodes = []
+        for entry in probes:
+            when = entry[0]
+            if last_seen is not None and (when - last_seen).total_seconds() > timeout:
+                episodes.append(episode)
+                episode = []
+            episode.append(entry)
+            last_seen = when
+        if episode:
+            episodes.append(episode)
+
+        for group in episodes:
+            combos = {(peer, port) for _, peer, port, _ in group}
+            if len(combos) < threshold:
+                continue
+
+            targets = {peer for _, peer, _, _ in group}
+            syn_only = sum(
+                1 for _, _, _, f in group
+                if 'S' in (f.tcp_flags_seen or '') and 'A' not in (f.tcp_flags_seen or '')
+            )
+            syn_ratio = syn_only / len(group) if group else 0
+            span = (group[-1][0] - group[0][0]).total_seconds()
+            target_label = (
+                next(iter(targets)) if len(targets) == 1
+                else f'{len(targets)} hosts'
+            )
+
+            findings.append(Detection(
+                session=session, flow=group[0][3],
+                rule_id='RECON_PORT_SCAN',
+                title=f'Port scan: {source} probed {len(combos)} host+port '
+                      f'combinations on {target_label}',
+                category='reconnaissance',
+                severity=(Detection.Severity.HIGH
+                          if syn_ratio > _t('scan_syn_ratio_high')
+                          else Detection.Severity.MEDIUM),
+                method=Detection.Method.RULE,
+                confidence=min(len(combos) / (threshold * 4), 1.0),
+                subject_ip=source,
+                rationale=(
+                    f'{source} probed {len(combos)} distinct host+port combinations across '
+                    f'{len(targets)} host(s) in a single episode lasting {span:.0f}s. '
+                    f'{syn_only} of {len(group)} connections were SYN without a completed '
+                    f'handshake ({syn_ratio:.0%}), the half-open scan signature. Threshold '
+                    f'{threshold} combinations, applied because this source is '
+                    f'{"inside" if is_internal(source) else "outside"} the monitored '
+                    f'network. An episode ends when the source goes quiet for '
+                    f'{timeout:.0f}s. Vulnerability scanners and monitoring systems '
+                    f'produce identical traffic and should be whitelisted.'
+                ),
+                evidence={
+                    'observed_host_port_combinations': len(combos),
+                    'observed_target_hosts': len(targets),
+                    'syn_only_connections': syn_only,
+                    'total_connections': len(group),
+                    'episode_span_seconds': round(span, 1),
+                    'source_is_internal': is_internal(source),
+                    'threshold_applied': threshold,
+                    'home_net_source': SRC_HOME_NET,
+                    **_cite('scan_unique_ports' if not is_internal(source)
+                            else 'scan_unique_ports_local'),
+                    'inactivity_timeout': _cite('scan_inactivity_timeout'),
+                },
+            ))
     return findings
 
 

@@ -94,7 +94,20 @@ else
 fi
 
 # ── 4. E2E ───────────────────────────────────────────────────────────────
+# The login endpoint is throttled to 8/hour. Global setup reuses its cached
+# token whenever it still works, so a normal run costs no login at all — but
+# running this script repeatedly across a long session can still exhaust the
+# window once the 30-minute access token expires. Clearing the local cache
+# resets the counter. This is a developer harness against a local SQLite
+# database; the throttle itself is untouched and still applies in every other
+# context, which is the point of resetting it here rather than raising it.
 step "Playwright E2E"
+if [[ "${RESET_THROTTLE:-1}" == "1" ]]; then
+  (cd "$BACKEND" && "$PY" manage.py shell -c \
+    "from django.core.cache import cache; cache.clear()" >/dev/null 2>&1) \
+    && echo "→ cleared the local login-throttle counter"
+fi
+
 if [[ "$FAILED" == "1" ]]; then
   echo "skipped — fix the failures above first"
 else
