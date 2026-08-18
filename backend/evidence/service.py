@@ -123,7 +123,10 @@ def ingest_evidence(
             'declared at intake.'
         )
 
-    exhibit_number = exhibit_number or f"NF-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+    prefix = getattr(settings, 'EXHIBIT_PREFIX', 'NF')
+    exhibit_number = exhibit_number or (
+        f"{prefix}-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+    )
 
     store = Path(settings.EVIDENCE_ROOT)
     store.mkdir(parents=True, exist_ok=True)
@@ -192,7 +195,8 @@ def issue_certificate(
             f"(expected {evidence.sha256_hash}, computed {computed})"
         )
 
-    reference = f"S63-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+    prefix = getattr(settings, 'CERTIFICATE_PREFIX', 'S63')
+    reference = f"{prefix}-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
 
     device_description = ' · '.join(filter(None, [
         evidence.get_device_type_display(),

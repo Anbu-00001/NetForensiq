@@ -34,6 +34,15 @@ class Command(BaseCommand):
         parser.add_argument('--seized-from', default='', help='Where the capture was taken')
         parser.add_argument('--exhibit', default='', help='Exhibit number (generated if omitted)')
         parser.add_argument(
+            '--officer', default='',
+            help=(
+                'Username of the officer taking custody. Every custody entry '
+                'this import writes is attributed to them. Omitted, the entries '
+                'carry no officer and print as blank on the certificate rather '
+                'than naming a placeholder.'
+            ),
+        )
+        parser.add_argument(
             '--home-net', default='',
             help=(
                 'Comma-separated CIDRs describing the network this capture was '
@@ -62,6 +71,18 @@ class Command(BaseCommand):
         if not os.path.exists(path):
             raise CommandError(f'File not found: {path}')
 
+        officer = None
+        if opts['officer']:
+            from django.contrib.auth import get_user_model
+
+            try:
+                officer = get_user_model().objects.get(username=opts['officer'])
+            except get_user_model().DoesNotExist:
+                raise CommandError(
+                    f"No such user: {opts['officer']}. Custody must be attributed to "
+                    f"an account that exists, not to a name typed at the console."
+                )
+
         record = None
         if not opts['no_seal']:
             # Imported here so `--no-seal` works even if the evidence app is
@@ -75,6 +96,7 @@ class Command(BaseCommand):
                 case_reference=opts['case'],
                 seized_from=opts['seized_from'],
                 provenance=opts['provenance'],
+                collected_by=officer,
             )
             self.stdout.write(self.style.SUCCESS(
                 f"  Exhibit : {record.exhibit_number}\n"
@@ -96,6 +118,7 @@ class Command(BaseCommand):
             pcap_path=path,
             name=opts['name'] or None,
             home_net=opts['home_net'],
+            user=officer,
         )
 
         self.stdout.write(self.style.SUCCESS(

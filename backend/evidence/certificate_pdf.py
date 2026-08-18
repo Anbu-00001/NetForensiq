@@ -417,7 +417,11 @@ def _custody_annexure(certificate, styles):
             Paragraph(str(event.sequence), styles['field']),
             Paragraph(event.get_action_display(), styles['field']),
             Paragraph(
-                (event.actor.username if event.actor else 'system')
+                # No actor means the entry was made by an automated step with
+                # no officer attached. Printing "system" put a placeholder
+                # identity in the Officer column of a court exhibit, beside
+                # real badge-carrying officers. A statutory blank stays blank.
+                (event.actor.username if event.actor else '—')
                 + (f" ({event.actor_badge})" if event.actor_badge else ''),
                 styles['field'],
             ),

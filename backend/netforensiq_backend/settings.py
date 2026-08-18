@@ -35,7 +35,13 @@ SECRET_KEY = os.getenv('SECRET_KEY') or secrets.token_urlsafe(50)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# Every other setting in this file reads the environment; this one was the
+# exception, which meant the platform could not be deployed to any hostname
+# without editing source. Comma-separated.
+ALLOWED_HOSTS = [
+    host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+    if host.strip()
+]
 
 
 # Application definition
@@ -139,6 +145,18 @@ CACHES = {
     }
 }
 
+# The test suite gets its own cache directory.
+#
+# Without this the runner shares backend/.cache with the dev server, so the
+# login throttle carries counters across the boundary: run the app, then run
+# `manage.py test`, and 27 tests fail on a 429 that has nothing to do with the
+# code under test. verify.sh worked around it by clearing the cache first,
+# which left the documented command failing while the harness passed.
+#
+# The runner still uses the *file-based* backend, not LocMemCache, so the
+# throttle tests exercise the same shared-counter behaviour as a deployment.
+TEST_RUNNER = 'netforensiq_backend.test_runner.IsolatedCacheRunner'
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -164,6 +182,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
+# Storage is UTC and stays UTC: a capture timestamp has to mean the same
+# instant regardless of where the file is opened, and daylight rules must
+# never touch an evidential time. Presentation converts — the Section 63
+# certificate renders IST because the statutory form's field is labelled
+# "Time (IST)", and the UI labels whichever zone it displays.
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
@@ -198,14 +221,16 @@ HOME_NET = [
     ).split(',') if entry.strip()
 ]
 
-# Vite's default dev port, plus the fixed port the Playwright suite uses.
-# Both loopback spellings are listed because the browser treats
-# localhost and 127.0.0.1 as distinct origins.
+# Vite's default dev port. Both loopback spellings are listed because the
+# browser treats localhost and 127.0.0.1 as distinct origins.
+#
+# The Playwright port used to be baked in here as well, which meant the test
+# harness's origin shipped in the deployed allowlist. It is supplied by the
+# harness through CORS_EXTRA_ORIGINS instead, so nothing test-only reaches a
+# deployment that does not ask for it.
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:5199",
-    "http://127.0.0.1:5199",
 ]
 _extra_origins = os.getenv('CORS_EXTRA_ORIGINS', '')
 if _extra_origins:
@@ -241,3 +266,16 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = 'accounts.User'
+
+
+# Exhibit and certificate identifier prefixes.
+#
+# "NF-2026…" and "S63-2026…" are this project's scheme. A unit with its own
+# exhibit numbering — which most have — sets these rather than accepting ours
+# on documents that go into a case file.
+EXHIBIT_PREFIX = os.getenv('EXHIBIT_PREFIX', 'NF')
+CERTIFICATE_PREFIX = os.getenv('CERTIFICATE_PREFIX', 'S63')
+
+# Shown on the Section 63 certificate as the issuing body. Blank prints
+# nothing rather than inventing an organisation.
+ISSUING_ORGANISATION = os.getenv('ISSUING_ORGANISATION', '')

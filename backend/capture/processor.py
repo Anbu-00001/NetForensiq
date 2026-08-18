@@ -41,10 +41,11 @@ ENTROPY_SAMPLE_BYTES = 512
 # anything not listed, matching its UDP/ICMP choice.
 IDLE_TIMEOUT_SECONDS = {'TCP': 300.0, 'UDP': 60.0, 'ICMP': 60.0}
 DEFAULT_IDLE_TIMEOUT = 60.0
-SRC_ZEEK_TIMEOUT = (
-    'Zeek scripts/base/init-bare.zeek — tcp_inactivity_timeout 5 min, '
-    'udp_inactivity_timeout 1 min, icmp_inactivity_timeout 1 min'
-)
+# The citation for these values is published once — as SRC_ZEEK_IDLE in
+# detection.py, which reads IDLE_TIMEOUT_SECONDS from here and surfaces both
+# through /api/detections/thresholds/. A second copy of the same source string
+# lived here, referenced by nothing; two strings for one source is how they
+# drift apart. It is not re-imported because detection.py imports this module.
 
 
 def packet_timestamp(pkt):

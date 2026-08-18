@@ -612,7 +612,7 @@ class SeverityOrderingTests(TestCase):
         analyse_session(session)
 
         for d in session.detections.all():
-            self.assertEqual(d.severity_rank, Detection.SEVERITY_RANK[d.severity])
+            self.assertEqual(d.severity_rank, Detection.severity_rank_for(d.severity))
             self.assertGreater(d.severity_rank, 0)
 
 
@@ -756,3 +756,34 @@ class JA4FingerprintTests(TestCase):
             fingerprint_payload(b'GET / HTTP/1.1\r\nHost: example.test\r\n\r\n'),
             ('', '', ''),
         )
+
+
+class SeverityRankHasOneDefinitionTests(TestCase):
+    """
+    The rank table lived twice: as bare literals on the model and as
+    threshold-derived values in the engine, on two different write paths.
+    They agreed by coincidence. This pins them to one definition.
+    """
+
+    def test_the_model_reads_the_published_thresholds(self):
+        from .detection import SEVERITY_WEIGHT
+
+        for severity in Detection.Severity.values:
+            self.assertEqual(
+                Detection.severity_rank_for(severity),
+                SEVERITY_WEIGHT[severity],
+            )
+
+    def test_every_severity_rank_comes_from_a_published_threshold(self):
+        published = {
+            key: value for key, value in THRESHOLDS.items()
+            if key.startswith('risk_score_')
+        }
+        self.assertEqual(len(published), len(Detection.Severity.values))
+
+        for severity in Detection.Severity.values:
+            self.assertIn(
+                Detection.severity_rank_for(severity),
+                {entry[0] for entry in published.values()},
+                f'rank for {severity} is not any published risk_score_* value',
+            )

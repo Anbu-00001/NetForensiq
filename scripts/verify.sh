@@ -56,17 +56,23 @@ step "Demo data"
 # worse than one that fails.
 NEEDS_SEED=$(cd "$BACKEND" && "$PY" manage.py shell -c "
 from capture.models import Detection
-from evidence.models import EvidenceRecord
-print('yes' if not (Detection.objects.exists() and EvidenceRecord.objects.exists()) else 'no')
+from evidence.models import EvidenceRecord, Section63Certificate
+print('yes' if not (Detection.objects.exists()
+                    and EvidenceRecord.objects.exists()
+                    and Section63Certificate.objects.exists()) else 'no')
 " 2>/dev/null | tail -1)
 
 if [[ "$NEEDS_SEED" == "yes" ]]; then
-  echo "→ no detections present; generating and analysing the demo capture"
-  (cd "$BACKEND" \
-    && "$PY" manage.py generate_traffic --scenario mixed --seed 7 >/dev/null \
-    && "$PY" manage.py import_pcap synthetic_captures/demo_storyline.pcap --name demo \
-         --case "I-CR-2026-0042" --seized-from "Switch SPAN port" >/dev/null \
-    && "$PY" manage.py analyze_session >/dev/null) \
+  echo "→ seeding the demonstration dataset"
+  # seed_demo owns every value it writes. The case reference it uses is
+  # DEMO-NOT-A-REAL-CASE, on purpose: this writes into the same database the
+  # dev server serves, and a plausible-looking FIR number would end up printed
+  # on a Section 63 certificate — a forged statutory declaration.
+  #
+  # It prefers the real captures in backend/reference_captures/ and falls back
+  # to generated traffic only when they are absent, so the suite runs against
+  # traffic this project did not create whenever that is possible.
+  (cd "$BACKEND" && "$PY" manage.py seed_demo) \
     && ok "demo data seeded" || fail "could not seed demo data"
 else
   ok "demo data already present"
@@ -78,7 +84,9 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$API_URL/api/" || tr
 
 if [[ "$CODE" == "000" ]]; then
   echo "→ nothing listening; starting one"
-  (cd "$BACKEND" && "$PY" manage.py runserver "127.0.0.1:$API_PORT" --noreload \
+  (cd "$BACKEND" \
+    && CORS_EXTRA_ORIGINS="http://127.0.0.1:5199,http://localhost:5199" \
+       "$PY" manage.py runserver "127.0.0.1:$API_PORT" --noreload \
       >/tmp/netforensiq-verify-api.log 2>&1) &
   STARTED_API=$!
   for _ in $(seq 1 20); do

@@ -426,42 +426,16 @@ def score_connection_beacon(intervals, sizes):
     return score, detail
 
 
-def score_beacon(flow):
-    """
-    Score one flow for beaconing.
-
-    RITA weights four subscores at 0.25 each, but its duration and histogram
-    subscores need 6 h and 11 h of activity respectively. Captures shorter
-    than that cannot produce them, so rather than scoring those components
-    zero — which would silently penalise every short capture — we renormalise
-    over the subscores we could actually compute and record that we did so.
-    """
-    ts_mid = flow.interval_median
-    ts_madm_score = max(0.0, 1 - (flow.interval_mad / ts_mid)) if ts_mid > 0 else 0.0
-    # Dispersion already encodes MAD/median; skew is unavailable from summary
-    # stats alone, so the TS score here uses the dispersion component only and
-    # says so in the evidence.
-    ts_score = _ceil3(ts_madm_score)
-
-    duration_hours = (flow.duration_seconds or 0) / 3600.0
-    components = {'ts': ts_score}
-    omitted = []
-    if duration_hours < 6:
-        omitted.append('duration (needs >=6h of activity)')
-    if duration_hours < 11:
-        omitted.append('histogram (needs >=11h of activity)')
-
-    score = sum(components.values()) / len(components)
-    return round(score, 4), {
-        'components': {k: round(v, 4) for k, v in components.items()},
-        'omitted_subscores': omitted,
-        'renormalised': bool(omitted),
-        'interval_median_s': ts_mid,
-        'interval_mad_s': flow.interval_mad,
-        'dispersion': flow.interval_dispersion,
-        'connection_count': flow.packets_sent,
-    }
-
+# `score_beacon(flow)` used to live here: a per-flow scorer that was never
+# called by anything. It carried two decision thresholds (6 h and 11 h) that
+# appeared in no THRESHOLDS entry and no source string, in the file that is
+# this project's provenance contract. Worse, its evidence dict reported
+# `renormalised: False` whenever a flow ran past 11 hours — asserting the full
+# RITA composite had been computed when only one of four subscores ever was.
+#
+# It is deleted rather than fixed. rule_beaconing scores host *pairs* through
+# score_connection_beacon(), which is what RITA actually does; a per-flow
+# scorer was a leftover from when a 5-tuple was mistaken for a connection.
 
 # ──────────────────────────────────────────────────────────────────────────
 # Rules
@@ -908,7 +882,7 @@ def rule_port_scan(session):
                 f'network.'
                 + (' No single episode reached the threshold on its own — this is slow '
                    'probing spread across the capture, which a streaming detector holding '
-                   'state for only 15 minutes would not have reported.' if slow else '')
+                   f'state for only {timeout:.0f}s would not have reported.' if slow else '')
                 + ' Vulnerability scanners and monitoring systems produce identical traffic '
                   'and should be whitelisted.'
             ),

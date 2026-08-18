@@ -206,16 +206,6 @@ class Detection(models.Model):
         HIGH = 'high', 'High'
         CRITICAL = 'critical', 'Critical'
 
-    # Ordering by the CharField itself sorts alphabetically, and descending
-    # that gives medium > low > high > critical — so the Findings list put
-    # medium- and low-severity rows *above* high and critical ones, under
-    # severity-coloured chips implying rank. Rank is now explicit.
-    SEVERITY_RANK = {
-        Severity.LOW: 10,
-        Severity.MEDIUM: 35,
-        Severity.HIGH: 70,
-        Severity.CRITICAL: 95,
-    }
 
     class Method(models.TextChoices):
         RULE = 'rule', 'Deterministic rule'
@@ -278,19 +268,46 @@ class Detection(models.Model):
     review_note = models.TextField(blank=True)
 
     class Meta:
-        # Severity is ranked, not sorted alphabetically — see SEVERITY_RANK.
+        # Ordering by the severity CharField sorts alphabetically, and
+        # descending that gives medium > low > high > critical — the Findings
+        # list would put medium- and low-severity rows *above* critical ones
+        # under severity-coloured chips implying rank. severity_rank is the
+        # explicit ordering key; see severity_rank_for().
         ordering = ['-severity_rank', '-confidence']
 
-    def save(self, *args, **kwargs):
-        # Denormalised so the database can order on it; bulk_create bypasses
-        # save(), so analyse_session sets it explicitly too.
-        self.severity_rank = self.SEVERITY_RANK.get(self.severity, 0)
-        super().save(*args, **kwargs)
+        # These were written inside save() rather than here, so none of them
+        # existed. Every one backs a query the API actually issues: the
+        # dashboard's severity breakdown, the per-rule counts, and the search
+        # by subject address.
         indexes = [
             models.Index(fields=['session', 'severity']),
             models.Index(fields=['rule_id']),
             models.Index(fields=['subject_ip']),
         ]
+
+    @staticmethod
+    def severity_rank_for(severity):
+        """
+        The 0-100 weight for a severity, from the published thresholds.
+
+        The table used to be duplicated here as bare literals while
+        detection.py derived its copy from THRESHOLDS and called itself the
+        "single source of truth". Both were live on different write paths —
+        bulk_create through detection.py, individual saves through here — and
+        they agreed only by coincidence. Retuning a published threshold would
+        have left the two disagreeing with no test to notice.
+
+        Imported inside the call because detection.py imports this module.
+        """
+        from .detection import SEVERITY_WEIGHT
+
+        return SEVERITY_WEIGHT.get(severity, 0)
+
+    def save(self, *args, **kwargs):
+        # Denormalised so the database can order on it; bulk_create bypasses
+        # save(), so analyse_session sets it explicitly too.
+        self.severity_rank = self.severity_rank_for(self.severity)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"[{self.severity}] {self.rule_id} · {self.subject_ip or '-'}"
