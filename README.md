@@ -279,9 +279,11 @@ Two rules govern the renderer:
 | GET | `/api/auth/me/` | Current user |
 | GET | `/api/auth/status/` | Registration approval status |
 
-There is deliberately **no logout endpoint**. Sign-out clears the browser's
-sessionStorage only; the refresh token stays valid until it expires. Blacklisting
-it server-side is listed under Known Gaps.
+| POST | `/api/auth/logout/` | Blacklist the refresh token and record the sign-out |
+
+Signing out blacklists the refresh token server-side and writes an
+`AuditLog.Action.LOGOUT` row. Clearing sessionStorage alone would leave the
+token usable for its full lifetime.
 
 All endpoints require authentication (`IsAuthenticated`) by default.
 Registration requires admin approval before the account is active.

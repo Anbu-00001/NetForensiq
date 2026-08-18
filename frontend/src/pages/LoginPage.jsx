@@ -10,9 +10,6 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
-const spark = (s) =>
-  Array.from({ length: 20 }, (_, i) => 18 + Math.abs(Math.sin(i * s) * 48) + (i % 3) * 6);
-
 function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -349,60 +346,6 @@ export function Dot({ color, label }) {
   );
 }
 
-export function MiniSpark({ label, value, delta, color, data, delay = 0, up = true }) {
-  const max = Math.max(...data);
-  return (
-    <Box
-      sx={{
-        mb: 1.6,
-        animation: `riseIn 0.5s ease ${delay}s both`,
-        '@keyframes riseIn': {
-          from: { opacity: 0, transform: 'translateY(10px)' },
-          to: { opacity: 1, transform: 'translateY(0)' },
-        },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.6 }}>
-        <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.6)', flexGrow: 1 }}>
-          {label}
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: 11.5, fontWeight: 600, color,
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
-        >
-          {value}
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: 10, ml: 0.8, fontFamily: "'JetBrains Mono', monospace",
-            color: up ? '#00E68A' : '#FF3B5C',
-          }}
-        >
-          {up ? '▲' : '▼'}{delta}
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: 22 }}>
-        {data.map((v, i) => (
-          <Box
-            key={i}
-            sx={{
-              flex: 1, height: `${(v / max) * 100}%`, borderRadius: '1px',
-              background: `linear-gradient(180deg, ${color} 0%, ${color}22 100%)`,
-              transformOrigin: 'bottom',
-              animation: `growBar 0.45s ease ${delay + i * 0.022}s both`,
-              '@keyframes growBar': {
-                from: { transform: 'scaleY(0)' }, to: { transform: 'scaleY(1)' },
-              },
-            }}
-          />
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
 export function TelemetryPanel() {
   return (
     <Box
@@ -416,21 +359,6 @@ export function TelemetryPanel() {
         position: 'relative',
       }}
     >
-      <Typography
-        sx={{
-          fontSize: 10, letterSpacing: 1.6, mb: 2,
-          fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.35)',
-        }}
-      >
-        CAPABILITIES
-      </Typography>
-
-
-
-
-      <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', my: 2.2 }} />
-
       <Typography
         sx={{
           fontSize: 10, letterSpacing: 1.6, mb: 1.4,

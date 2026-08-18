@@ -51,16 +51,21 @@ fi
 # to be something to compare. Seeded only when missing — re-seeding every run
 # would discard triage decisions made by hand while demoing.
 step "Demo data"
+# Evidence is checked too, not just detections: the certificate and custody
+# E2E tests skip without an exhibit, and a suite that skips its way to green is
+# worse than one that fails.
 NEEDS_SEED=$(cd "$BACKEND" && "$PY" manage.py shell -c "
-from capture.models import CaptureSession, Detection
-print('yes' if not Detection.objects.exists() else 'no')
+from capture.models import Detection
+from evidence.models import EvidenceRecord
+print('yes' if not (Detection.objects.exists() and EvidenceRecord.objects.exists()) else 'no')
 " 2>/dev/null | tail -1)
 
 if [[ "$NEEDS_SEED" == "yes" ]]; then
   echo "→ no detections present; generating and analysing the demo capture"
   (cd "$BACKEND" \
     && "$PY" manage.py generate_traffic --scenario mixed --seed 7 >/dev/null \
-    && "$PY" manage.py import_pcap synthetic_captures/demo_storyline.pcap --name demo >/dev/null \
+    && "$PY" manage.py import_pcap synthetic_captures/demo_storyline.pcap --name demo \
+         --case "I-CR-2026-0042" --seized-from "Switch SPAN port" >/dev/null \
     && "$PY" manage.py analyze_session >/dev/null) \
     && ok "demo data seeded" || fail "could not seed demo data"
 else
