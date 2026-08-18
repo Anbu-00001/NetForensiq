@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Box, Typography, TextField, Button, Alert, Grow } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import TravelExploreOutlinedIcon from '@mui/icons-material/TravelExploreOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { ConsoleBar, FieldLabel, consoleField } from './LoginPage';
+import { ConsoleBar, FieldLabel } from './LoginPage';
+import { consoleField } from '../theme/formStyles';
 import { checkApprovalStatus } from '../services/auth';
 
 // Three stages, because the backend has three states.
@@ -34,9 +35,6 @@ function StatusPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
 
   const handleCheck = async (e) => {
     e.preventDefault();
@@ -85,7 +83,7 @@ function StatusPage() {
           }}
         />
 
-        <Grow in={mounted} timeout={620}>
+        <Grow in appear timeout={620}>
           <Box
             sx={{
               width: '100%', maxWidth: 620, borderRadius: 2, overflow: 'hidden',

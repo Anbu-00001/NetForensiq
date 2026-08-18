@@ -22,7 +22,10 @@ from django.db import transaction
 from django.db.models import Q
 
 from .models import Detection, Flow
-from .processor import DEFAULT_IDLE_TIMEOUT, IDLE_TIMEOUT_SECONDS
+from .processor import (
+    DEFAULT_IDLE_TIMEOUT, ENTROPY_SAMPLE_BYTES, IDLE_TIMEOUT_SECONDS,
+    MAX_ENTROPY_SAMPLES,
+)
 
 
 # Snort and Suricata both define $HOME_NET — the address space you are
@@ -272,6 +275,18 @@ THRESHOLDS = {
     # Read from processor.IDLE_TIMEOUT_SECONDS rather than restated, so the
     # published figure cannot drift from the one actually applied. These
     # were duplicated as literals here and happened to agree.
+    'entropy_max_samples': (
+        MAX_ENTROPY_SAMPLES,
+        '[OUR HEURISTIC] Memory bound on payload sampling. payload_entropy is '
+        'the mean of at most this many samples per flow, taken in arrival '
+        'order so a capture replays identically. Not a test — it conditions '
+        'the measurement that exfil_entropy_high is applied to.',
+    ),
+    'entropy_sample_bytes': (
+        ENTROPY_SAMPLE_BYTES,
+        '[OUR HEURISTIC] Bytes measured per entropy sample. Same status as '
+        'entropy_max_samples: it shapes the estimate, it is not a threshold.',
+    ),
     'flow_idle_timeout_tcp': (IDLE_TIMEOUT_SECONDS['TCP'], SRC_ZEEK_IDLE),
     'flow_idle_timeout_udp': (IDLE_TIMEOUT_SECONDS['UDP'], SRC_ZEEK_IDLE),
     'flow_idle_timeout_icmp': (IDLE_TIMEOUT_SECONDS['ICMP'], SRC_ZEEK_IDLE),
@@ -292,6 +307,8 @@ THRESHOLDS = {
 # conversation ends and the next begins — but a reader must not take them for
 # a test some rule performs.
 INFORMATIONAL_THRESHOLDS = frozenset({
+    'entropy_max_samples',
+    'entropy_sample_bytes',
     'flow_idle_timeout_tcp',
     'flow_idle_timeout_udp',
     'flow_idle_timeout_icmp',
@@ -648,6 +665,10 @@ def rule_unknown_long_channel(session):
                 'app_protocol': flow.app_protocol or None,
                 'tls_sni': flow.tls_sni or None,
                 'payload_entropy': flow.payload_entropy,
+                'entropy_measured_over': (
+                    f'{flow.entropy_sample_count} sample(s) of up to '
+                    f'{ENTROPY_SAMPLE_BYTES} bytes — see entropy_max_samples'
+                ),
                 'bytes_sent': flow.bytes_sent,
                 'bytes_received': flow.bytes_received,
                 **_cite('unknown_channel_min_duration'),
@@ -964,6 +985,10 @@ def rule_exfiltration(session):
                 'observed_bytes_received': flow.bytes_received,
                 'observed_ratio': round(ratio, 2),
                 'observed_entropy': flow.payload_entropy,
+                'entropy_measured_over': (
+                    f'{flow.entropy_sample_count} sample(s) of up to '
+                    f'{ENTROPY_SAMPLE_BYTES} bytes — see entropy_max_samples'
+                ),
                 'volume_threshold_applied': volume_threshold,
                 'volume_threshold_basis': f'p{pct} of outbound volume in this capture, '
                                           f'floored at {floor} bytes',
@@ -1020,6 +1045,10 @@ def rule_icmp_tunnel(session):
                 'observed_avg_packet_size': flow.avg_packet_size,
                 'measured_on': 'whole frame including IP and ICMP headers',
                 'observed_entropy': flow.payload_entropy,
+                'entropy_measured_over': (
+                    f'{flow.entropy_sample_count} sample(s) of up to '
+                    f'{ENTROPY_SAMPLE_BYTES} bytes — see entropy_max_samples'
+                ),
                 'packet_count': flow.packets_sent,
                 'icmp_type': icmp_type,
                 'icmp_type_name': 'echo request' if icmp_type == 8 else 'echo reply',

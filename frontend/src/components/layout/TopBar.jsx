@@ -104,7 +104,11 @@ const initials = user?.first_name
         </Avatar>
         <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
           <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2, textTransform: 'capitalize' }}>
-            {user?.role || 'Operator'}
+            {/* 'Operator' is not one of the backend's roles (admin /
+                investigator / viewer). A user whose role fails to load was
+                shown as holding a role that does not exist; the fields either
+                side of this one already use an em dash. */}
+            {user?.role || '—'}
           </Typography>
           <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.45)', lineHeight: 1.2 }}>
             {user?.username || '—'}

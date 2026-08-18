@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/auth';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { consoleField } from '../theme/formStyles';
 import {
   Box, Typography, TextField, Button, InputAdornment, IconButton, Alert, Grow,
 } from '@mui/material';
@@ -15,11 +16,8 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => { setMounted(true); }, []);
 
   const handleSubmit = async (e) => {
   e.preventDefault();
@@ -81,7 +79,7 @@ function LoginPage() {
           }}
         />
 
-        <Grow in={mounted} timeout={620}>
+        <Grow in appear timeout={620}>
           <Box
             sx={{
               display: 'flex',
@@ -260,24 +258,6 @@ function LoginPage() {
 
 /* ───────── shared pieces ───────── */
 
-export const consoleField = {
-  '& .MuiOutlinedInput-root': {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 1.5,
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 13,
-    transition: 'all 0.22s',
-    '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
-    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.16)' },
-    '&.Mui-focused': { backgroundColor: 'rgba(0,212,255,0.04)' },
-    '&.Mui-focused fieldset': {
-      borderColor: 'rgba(0,212,255,0.55)',
-      borderWidth: '1px',
-      boxShadow: '0 0 0 3px rgba(0,212,255,0.08)',
-    },
-  },
-  '& input::placeholder': { color: 'rgba(229,231,235,0.25)', opacity: 1 },
-};
 
 export function FieldLabel({ text }) {
   return (

@@ -5,6 +5,17 @@ import path from 'node:path';
 const TOKENS = path.join('e2e', '.auth', 'tokens.json');
 
 /**
+ * The API the suite talks to directly.
+ *
+ * Assertions compare what is on screen against what the API returns, so they
+ * fetch it themselves. That address was written out seven times across the
+ * spec; change the port and the two anti-fabrication guards would have gone on
+ * passing while testing nothing. Playwright's webServer passes VITE_API_BASE,
+ * so this is the same value the app itself uses.
+ */
+export const API_BASE = process.env.VITE_API_BASE ?? 'http://127.0.0.1:8011/api';
+
+/**
  * Test fixtures.
  *
  * `page` arrives already authenticated. The app stores JWTs in sessionStorage,
@@ -25,8 +36,11 @@ export const test = base.extend({
     await use(page);
   },
 
-  anonymousPage: async ({ browser }, use) => {
-    const context = await browser.newContext();
+  // baseURL is threaded through so specs can use relative paths here too.
+  // Without it every anonymous navigation needed an absolute URL, which is
+  // how three assertions ended up pinned to a port the config also defines.
+  anonymousPage: async ({ browser, baseURL }, use) => {
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
     await use(page);
     await context.close();
@@ -34,3 +48,39 @@ export const test = base.extend({
 });
 
 export { expect };
+
+/**
+ * Call the API from inside the page, with the page's own access token.
+ *
+ * The address has to cross into the browser context as an argument: a
+ * `page.evaluate` closure is serialised and run in the page, where Node's
+ * module scope does not exist. Five call sites each inlined the URL instead,
+ * which is how the port ended up written out seven times.
+ */
+export async function apiGet(page, path) {
+  return page.evaluate(async ({ base, p }) => {
+    const token = sessionStorage.getItem('access_token');
+    const response = await fetch(`${base}/${p}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.json();
+  }, { base: API_BASE, p: path });
+}
+
+export async function apiPost(page, path, payload) {
+  return page.evaluate(async ({ base, p, body }) => {
+    const token = sessionStorage.getItem('access_token');
+    const response = await fetch(`${base}/${p}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    return response.json();
+  }, { base: API_BASE, p: path, body: payload });
+}
+
+/** DRF paginates; plain lists come back bare. */
+export const rows = (data) => (Array.isArray(data) ? data : data?.results ?? []);

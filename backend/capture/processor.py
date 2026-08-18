@@ -21,8 +21,22 @@ WELL_KNOWN_PORTS = {
     993: 'IMAPS', 995: 'POP3S', 3389: 'RDP', 8080: 'HTTP-ALT',
 }
 
-# Cap on per-flow entropy samples, and on bytes hashed per sample. Bounds
-# memory on large captures without materially changing the entropy estimate.
+# Cap on per-flow entropy samples, and on bytes measured per sample.
+#
+# payload_entropy is therefore the mean of at most 40 samples of at most 512
+# bytes each, taken in arrival order — at most 20 KB of a flow that may be
+# hundreds of megabytes. That matters because the value is compared against
+# exfil_entropy_high, which carries a real citation: the threshold is sourced
+# and the measurement it judges is an estimate.
+#
+# The earlier comment here claimed the bound was "without materially changing
+# the entropy estimate". Nothing established that, so it is not claimed. What
+# is done instead: the policy is published through THRESHOLDS as informational,
+# and every finding that rests on entropy states how many samples backed it, so
+# an officer can see the estimate is an estimate.
+#
+# First-N rather than reservoir sampling is deliberate — a capture replayed
+# twice must produce identical findings, and random sampling would not.
 MAX_ENTROPY_SAMPLES = 40
 ENTROPY_SAMPLE_BYTES = 512
 

@@ -207,7 +207,13 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged })
   const [chain, setChain] = useState(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const style = STATUS_STYLE[record.status] ?? STATUS_STYLE.archived;
+  // Falling back to STATUS_STYLE.archived labelled an unrecognised integrity
+  // state with the definite word "Archived". Mislabelling an exhibit's
+  // integrity is the one thing this page must never do quietly.
+  const style = STATUS_STYLE[record.status] ?? {
+    label: `Unrecognised status: ${record.status ?? 'none'}`,
+    color: '#FFB020',
+  };
 
   const toggle = async () => {
     const next = !open;

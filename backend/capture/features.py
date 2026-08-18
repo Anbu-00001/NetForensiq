@@ -128,6 +128,9 @@ def compute_flow_metrics(flow_state):
         'packets_per_second': round(packets_per_second, 3),
         'bytes_ratio': round(bytes_ratio, 4),
         'payload_entropy': round(payload_entropy, 4),
+        # How much of the flow the entropy estimate actually saw. Reported
+        # in every finding that compares it against a threshold.
+        'entropy_sample_count': len(entropy_samples),
     }
     # Beacon periodicity is measured on outbound packets only.
     metrics.update(interval_features(flow_state.get('timestamps_out', [])))

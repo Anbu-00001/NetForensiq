@@ -1,5 +1,5 @@
 import { register } from '../services/auth';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box, Typography, TextField, Button, InputAdornment, IconButton,
   Alert, Grow, MenuItem,
@@ -9,7 +9,8 @@ import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
-import { ConsoleBar, FieldLabel, consoleField, Dot } from './LoginPage';
+import { ConsoleBar, FieldLabel, Dot } from './LoginPage';
+import { consoleField } from '../theme/formStyles';
 
 const roles = [
   { value: 'investigator', label: 'Investigator' },
@@ -33,10 +34,7 @@ function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
 
   const handleChange = (f) => (e) => setFormData({ ...formData, [f]: e.target.value });
 
@@ -108,7 +106,7 @@ function RegisterPage() {
           }}
         />
 
-        <Grow in={mounted} timeout={620}>
+        <Grow in appear timeout={620}>
           <Box
             sx={{
               display: 'flex', flexDirection: { xs: 'column', md: 'row' },

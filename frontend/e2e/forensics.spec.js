@@ -1,6 +1,4 @@
-import { test, expect } from './fixtures';
-
-const USER = { username: 'analyst', password: 'demo-pass-1234' };
+import { test, expect, apiGet, apiPost, rows } from './fixtures';
 
 /**
  * These tests assert the thing the code review flagged as the project's
@@ -26,19 +24,12 @@ async function login(page) {
  * run — which is exactly what happened here before this helper existed.
  */
 async function apiCount(page, path) {
-  return page.evaluate(async (p) => {
-    const token = sessionStorage.getItem('access_token');
-    const r = await fetch(`http://127.0.0.1:8011/api/${p}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((x) => x.json());
-    const list = Array.isArray(r) ? r : r.results;
-    return list?.length ?? 0;
-  }, path);
+  return rows(await apiGet(page, path)).length;
 }
 
 test.describe('authentication', () => {
   test('protected routes redirect anonymous users to login', async ({ anonymousPage }) => {
-    await anonymousPage.goto('http://127.0.0.1:5199/dashboard');
+    await anonymousPage.goto('/dashboard');
     await expect(anonymousPage).toHaveURL(/login/);
   });
 
@@ -53,17 +44,10 @@ test.describe('dashboard shows real data', () => {
 
   test('stat cards match the API summary exactly', async ({ page }) => {
     // Read what the API actually returned for the selected session
-    const summary = await page.evaluate(async () => {
-      const token = sessionStorage.getItem('access_token');
-      const sessions = await fetch('http://127.0.0.1:8011/api/sessions/', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.json());
-      const list = Array.isArray(sessions) ? sessions : sessions.results;
-      if (!list.length) return null;
-      return fetch(`http://127.0.0.1:8011/api/sessions/${list[0].id}/summary/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.json());
-    });
+    const sessions = rows(await apiGet(page, 'sessions/'));
+    const summary = sessions.length
+      ? await apiGet(page, `sessions/${sessions[0].id}/summary/`)
+      : null;
 
     test.skip(!summary, 'no capture sessions seeded');
 
@@ -104,23 +88,12 @@ test.describe('findings', () => {
     // Triage is a state change, so this test resets one finding to "new"
     // first. Without that, a second run finds everything already reviewed
     // and would fail for reasons unrelated to the behaviour under test.
-    const pendingId = await page.evaluate(async () => {
-      const token = sessionStorage.getItem('access_token');
-      const res = await fetch('http://127.0.0.1:8011/api/detections/', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.json());
-      const list = Array.isArray(res) ? res : res.results;
-      if (!list?.length) return null;
-      await fetch(`http://127.0.0.1:8011/api/detections/${list[0].id}/triage/`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'new', note: '' }),
-      });
-      return list[0].id;
-    });
+    const detections = rows(await apiGet(page, 'detections/'));
+    let pendingId = null;
+    if (detections.length) {
+      pendingId = detections[0].id;
+      await apiPost(page, `detections/${pendingId}/triage/`, { status: 'new', note: '' });
+    }
 
     test.skip(!pendingId, 'no detections seeded');
 
@@ -268,14 +241,7 @@ test.describe('the interface claims nothing it cannot do', () => {
   });
 
   test('the sidebar capture window reflects the real session', async ({ page }) => {
-    const session = await page.evaluate(async () => {
-      const token = sessionStorage.getItem('access_token');
-      const r = await fetch('http://127.0.0.1:8011/api/sessions/', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((x) => x.json());
-      const list = Array.isArray(r) ? r : r.results;
-      return list?.length ? list[0] : null;
-    });
+    const session = rows(await apiGet(page, 'sessions/'))[0] ?? null;
 
     test.skip(!session?.capture_start, 'no capture session seeded');
 
@@ -290,14 +256,7 @@ test.describe('the interface claims nothing it cannot do', () => {
   test('search filters findings instead of doing nothing', async ({ page }) => {
     await page.goto('/detections');
 
-    const subject = await page.evaluate(async () => {
-      const token = sessionStorage.getItem('access_token');
-      const r = await fetch('http://127.0.0.1:8011/api/detections/', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((x) => x.json());
-      const list = Array.isArray(r) ? r : r.results;
-      return list?.length ? list[0].subject_ip : null;
-    });
+    const subject = rows(await apiGet(page, 'detections/'))[0]?.subject_ip ?? null;
 
     test.skip(!subject, 'no detections seeded');
 
@@ -334,7 +293,7 @@ test.describe('public pages make no false claims', () => {
 
   for (const path of PUBLIC) {
     test(`${path} shows no fabricated figures or capabilities`, async ({ anonymousPage }) => {
-      await anonymousPage.goto(`http://127.0.0.1:5199${path}`);
+      await anonymousPage.goto(path);
       await anonymousPage.waitForLoadState('networkidle');
       const body = await anonymousPage.locator('body').innerText();
 
@@ -348,7 +307,7 @@ test.describe('public pages make no false claims', () => {
     // The custody model's own docstring says tamper-EVIDENT, "which is the
     // honest claim to make about a database table". The marketing copy must
     // not promise more than the code is willing to.
-    await anonymousPage.goto('http://127.0.0.1:5199/');
+    await anonymousPage.goto('/');
     const body = await anonymousPage.locator('body').innerText();
     expect(body.toLowerCase()).not.toContain('tamper-proof');
   });

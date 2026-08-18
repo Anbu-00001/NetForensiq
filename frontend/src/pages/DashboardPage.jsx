@@ -45,16 +45,25 @@ function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!sessionId) return;
-    setLoading(true);
+    if (!sessionId) return undefined;
+
+    // `loading` is set from the promise chain rather than synchronously at
+    // the top of the effect: a synchronous setState here schedules a second
+    // render before the request has even been issued.
+    let current = true;
     Promise.all([getSessionSummary(sessionId), getSessionTimeline(sessionId)])
       .then(([s, t]) => {
+        if (!current) return;
         setSummary(s);
         setTimeline(t.series ?? []);
         setError('');
       })
-      .catch(() => setError('Failed to load session data.'))
-      .finally(() => setLoading(false));
+      .catch(() => { if (current) setError('Failed to load session data.'); })
+      .finally(() => { if (current) setLoading(false); });
+
+    // Switching sessions while a request is in flight would otherwise let the
+    // slower response overwrite the newer one.
+    return () => { current = false; };
   }, [sessionId]);
 
   const runAnalysis = async () => {
@@ -119,7 +128,11 @@ function DashboardPage() {
               <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.4)' }}>
                 traffic captured {new Date(summary.session.capture_start).toLocaleString()}
                 {' · span '}
-                {Math.round((summary.session.capture_duration_seconds ?? 0) / 60)} min
+                {/* A missing span is not a span of zero — the same distinction
+                    formatBytes and formatCount make in services/forensics.js. */}
+                {summary.session.capture_duration_seconds == null
+                  ? '—'
+                  : `${Math.round(summary.session.capture_duration_seconds / 60)} min`}
               </Typography>
             )}
           </Box>

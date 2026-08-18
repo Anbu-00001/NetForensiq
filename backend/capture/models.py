@@ -112,6 +112,8 @@ class Flow(models.Model):
     bytes_ratio = models.FloatField(default=0.0)      # sent / (sent+received)
     unique_dst_ports = models.IntegerField(default=1)
     payload_entropy = models.FloatField(default=0.0)
+    # Number of samples behind payload_entropy — see MAX_ENTROPY_SAMPLES.
+    entropy_sample_count = models.IntegerField(default=0)
     tcp_flags_seen = models.CharField(max_length=40, blank=True)
 
     # Application-layer metadata
