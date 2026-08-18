@@ -1,4 +1,5 @@
 import { test, expect, apiGet, apiPost, rows, API_BASE, tokensFor } from './fixtures';
+import { GUJARATI } from '../src/i18n/gujarati';
 
 /**
  * Edge cases and corners.
@@ -316,6 +317,37 @@ test.describe('the legal terms are readable in Gujarati', () => {
     expect(text).toContain('ભારતીય સાક્ષ્ય અધિનિયમ');
   });
 
+  test('the working pages carry the gloss too, not just the register', async ({ page }) => {
+    // A single translated page reads as a gesture. The terms an officer meets
+    // while working — findings, severity — carry it as well.
+    await page.goto('/detections');
+    await expect(page.getByText(GUJARATI.findings).first()).toBeVisible();
+
+    await page.goto('/dashboard');
+    await expect(page.getByText(/Packets/i).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(GUJARATI.severity).first()).toBeVisible();
+  });
+
+  test('no deprecated MUI prop reaches the DOM', async ({ page }) => {
+    // React logs "does not recognize the PaperProps prop on a DOM element" and
+    // the attribute is actually emitted. A console error on a page an officer
+    // uses is small; a console error nobody is watching for is how the next
+    // one hides.
+    const complaints = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') complaints.push(message.text());
+    });
+
+    for (const route of ['/', '/register', '/login', '/dashboard', '/detections', '/evidence']) {
+      await page.goto(route);
+      await page.waitForLoadState('networkidle');
+    }
+
+    const reactWarnings = complaints.filter((text) =>
+      /React does not recognize|Warning:.*prop on a DOM element/i.test(text));
+    expect(reactWarnings, reactWarnings.join('\n')).toEqual([]);
+  });
+
   test('Gujarati is marked as Gujarati for assistive technology', async ({ page }) => {
     // Without lang="gu" a screen reader pronounces the script with an English
     // voice, which is worse than not offering it.
@@ -358,6 +390,81 @@ test.describe('approving an account happens inside the application', () => {
     await page.goto('/dashboard');
     await expect(page.getByText(/Packets/i).first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('Approvals')).toHaveCount(0);
+  });
+});
+
+// ── the applicant's journey ─────────────────────────────────────────────
+
+test.describe('an applicant can enrol and find out what happened', () => {
+  /**
+   * The only journey a user takes before they have an account, and the one
+   * with no signed-in tester to fall back on. Registration is throttled to
+   * 5/hour, so this creates exactly one account per run; verify.sh clears the
+   * throttle counter before the suite starts.
+   */
+  test('registering leaves an application an administrator can see', async ({
+    anonymousPage, adminPage,
+  }) => {
+    const suffix = Date.now().toString(36).slice(-6);
+    const username = `applicant-${suffix}`;
+    const badge = `E2E-${suffix.toUpperCase()}`;
+
+    await anonymousPage.goto('/register');
+    await anonymousPage.getByPlaceholder('as per service record').fill('E2E Applicant');
+    await anonymousPage.getByPlaceholder('e.g. INV-0042').fill(badge);
+    await anonymousPage.getByPlaceholder('name@dept.gov.in').fill(`${username}@dept.gov.in`);
+    await anonymousPage.getByPlaceholder('e.g. Cyber Crime Unit A').fill('Cyber Crime Branch');
+    await anonymousPage.getByPlaceholder('lowercase, no spaces').fill(username);
+    await anonymousPage.getByPlaceholder('min. 8 characters').fill('e2e-enrolment-pass');
+    await anonymousPage.getByPlaceholder('re-enter').fill('e2e-enrolment-pass');
+
+    // Clearance is a select with no default. The form refuses to submit
+    // without it, which is correct — an applicant must choose what they are
+    // asking for — and is why this journey had no coverage until now.
+    await anonymousPage.getByText('select clearance…').click();
+    await anonymousPage.getByRole('option', { name: /investigator/i }).click();
+
+    const submitted = anonymousPage.waitForResponse(
+      (r) => r.url().includes('/auth/register/') && r.request().method() === 'POST',
+    );
+    await anonymousPage.getByRole('button', { name: /submit for authorization/i }).click();
+    const response = await submitted;
+
+    // Assert on the response, not on text that happens to be on the page:
+    // the register form's own stage list contains the word "submitted", so a
+    // loose text match passed while the request was failing.
+    expect(
+      response.status(),
+      `registration rejected: ${await response.text()}`,
+    ).toBe(201);
+
+    // The application reached the queue an administrator actually works.
+    const queue = await apiGet(adminPage, 'auth/accounts/pending/');
+    expect(
+      queue.pending.map((a) => a.username),
+      'the application did not reach the approval queue',
+    ).toContain(username);
+
+    // And the applicant, checking by badge, is told the truth: pending.
+    await anonymousPage.goto('/status');
+    await anonymousPage.getByPlaceholder('as registered').fill(username);
+    await anonymousPage.getByPlaceholder('e.g. INV-0042').fill(badge);
+    await anonymousPage.getByRole('button', { name: /check|status|verify/i }).first().click();
+    await expect(
+      anonymousPage.getByText(/Administrator review/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('an unknown applicant is not told which half was wrong', async ({ anonymousPage }) => {
+    // The status check is public, so it must not become a username oracle.
+    await anonymousPage.goto('/status');
+    await anonymousPage.getByPlaceholder('as registered').fill('no-such-person');
+    await anonymousPage.getByPlaceholder('e.g. INV-0042').fill('NOPE-1');
+    await anonymousPage.getByRole('button', { name: /check|status/i }).first().click();
+
+    await expect(
+      anonymousPage.getByText(/No enrollment record matches those details/i),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
 

@@ -30,7 +30,15 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('pcap_path', help='Path to the .pcap or .pcapng file')
         parser.add_argument('--name', default='', help='Session label')
-        parser.add_argument('--case', default='', help='Case reference (FIR/CR number)')
+        parser.add_argument('--case', default='', help='Working case label')
+        parser.add_argument(
+            '--fir', default='',
+            help='FIR number this exhibit belongs to, as written in the register.',
+        )
+        parser.add_argument(
+            '--police-station', default='',
+            help='Police station holding the case.',
+        )
         parser.add_argument('--seized-from', default='', help='Where the capture was taken')
         parser.add_argument('--exhibit', default='', help='Exhibit number (generated if omitted)')
         parser.add_argument(
@@ -94,6 +102,8 @@ class Command(BaseCommand):
                 path,
                 exhibit_number=opts['exhibit'] or None,
                 case_reference=opts['case'],
+                fir_number=opts['fir'],
+                police_station=opts['police_station'],
                 seized_from=opts['seized_from'],
                 provenance=opts['provenance'],
                 collected_by=officer,

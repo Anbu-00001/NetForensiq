@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { SEVERITY_COLOR } from '../../services/forensics';
+import { GUJARATI } from '../../i18n/gujarati';
 
 const ORDER = ['critical', 'high', 'medium', 'low'];
 
@@ -18,7 +19,12 @@ function SeverityBreakdown({ data = [] }) {
       }}
     >
       <Typography sx={{ fontSize: 13.5, fontWeight: 600, mb: 0.5 }}>
-        Findings by severity
+        Findings by severity{' '}
+        <Box component="span" lang="gu" sx={{
+          fontWeight: 400, color: 'rgba(229,231,235,0.72)',
+        }}>
+          ({GUJARATI.severity})
+        </Box>
       </Typography>
       <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)', mb: 2 }}>
         Every finding records the rule, the observed value and the threshold it was compared against

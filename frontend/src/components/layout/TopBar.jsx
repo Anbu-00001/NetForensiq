@@ -140,12 +140,14 @@ const initials = user?.first_name
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{
-          sx: {
-            mt: 1, minWidth: 180,
-            backgroundColor: '#0D1220',
-            border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: 1.5,
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 1, minWidth: 180,
+              backgroundColor: '#0D1220',
+              border: '1px solid rgba(255,255,255,0.09)',
+              borderRadius: 1.5,
+            },
           },
         }}
       >

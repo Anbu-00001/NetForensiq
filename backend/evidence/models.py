@@ -145,6 +145,24 @@ class EvidenceRecord(models.Model):
 
     # Case linkage
     case_reference = models.CharField(max_length=120, blank=True)        # [GOOD PRACTICE]
+
+    # The FIR the exhibit belongs to, and the station holding it.
+    #
+    # `case_reference` was the only case linkage and it is free text, which is
+    # fine for a working label and useless for anything that has to match a
+    # register. Gujarat's Cyber Financial Fraud e-Zero FIR service (launched
+    # 27 July 2026) generates an FIR directly from a 1930-helpline complaint,
+    # so an exhibit arriving at a district station already has a number to be
+    # filed against.
+    #
+    # Deliberately NOT format-validated. FIR numbering differs by state and by
+    # station, and rejecting a number because it does not match a pattern we
+    # invented would be worse than accepting what the officer typed. It is
+    # stored as given, labelled, and printed on the certificate where a court
+    # can check it against the register.
+    fir_number = models.CharField(max_length=60, blank=True)             # [GOOD PRACTICE]
+    police_station = models.CharField(max_length=200, blank=True)        # [GOOD PRACTICE]
+
     seized_from = models.CharField(max_length=200, blank=True)           # [STANDARD]
     acquisition_notes = models.TextField(blank=True)                     # [STANDARD]
 

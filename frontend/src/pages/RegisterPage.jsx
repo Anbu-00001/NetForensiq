@@ -284,12 +284,17 @@ function RegisterPage() {
                       renderValue: (v) => v
                         ? roles.find((r) => r.value === v)?.label
                         : <span style={{ color: 'rgba(229,231,235,0.55)' }}>select clearance…</span>,
+                      // slotProps.paper, not PaperProps: the deprecated form
+                      // is forwarded to the DOM and React logs a warning on
+                      // every render of the registration form.
                       MenuProps: {
-                        PaperProps: {
-                          sx: {
-                            backgroundColor: '#0D1220',
-                            border: '1px solid rgba(255,255,255,0.09)',
-                            '& .MuiMenuItem-root': { fontSize: 13 },
+                        slotProps: {
+                          paper: {
+                            sx: {
+                              backgroundColor: '#0D1220',
+                              border: '1px solid rgba(255,255,255,0.09)',
+                              '& .MuiMenuItem-root': { fontSize: 13 },
+                            },
                           },
                         },
                       },

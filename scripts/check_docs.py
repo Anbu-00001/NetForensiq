@@ -96,6 +96,38 @@ CLAIMS = [
 
 DOCUMENTS = ['README.md', 'PROGRESS.md']
 
+# The detection specification has to keep up with the engine.
+#
+# Two rule types shipped without ever appearing in SPEC_02, and the omission
+# was found by an outside reviewer rather than by us: a specification the code
+# has drifted away from is worse than no specification, because it invites a
+# judge to ask about a rule the document cannot explain.
+SPEC = 'research/SPEC_02_DETECTION_ALGORITHMS.md'
+
+
+def undocumented_rules(rule_ids):
+    """Rule IDs the engine emits that the specification never mentions."""
+    path = ROOT / SPEC
+    if not path.exists():
+        return list(rule_ids)
+    text = path.read_text()
+    return [rule_id for rule_id in rule_ids if rule_id not in text]
+
+
+def engine_rule_ids():
+    script = (
+        "import django, os;"
+        "os.environ.setdefault('DJANGO_SETTINGS_MODULE','netforensiq_backend.settings');"
+        "django.setup();"
+        "from capture.detection import RULE_IDS;"
+        "print(' '.join(RULE_IDS))"
+    )
+    out = subprocess.run(
+        [str(PYTHON), '-c', script], cwd=BACKEND,
+        capture_output=True, text=True,
+    )
+    return out.stdout.strip().splitlines()[-1].split()
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -118,6 +150,13 @@ def main():
     print()
 
     drift = []
+
+    missing = undocumented_rules(engine_rule_ids())
+    if missing:
+        drift.append(
+            f'{SPEC}: no section documents ' + ', '.join(missing)
+        )
+
     for name in DOCUMENTS:
         path = ROOT / name
         if not path.exists():
@@ -150,6 +189,13 @@ def main():
     for line in drift:
         print(f'  ✘ {line}')
     if args.fix:
+        if missing:
+            print(
+                '\nThe specification gap is NOT auto-fixable: a rule needs a '
+                'section explaining what it detects and where its thresholds '
+                'come from, and only a person can write that.'
+            )
+            return 1
         print('\nRewritten. Re-run without --fix to confirm.')
         return 0
     print('\nRun with --fix to correct them.')

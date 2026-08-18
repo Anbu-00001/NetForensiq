@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { describeError } from '../services/api';
 import Sidebar from '../components/layout/Sidebar';
+import { GUJARATI } from '../i18n/gujarati';
 import TopBar from '../components/layout/TopBar';
 import {
   listAllDetections, triageDetection, listThresholds, unwrap, SEVERITY_COLOR,
@@ -261,7 +262,17 @@ function DetectionsPage() {
         <Box sx={{ p: 2.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5, flexWrap: 'wrap' }}>
             <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#E5E7EB' }}>
-              Findings
+              Findings{' '}
+              {/*
+                A reading aid, not a translation. The English is authoritative
+                everywhere; see src/i18n/gujarati.js for why the certificate PDF
+                cannot carry the same glosses.
+              */}
+              <Box component="span" lang="gu" sx={{
+                fontSize: 15, fontWeight: 500, color: 'rgba(229,231,235,0.72)',
+              }}>
+                ({GUJARATI.findings})
+              </Box>
             </Typography>
             <Chip label={`${pending} awaiting review`} size="small" sx={{
               backgroundColor: 'rgba(255,176,32,0.15)', color: '#FFB020', fontSize: 11.5,

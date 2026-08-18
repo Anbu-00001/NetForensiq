@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **121 backend tests + 50 Playwright E2E, all green, zero skips**
+## Status: Phases 0–13 complete · **127 backend tests + 57 Playwright E2E, all green, zero skips**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -355,6 +355,10 @@ contrast on every phase, and the test is in the repository.
 - **`suggest_home_net` is a heuristic** with no published algorithm behind it.
   It is a proposal an officer confirms, never applied on its own.
 - No live-capture HTTP trigger; the management command exists.
+- **There is no case object.** `case_reference` is a free-text field, so
+  exhibits are not grouped into an investigation with its own officers and
+  timeline. It is the largest architectural gap for real use and was not
+  attempted this close to the event.
 - No Indian government system has a public API — Sanchar Saathi, CEIR, I4C,
   NCRP, CCTNS are web-form or police-network only
   ([SPEC_03](research/SPEC_03_CONNECTORS_AND_MCP.md)). Any integration claim

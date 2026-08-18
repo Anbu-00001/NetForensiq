@@ -2,7 +2,7 @@
 Build a complete demonstration dataset.
 
 Everything here is deliberate about one thing: **a demo must not be able to
-pass itself off as a case.** Three rules follow from that.
+pass itself off as a case by accident.** Three rules follow from that.
 
 1. Real traffic first. If `reference_captures/` holds the published captures
    (see scripts/fetch_reference_captures.sh) they are used, because a detector
@@ -36,6 +36,11 @@ from evidence.service import issue_certificate, sign_part_b
 # Not an FIR number. Not in any format a court registry uses. That is the point.
 DEMO_CASE_REFERENCE = 'DEMO-NOT-A-REAL-CASE'
 DEMO_SEIZED_FROM = 'Demonstration dataset — no seizure took place'
+# Left deliberately blank. An FIR number is matched against a station's own
+# register; inventing one that looks plausible is the single worst thing this
+# command could write, and a blank line on the certificate is the honest answer.
+DEMO_FIR_NUMBER = ''
+DEMO_POLICE_STATION = ''
 
 # The two accounts exist as two accounts because s.63(4) requires the person in
 # charge of the device and the expert to be different people, and the service
@@ -259,6 +264,8 @@ class Command(BaseCommand):
             name=path.stem,
             case=DEMO_CASE_REFERENCE,
             seized_from=DEMO_SEIZED_FROM,
+            fir=DEMO_FIR_NUMBER,
+            police_station=DEMO_POLICE_STATION,
             officer=officer.username,
             home_net=home_net,
             verbosity=0,

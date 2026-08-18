@@ -170,10 +170,10 @@ npm run dev
 Or piecemeal:
 
 ```bash
-# Backend: 121 tests
+# Backend: 127 tests
 cd backend && ./.venv/bin/python manage.py test
 
-# Frontend: 50 Playwright E2E tests
+# Frontend: 57 Playwright E2E tests
 cd frontend && npx playwright test
 
 # The counts above are measured, not remembered
@@ -402,6 +402,20 @@ Two rules govern the renderer:
 | POST | `/api/certificates/{id}/sign/` | Countersign Part B (expert) |
 | GET | `/api/certificates/{id}/pdf/` | Download rendered certificate PDF |
 
+### Account approval
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/auth/accounts/pending/` | Applications awaiting a decision (Administrator only) |
+| `POST` | `/api/auth/accounts/pending/` | `{"username": "...", "decision": "approve"|"reject"}` |
+
+Approving an officer decides who may touch evidence at all, and it was
+previously possible only through the Django admin — the one act the system
+cares most about, happening outside the system. Rejection deactivates rather
+than deletes: the application and the decision on it stay on the record. The
+audit entry is written by a signal on the User model, so a decision made here
+and one made in the Django admin are recorded identically.
+
 ### Authentication
 
 | Method | Endpoint | Purpose |
@@ -520,10 +534,10 @@ individually confirmed.
 
 ## Test Coverage
 
-- **121 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **127 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
-- **50 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+- **57 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
   placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
   download
 
@@ -568,8 +582,12 @@ status check answers "does this username hold this badge" for anyone who asks.
    published threshold is read by no rule.
 4. **No overclaiming.** Synthetic results are labelled synthetic; no precision or
    recall is claimed from three captures.
-5. **A demonstration must not be able to pass itself off as a case.** Provenance
-   is recorded for every capture and printed on every certificate.
+5. **A demonstration must not be able to pass itself off as a case by accident.**
+   Provenance is recorded for every capture, carried into the evidence store,
+   and printed on every certificate. It is not a security control — anyone who
+   can write to the capture directory can write a manifest — but every failure
+   mode closes in the alarming direction, so losing track of which file is
+   which cannot silently produce an exhibit.
 6. **The documented figures are measured**, by `scripts/check_docs.py`, on every
    phase.
 7. `./scripts/verify.sh` at the end of every phase.

@@ -7,6 +7,32 @@ directly from a primary source (RFC, tool source code, vendor doc, paper), with 
 (e.g. a tool's own docs vs. its current source code), both are shown and the one we implement is
 stated explicitly.
 
+## What is implemented, and what is not
+
+This is a **research specification**, written before the engine. Some of it was
+built; some was investigated and deliberately not built. Reading it as a
+description of the product would be a mistake, so the position of every section
+is stated here rather than left to be inferred.
+
+| § | Subject | Status in the shipped engine |
+|---|---|---|
+| 1 | C2 beaconing (RITA) | **Implemented** — `C2_BEACON_PERIODIC`, and `C2_BEACON_KEEPALIVE` (§9) |
+| 2 | DNS tunnelling | **Implemented** — `DNS_TUNNEL_LONG_LABEL`, `DNS_TUNNEL_SUBDOMAIN_VOLUME` |
+| 3 | Port scanning | **Implemented** — `RECON_PORT_SCAN` |
+| 4 | Data exfiltration | **Implemented** — `EXFIL_VOLUME_ASYMMETRY` |
+| 5 | ICMP tunnelling | **Implemented** — `ICMP_TUNNEL_OVERSIZED` |
+| 6 | TLS fingerprinting | **Implemented as JA4 only.** JA3 is described here for completeness and is *not* computed — see the section's own conclusion |
+| 7 | IsolationForest anomaly detection | **NOT IMPLEMENTED — research only.** See the note in that section |
+| 9 | Persistent-session beaconing | **Implemented** — `C2_BEACON_KEEPALIVE` |
+| 10 | Unidentified sustained channel | **Implemented** — `COVERT_CHANNEL_UNKNOWN_PORT` |
+| 11 | Host corroboration | **Implemented** — `HOST_CORROBORATED` |
+
+`scripts/check_docs.py` fails the build if the engine emits a `rule_id` that
+this document does not mention. A specification the code has drifted away from
+is worse than no specification.
+
+---
+
 Flow schema assumed (from NetForensiq's aggregator): `packets_sent/recv`, `bytes_sent/recv`,
 `duration`, `avg_pkt_size`, `pkts_per_sec`, `bytes_ratio`, `payload_entropy` (sampled Shannon
 entropy, bits/byte), `tcp_flags_seen`, `app_protocol`, `dns_query_count`, `longest_dns_label`,
@@ -660,6 +686,29 @@ Primary source: FoxIO, https://github.com/FoxIO-LLC/ja4 (technical spec:
 
 ## 7. Unsupervised Anomaly Detection on Flow Features (IsolationForest)
 
+> ### ⚠️ NOT IMPLEMENTED — research only
+>
+> No unsupervised model exists in the codebase. This section records what was
+> investigated and why it was not built; the parameters below are correct for
+> anyone who does build it.
+>
+> **Why it was not built.** The product's central claim is that an officer
+> asked "why was this flagged?" can read the answer off the record. An
+> isolation score cannot be read that way: it is a number a model produced,
+> defensible in a paper and not in cross-examination. A finding that says
+> *"this host contacted the same peer 41 times at 45-second intervals; RITA's
+> threshold is 23 connections"* survives a question that *"anomaly score
+> −0.62"* does not.
+>
+> The `Flow.anomaly_score` column that once existed for this was **removed**
+> rather than left null, and the landing page's "ISOLATION FOREST" feature card
+> was deleted, because publishing a field for a model that does not exist is
+> the same kind of claim this project refuses to make elsewhere.
+>
+> If it is ever built, it belongs beside the rules and clearly labelled as a
+> model's opinion — never merged into the same severity scale.
+
+
 ### Parameters, verified against sklearn's own docs
 Source: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html
 (fetched directly), original method: Liu, Ting, Zhou, *Isolation Forest*, IEEE ICDM 2008 (DOI
@@ -724,6 +773,111 @@ IsolationForest should surface candidates for human review and can *raise the pr
 that also matches a rule-based signal, but should never be the sole basis for an alert presented
 as "detected: C2 beaconing" — that framing must come from the interpretable rule that actually
 explains *why*.
+
+---
+
+## 9. Persistent-Session Beaconing (`C2_BEACON_KEEPALIVE`)
+
+### Why §1 is not enough
+
+RITA counts *connections* between a host pair. A remote access trojan that holds
+one TCP session open and sends keepalives inside it produces exactly one
+connection, so RITA's model sees nothing however correctly it is implemented.
+This was not a hypothetical: on the 2024-03-14 AsyncRAT capture the beacon rule
+found **zero** of the documented C2 channels, and the channel was a single
+long-lived session (research/96).
+
+### Algorithm
+
+The same MADM dispersion statistic from §1, applied to the packet timestamps
+*within* one flow rather than to connection start times across a host pair.
+`interval_count`, `interval_median` and `interval_mad` are already computed per
+flow by the aggregator, so the score costs nothing extra.
+
+### Parameters
+
+| Parameter | Value | Source |
+|---|---|---|
+| `keepalive_min_intervals` | 8 | **[OUR HEURISTIC]** — fewer intervals cannot distinguish a rhythm from coincidence. Not RITA's 23: that counts connections, and this counts intervals inside one, so RITA's number does not transfer. |
+| Dispersion score, alert level | shared with §1 (`beacon_alert_score`) | Same statistic, so the same cut applies |
+
+### False positives
+
+Anything with a heartbeat: SSH `ServerAliveInterval`, MQTT keepalives, VPN
+liveness probes, database connection pools, monitoring agents. Egress-only and
+`$HOME_NET` filtering removes inbound noise; the rest must be whitelisted.
+Severity is capped at MEDIUM for exactly this reason.
+
+---
+
+## 10. Unidentified Sustained Channel (`COVERT_CHANNEL_UNKNOWN_PORT`)
+
+### Signal
+
+A conversation that is *long*, on a port we do not recognise, carrying payload,
+and announcing nothing about itself — no HTTP Host, no TLS SNI, no DNS.
+
+This is the rule that actually caught the real AsyncRAT C2 (port 3232, 5 flows,
+all on the documented C2 host). Its beacon period was not statistically
+detectable in 3.5 minutes of capture; **the shape of the channel was**.
+
+### Algorithm
+
+1. Egress only — initiator inside `$HOME_NET`, peer outside.
+2. Service port not in the curated well-known set (see below).
+3. Duration ≥ `unknown_channel_min_duration`.
+4. No `app_protocol`, `http_host` or `tls_sni` identified.
+
+### Parameters
+
+| Parameter | Value | Source |
+|---|---|---|
+| `unknown_channel_min_duration` | 30 s | **[OUR HEURISTIC]** — below this a connection is a probe or a failed handshake, not a channel |
+| `unknown_channel_ports` | curated frozenset | **[OUR HEURISTIC]** — seeded from the IANA Service Name and Transport Protocol Port Number Registry and deliberately extended past the 0-1023 well-known range with services that hold sustained sessions in practice (3306, 3389, 5432, 5985, 6379, 8080, 9200, 27017 …). **This is not the IANA well-known range and must not be described as one.** |
+| `unknown_channel_confidence` | 0.6 | **[OUR HEURISTIC]** — the rule observes an absence of evidence, which is weaker than a positive measurement, and the confidence says so |
+
+### False positives
+
+Proprietary line-of-business protocols, game clients, IoT telemetry, anything
+on a non-standard port inside a corporate network. Membership of the port list
+is deliberately generous: a false negative here costs less than flagging
+routine traffic.
+
+---
+
+## 11. Host Corroboration (`HOST_CORROBORATED`)
+
+### Not a detector
+
+It takes no measurement and can only restate what the other rules found. That
+is precisely why it is the one thing in the engine allowed to emit **CRITICAL**:
+it never asserts anything the rules did not already assert.
+
+### Signal
+
+A single address named by three or more *different* rules. One rule firing is a
+prompt to look. The same host appearing under beaconing, a covert channel and
+exfiltration is the shape of an incident — and on a list of three hundred
+findings, an officer should not have to spot that by eye.
+
+### Parameters
+
+| Parameter | Value | Source |
+|---|---|---|
+| `corroboration_distinct_rules` | 3 | **[OUR HEURISTIC]** — two rules often share an input (a beacon and a covert channel can be the same flow seen twice) while three rarely do |
+
+Confidence is capped at 1.0 and scales with the number of contributing rules;
+it cannot exceed the confidence of the findings it rests on, because it adds no
+evidence of its own. Every contributing `rule_id`, severity and title is carried
+in the finding's stored evidence, so the summary can always be taken apart.
+
+### Known limitation
+
+Neither reference capture produces one: a single-victim infection has one host
+doing one thing, and a scanned server has hundreds of sources each doing one
+thing. It is exercised by the generated corpus, whose `compromised_host`
+scenario puts four behaviours on one machine — which is what a real compromised
+workstation does, and what the rest of the corpus was quietly failing to model.
 
 ---
 
@@ -838,7 +992,12 @@ explains *why*.
 | 6 | Exfiltration volume ratio | outbound:inbound > 10:1 AND bytes_sent > 50 MB |
 | 7 | Off-hours volume deviation | > 3σ from per-host hourly baseline |
 | 8 | ICMP anomalous payload size | > 100 bytes, or intra-session size variance |
-| 9 | IsolationForest `contamination` | set to synthetic generator's known attack ratio (e.g. 0.02–0.05) instead of `'auto'` |
+| 9 | IsolationForest `contamination` | *(§7 not implemented — see its status note)* |
+| 11 | Keepalive minimum intervals (§9) | 8 intervals within one flow |
+| 12 | Unidentified-channel minimum duration (§10) | 30 s |
+| 13 | Unidentified-channel port list (§10) | curated, seeded from IANA and extended past 0-1023 |
+| 14 | Unidentified-channel confidence (§10) | 0.6 — an absence of evidence, stated as weaker |
+| 15 | Corroboration distinct-rule count (§11) | 3 different rules naming one address |
 | 10 | Suricata scan count/seconds pair | not adopted as a hard default — implement Snort 3's `scans/rejects/nets/ports` model instead, which is fully sourced |
 
 Every other numeric threshold in this document traces to a quoted primary or strongly-attributed

@@ -367,6 +367,10 @@ def _hash_report(certificate, styles):
         ['Last verified (IST)',
          f"{ist(evidence.last_verified_at):%d/%m/%Y %H:%M:%S}" if evidence.last_verified_at else '—'],
         ['Case reference', evidence.case_reference or '—'],
+        # Printed so a court can match the exhibit against the station's own
+        # register rather than against a label we chose. Blank stays blank.
+        ['FIR number', evidence.fir_number or '—'],
+        ['Police station', evidence.police_station or '—'],
     ]
     table = Table(
         [[Paragraph(f"<b>{k}</b>", styles['field']), Paragraph(v, styles['mono'])]
