@@ -5,8 +5,10 @@ import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
 import RuleFolderOutlinedIcon from '@mui/icons-material/RuleFolderOutlined';
 import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 
 import { listSessions, unwrap } from '../../services/forensics';
+import { useCurrentUser } from '../../services/session';
 
 // Only routes that exist. Navigation that leads nowhere reads as a mock-up,
 // which is exactly the impression a forensic tool cannot afford to give.
@@ -14,6 +16,14 @@ const navItems = [
   { label: 'Dashboard', icon: <InsightsOutlinedIcon />, path: '/dashboard' },
   { label: 'Findings', icon: <RuleFolderOutlinedIcon />, path: '/detections' },
   { label: 'Evidence', icon: <GavelOutlinedIcon />, path: '/evidence' },
+  // Administrators only. Shown to nobody else, because a navigation entry
+  // leading to "you are not cleared for this" is a worse answer than no entry.
+  {
+    label: 'Approvals',
+    icon: <HowToRegOutlinedIcon />,
+    path: '/approvals',
+    adminOnly: true,
+  },
 ];
 
 /**
@@ -123,6 +133,8 @@ function CaptureWindow() {
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const user = useCurrentUser();
+  const isAdmin = user?.is_superuser || user?.role === 'admin';
 
   return (
     <Box
@@ -144,7 +156,7 @@ function Sidebar() {
       }}
     >
       <Box sx={{ px: { xs: 0.75, md: 2 }, flexGrow: 1 }}>
-        {navItems.map((item, i) => {
+        {navItems.filter((item) => !item.adminOnly || isAdmin).map((item, i) => {
           // Derived from the URL rather than held in state, so a direct visit
           // or a back-button navigation highlights the right entry.
           const isActive = location.pathname.startsWith(item.path);

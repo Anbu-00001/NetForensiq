@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **121 backend tests + 46 Playwright E2E, all green, zero skips**
+## Status: Phases 0–13 complete · **121 backend tests + 50 Playwright E2E, all green, zero skips**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -306,6 +306,31 @@ ruled on packet evidence specifically (they have not); that a named
 post-hackathon procurement programme exists (only generic marketing language was
 found — ask the organisers instead); or anything about a prior edition of this
 event or its judging rubric, neither of which is published.
+
+## Accessibility
+
+GIGW 3.0 — the guidelines state and central departments are expected to meet as
+a condition of digital service delivery — takes **WCAG 2.1 AA** as its baseline.
+Three things were done and one of them found a real defect:
+
+- **Contrast.** The muted greys sat at alpha 0.35–0.45, which measures
+  2.8–3.9:1 against the page background. AA requires 4.5:1 for normal text.
+  **Fifty-seven text colours failed**, across every page including the landing
+  page. All raised to 0.55 (5.2:1). A test now walks every rendered text node
+  on four routes, computes the ratio against its actual backdrop, and fails the
+  build on anything below the threshold — so this cannot come back.
+- **Keyboard.** Finding rows were clickable `div`s: an officer working a long
+  list with a keyboard could not open any of them, and a screen reader
+  announced nothing. They are buttons now, with `aria-expanded` and a visible
+  focus ring.
+- **Language.** Gujarati text is marked `lang="gu"` so it is not read aloud
+  with an English voice.
+
+⚠️ **Not a compliance claim.** Whether GIGW binds an internal analyst tool as
+opposed to a citizen-facing service is unresolved
+([research/100](research/100_EXTERNAL_VERIFICATION_PROMPT.md), item 6). What can
+be said is narrower and checkable: the interface is tested against WCAG 2.1 AA
+contrast on every phase, and the test is in the repository.
 
 ## Known gaps — say these before a judge finds them
 

@@ -48,6 +48,15 @@ export const test = base.extend({
     await use(await signedIn(page, 'analyst'));
   },
 
+  /** A signed-in administrator — the only role that may approve accounts. */
+  adminPage: async ({ browser, baseURL }, use) => {
+    const context = await browser.newContext({ baseURL });
+    const page = await context.newPage();
+    await signedIn(page, 'commander');
+    await use(page);
+    await context.close();
+  },
+
   /**
    * A signed-in account holding Viewer clearance.
    *

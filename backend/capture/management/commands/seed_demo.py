@@ -54,6 +54,12 @@ DEMO_ACCOUNTS = [
         'role': 'investigator',
     },
     {
+        'username': 'commander',
+        'badge_id': 'DEMO-ADM-001',
+        'department': 'Demonstration — Cyber Crime Branch',
+        'role': 'admin',
+    },
+    {
         'username': 'viewer',
         'badge_id': 'DEMO-VIEW-001',
         'department': 'Demonstration — Records',
@@ -186,14 +192,23 @@ class Command(BaseCommand):
 
     def _seed_accounts(self, password):
         User = get_user_model()
-        for spec in DEMO_ACCOUNTS:
+        # One unapproved application, so the approval queue is not an empty
+        # page during a demonstration. It is unapproved on purpose: an account
+        # awaiting approval cannot sign in or touch anything.
+        pending = {
+            'username': 'pending-applicant',
+            'badge_id': 'DEMO-PND-001',
+            'department': 'Demonstration — awaiting approval',
+            'role': 'investigator',
+        }
+        for spec in [*DEMO_ACCOUNTS, pending]:
             user, created = User.objects.get_or_create(
                 username=spec['username'],
                 defaults={
                     'badge_id': spec['badge_id'],
                     'department': spec['department'],
                     'role': spec['role'],
-                    'is_approved': True,
+                    'is_approved': spec['username'] != 'pending-applicant',
                 },
             )
             if created:

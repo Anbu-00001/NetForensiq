@@ -6,6 +6,7 @@ import StatusPage from './pages/StatusPage';
 import DashboardPage from './pages/DashboardPage';
 import DetectionsPage from './pages/DetectionsPage';
 import EvidencePage from './pages/EvidencePage';
+import ApprovalsPage from './pages/ApprovalsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -29,6 +30,14 @@ function App() {
           element={
             <ProtectedRoute>
               <DetectionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/approvals"
+          element={
+            <ProtectedRoute>
+              <ApprovalsPage />
             </ProtectedRoute>
           }
         />

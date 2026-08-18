@@ -278,3 +278,101 @@ class PublicEndpointThrottleTests(TestCase):
             len(replies), 1,
             f'the three misses must be indistinguishable, got {replies}',
         )
+
+
+class ApprovalQueueTests(TestCase):
+    """
+    Approving an officer decides who may touch evidence. It was only possible
+    through the Django admin — the one act the application cared most about
+    happening outside the application.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username='commander', password='x', badge_id='A-1',
+            department='Cyber', role=User.Role.ADMIN, is_approved=True,
+        )
+        self.investigator = User.objects.create_user(
+            username='io', password='x', badge_id='I-1',
+            department='Cyber', role=User.Role.INVESTIGATOR, is_approved=True,
+        )
+        self.applicant = User.objects.create_user(
+            username='applicant', password='x', badge_id='P-1', department='Cyber',
+        )
+        self.client = APIClient()
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_an_administrator_sees_the_queue(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get('/api/auth/accounts/pending/')
+
+        self.assertEqual(response.status_code, 200)
+        usernames = [u['username'] for u in response.data['pending']]
+        self.assertIn('applicant', usernames)
+        self.assertNotIn('io', usernames)
+
+    def test_an_investigator_cannot_see_or_act_on_the_queue(self):
+        self.client.force_authenticate(self.investigator)
+        self.assertEqual(self.client.get('/api/auth/accounts/pending/').status_code, 403)
+        self.assertEqual(
+            self.client.post('/api/auth/accounts/pending/',
+                             {'username': 'applicant', 'decision': 'approve'},
+                             format='json').status_code,
+            403,
+        )
+
+    def test_approving_records_who_decided_and_when(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            '/api/auth/accounts/pending/',
+            {'username': 'applicant', 'decision': 'approve'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+
+        self.applicant.refresh_from_db()
+        self.assertTrue(self.applicant.is_approved)
+        self.assertEqual(self.applicant.approved_by, self.admin)
+        self.assertIsNotNone(self.applicant.approved_at)
+
+        # The audit entry comes from the model signal, so it is written the
+        # same way whether the decision was made here or in the Django admin.
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action=AuditLog.Action.APPROVE_USER,
+                username_attempted='applicant',
+            ).exists()
+        )
+
+    def test_rejecting_deactivates_and_is_recorded_rather_than_deleting(self):
+        self.client.force_authenticate(self.admin)
+        self.client.post('/api/auth/accounts/pending/',
+                         {'username': 'applicant', 'decision': 'reject'}, format='json')
+
+        self.applicant.refresh_from_db()
+        self.assertFalse(self.applicant.is_active)
+        self.assertFalse(self.applicant.is_approved)
+        # The application, and the decision on it, stay on the record.
+        self.assertTrue(User.objects.filter(username='applicant').exists())
+
+    def test_an_account_cannot_approve_itself(self):
+        lone = User.objects.create_user(
+            username='selfstarter', password='x', badge_id='S-1',
+            department='Cyber', role=User.Role.ADMIN,
+        )
+        self.client.force_authenticate(lone)
+        response = self.client.post(
+            '/api/auth/accounts/pending/',
+            {'username': 'selfstarter', 'decision': 'approve'}, format='json',
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_an_unknown_decision_is_refused(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            '/api/auth/accounts/pending/',
+            {'username': 'applicant', 'decision': 'maybe'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400)

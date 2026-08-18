@@ -68,3 +68,24 @@ class IsInvestigatorOrReadOnly(BasePermission):
             user.is_superuser
             or getattr(user, 'role', None) in (User.Role.ADMIN, User.Role.INVESTIGATOR)
         )
+
+
+class IsAdministrator(BasePermission):
+    """
+    Administrators only.
+
+    Approving an account is the act that decides who may touch evidence at all,
+    so it sits above the investigator/viewer split rather than inside it. A
+    Django superuser counts, because that is who bootstraps the first
+    administrator on a fresh install.
+    """
+
+    message = 'Approving accounts requires Administrator clearance.'
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and (user.is_superuser or getattr(user, 'role', None) == User.Role.ADMIN)
+        )

@@ -10,6 +10,7 @@ const PASSWORD = process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'demo-pass-1234';
 const ACCOUNTS = {
   analyst: { username: 'analyst', password: PASSWORD },
   viewer: { username: 'viewer', password: PASSWORD },
+  commander: { username: 'commander', password: PASSWORD },
 };
 const STATE = path.join('e2e', '.auth', 'tokens.json');
 

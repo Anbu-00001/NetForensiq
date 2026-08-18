@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework import generics, status, serializers
 from rest_framework.response import Response
@@ -8,9 +9,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from .serializers import RegisterSerializer, UserSerializer
-from .models import User
-from .utils import log_action
 from .models import User, AuditLog
+from .permissions import IsAdministrator
 from .utils import log_action, get_client_ip
 
 class RegisterView(generics.CreateAPIView):
@@ -173,3 +173,72 @@ class LogoutView(APIView):
                     else 'Signed out; no valid refresh token supplied to blacklist'),
         )
         return Response({'detail': 'Signed out.', 'token_blacklisted': blacklisted})
+
+
+class PendingAccountsView(APIView):
+    """
+    The approval queue, and the decision on it.
+
+    Approving an officer was only possible through the Django admin. That is a
+    reasonable answer for a pilot and a poor one for a demonstration: the single
+    act that decides who may touch evidence lived outside the application that
+    is otherwise careful about recording every act.
+
+    The AuditLog entry is written by a signal on the model, so it is recorded
+    the same way whichever route is used — this endpoint adds a place to do it,
+    not a second source of truth.
+    """
+
+    permission_classes = [IsAdministrator]
+
+    def get(self, request):
+        pending = User.objects.filter(is_approved=True).none() | User.objects.filter(
+            is_approved=False, is_active=True,
+        )
+        return Response({
+            'pending': UserSerializer(pending.order_by('created_at'), many=True).data,
+            'approved_count': User.objects.filter(is_approved=True).count(),
+        })
+
+    def post(self, request):
+        username = (request.data.get('username') or '').strip()
+        decision = (request.data.get('decision') or '').strip()
+
+        if decision not in ('approve', 'reject'):
+            return Response(
+                {'detail': "decision must be 'approve' or 'reject'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            account = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': f'No such account: {username}'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if account.pk == request.user.pk:
+            # Self-approval would make the whole queue decorative.
+            return Response(
+                {'detail': 'An account cannot decide its own application.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if decision == 'approve':
+            account.is_approved = True
+            account.approved_by = request.user
+            account.approved_at = timezone.now()
+            account.save(update_fields=['is_approved', 'approved_by', 'approved_at'])
+        else:
+            # Rejection deactivates rather than deletes: the application, and
+            # the decision on it, are part of the record.
+            account.is_active = False
+            account.save(update_fields=['is_active'])
+            log_action(
+                request, AuditLog.Action.APPROVE_USER, user=request.user,
+                username_attempted=account.username,
+                detail=f'Application from {account.username} rejected',
+            )
+
+        return Response(UserSerializer(account).data)

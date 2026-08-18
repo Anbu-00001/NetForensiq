@@ -131,3 +131,16 @@ export const SEVERITY_COLOR = {
   medium: '#FFB020',
   low: '#00A8FF',
 };
+
+/**
+ * The approval queue. Administrators only — the server refuses anyone else.
+ *
+ * Approving an officer decides who may touch evidence at all, and it was
+ * previously possible only through the Django admin: the one act the system
+ * cares most about, happening outside the system.
+ */
+export const listPendingAccounts = () =>
+  api.get('/auth/accounts/pending/').then((r) => r.data);
+
+export const decideAccount = (username, decision) =>
+  api.post('/auth/accounts/pending/', { username, decision }).then((r) => r.data);

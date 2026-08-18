@@ -173,7 +173,7 @@ Or piecemeal:
 # Backend: 121 tests
 cd backend && ./.venv/bin/python manage.py test
 
-# Frontend: 46 Playwright E2E tests
+# Frontend: 50 Playwright E2E tests
 cd frontend && npx playwright test
 
 # The counts above are measured, not remembered
@@ -523,7 +523,7 @@ individually confirmed.
 - **121 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
-- **46 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+- **50 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
   placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
   download
 

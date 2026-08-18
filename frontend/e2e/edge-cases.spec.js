@@ -219,43 +219,56 @@ test.describe('the findings list is the whole findings list', () => {
 
 test.describe('certificates refuse what section 63 refuses', () => {
   test('one account cannot sign both parts', async ({ request }) => {
+    // Section 63(4) contemplates the person in charge of the device AND an
+    // expert. Checked against a certificate that already exists: an earlier
+    // version of this test issued a fresh one on every run, which left seven
+    // orphan DRAFT certificates in the demonstration database — a test writing
+    // statutory documents into the data a judge is shown.
     const { access } = tokensFor('analyst');
-    const exhibits = await (await request.get(`${API_BASE}/evidence/`, {
+    const certificates = await (await request.get(`${API_BASE}/certificates/`, {
       headers: { Authorization: `Bearer ${access}` },
     })).json();
-    const exhibit = (Array.isArray(exhibits) ? exhibits : exhibits.results ?? [])[0];
-    test.skip(!exhibit, 'no evidence seeded');
+    const list = Array.isArray(certificates) ? certificates : certificates.results ?? [];
+    const signedByAnalyst = list.find((c) => c.part_a_name === 'analyst');
+    test.skip(!signedByAnalyst, 'no certificate whose Part A was signed by this account');
 
-    const issued = await request.post(`${API_BASE}/evidence/${exhibit.id}/certificate/`, {
-      headers: { Authorization: `Bearer ${access}` },
-      data: { part_a_name: 'analyst', part_a_designation: 'IO' },
-      failOnStatusCode: false,
-    });
-    test.skip(issued.status() !== 201, `could not issue a certificate (${issued.status()})`);
-    const certificate = await issued.json();
-
-    // s.63(4) contemplates the person in charge of the device AND an expert.
-    const countersigned = await request.post(`${API_BASE}/certificates/${certificate.id}/sign/`, {
-      headers: { Authorization: `Bearer ${access}` },
-      data: { part_b_name: 'analyst', part_b_qualification: 'expert' },
-      failOnStatusCode: false,
-    });
-    expect(countersigned.status(), 'the same account signed both parts').toBe(409);
-    expect(await countersigned.text()).toMatch(/different people/i);
+    const refused = await request.post(
+      `${API_BASE}/certificates/${signedByAnalyst.id}/sign/`,
+      {
+        headers: { Authorization: `Bearer ${access}` },
+        data: { part_b_name: 'analyst', part_b_qualification: 'expert' },
+        failOnStatusCode: false,
+      },
+    );
+    expect(refused.status(), 'the same account signed both parts').toBe(409);
+    expect(await refused.text()).toMatch(/different people/i);
   });
 
-  test('a half-signed certificate presents itself as a draft', async ({ page, request }) => {
-    const certificates = rows(await apiGet(page, 'certificates/'));
-    const draft = certificates.find((c) => !c.is_complete);
-    test.skip(!draft, 'no incomplete certificate to check');
-
-    const pdf = await request.get(`${API_BASE}/certificates/${draft.id}/pdf/`, {
-      headers: { Authorization: `Bearer ${tokensFor('analyst').access}` },
-    });
-    expect(pdf.status()).toBe(200);
-
+  test('each certificate shows the completeness the API reports', async ({ page }) => {
+    // s.63(4) requires both parts, so a half-signed certificate must say so
+    // rather than presenting itself as valid. Asserted against every
+    // certificate rather than skipping when none happens to be incomplete —
+    // a suite that skips its way to green is worse than one that fails.
     await page.goto('/evidence');
-    await expect(page.getByText(/DRAFT — Part B unsigned/).first()).toBeVisible();
+    const certificates = rows(await apiGet(page, 'certificates/'));
+    test.skip(certificates.length === 0, 'no certificates issued');
+
+    await expect(page.getByText(/Section 63 certificates/i).first()).toBeVisible();
+    const body = await page.locator('body').innerText();
+
+    for (const certificate of certificates) {
+      expect(body, `${certificate.reference} is not listed`)
+        .toContain(certificate.reference);
+    }
+
+    const complete = certificates.filter((c) => c.is_complete).length;
+    const drafts = certificates.length - complete;
+
+    const shownComplete = (body.match(/Both parts signed/g) ?? []).length;
+    const shownDraft = (body.match(/DRAFT — Part B unsigned/g) ?? []).length;
+
+    expect(shownComplete, 'complete certificates shown').toBe(complete);
+    expect(shownDraft, 'draft certificates shown').toBe(drafts);
   });
 
   test('re-verifying an exhibit reports a verdict either way', async ({ page }) => {
@@ -309,6 +322,42 @@ test.describe('the legal terms are readable in Gujarati', () => {
     await page.goto('/evidence');
     const count = await page.locator('[lang="gu"]').count();
     expect(count).toBeGreaterThan(0);
+  });
+});
+
+// ── account approval ────────────────────────────────────────────────────
+
+test.describe('approving an account happens inside the application', () => {
+  test('an administrator sees the queue and can act on it', async ({ adminPage }) => {
+    await adminPage.goto('/approvals');
+    await expect(adminPage.getByText(/Account approvals/i)).toBeVisible();
+
+    const queue = await apiGet(adminPage, 'auth/accounts/pending/');
+    test.skip(!queue?.pending?.length, 'no applications waiting');
+
+    for (const account of queue.pending) {
+      await expect(adminPage.getByText(account.username, { exact: false }).first())
+        .toBeVisible();
+    }
+    await expect(adminPage.getByRole('button', { name: /^Approve$/ }).first())
+      .toBeVisible();
+  });
+
+  test('an investigator is told plainly that this is not theirs', async ({ page }) => {
+    await page.goto('/approvals');
+    await expect(page.getByText(/requires Administrator clearance/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Approve$/ })).toHaveCount(0);
+  });
+
+  test('the navigation offers approvals only to administrators', async ({ page, adminPage }) => {
+    // A link leading to "you are not cleared for this" is a worse answer than
+    // no link.
+    await adminPage.goto('/dashboard');
+    await expect(adminPage.getByText('Approvals').first()).toBeVisible();
+
+    await page.goto('/dashboard');
+    await expect(page.getByText(/Packets/i).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Approvals')).toHaveCount(0);
   });
 });
 
