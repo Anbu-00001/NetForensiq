@@ -199,6 +199,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# The built React app. Serving it from Django is what lets an air-gapped
+# forensic workstation run the whole platform as one process on one port, with
+# no Node installed on the evidence machine — see netforensiq_backend/spa.py.
+#
+# The default is the in-repo build output. The offline bundle sets
+# FRONTEND_DIST because it lays the files out differently.
+FRONTEND_DIST = Path(os.getenv('FRONTEND_DIST', BASE_DIR.parent / 'frontend' / 'dist'))
+
 # Evidence storage. Ingested PCAPs are copied here and never modified; hashes
 # are computed on arrival and re-verified on every export.
 MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', BASE_DIR / 'evidence_store'))

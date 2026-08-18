@@ -6,7 +6,7 @@ default, and the few public endpoints (register, login, approval status) opt
 out explicitly.
 """
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
 
 from capture.views import (
@@ -14,6 +14,8 @@ from capture.views import (
     engine_info,
 )
 from evidence.views import CertificateViewSet, EvidenceViewSet
+
+from .spa import serve_frontend
 
 router = DefaultRouter()
 router.register('sessions', CaptureSessionViewSet, basename='session')
@@ -30,4 +32,10 @@ urlpatterns = [
     # and a number on a page nobody has signed in to see still has to be true.
     path('api/engine/', engine_info, name='engine-info'),
     path('api/', include(router.urls)),
+
+    # The built interface, last so every Django route above wins. This is what
+    # makes the platform one process on one port: an air-gapped machine needs
+    # Python and the built files, not Node. Paths the API owns still 404
+    # properly — see spa.py for why that matters.
+    re_path(r'^(?P<path>.*)$', serve_frontend, name='frontend'),
 ]

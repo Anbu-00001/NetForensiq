@@ -173,8 +173,12 @@ function DashboardPage() {
                     secondary="conversations" color="#00E68A" />
                   <StatCard title="DNS queries" primary={formatCount(totals?.dns_queries)}
                     secondary="names queried" color="#A855F7" />
+                  {/* No `?? 0` on the pending count: formatCount already
+                      returns an em dash for a missing value, and coercing it to
+                      zero would print "0 awaiting triage" — a measured claim —
+                      when the figure simply did not arrive. */}
                   <StatCard title="Findings" primary={formatCount(totals?.detections)}
-                    secondary={`${formatCount(totals?.detections_pending ?? 0)} awaiting triage`}
+                    secondary={`${formatCount(totals?.detections_pending)} awaiting triage`}
                     color="#FFB020" />
                   <StatCard title="Flagged flows" primary={formatCount(totals?.flagged_flows)}
                     secondary="risk score > 0" color="#FF3B5C" />

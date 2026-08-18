@@ -19,7 +19,8 @@ not filled in with plausible detail.*
    financial-trail and social-engineering problems, not packet-capture problems. Say this plainly;
    don't claim to "solve Gujarat's cybercrime problem."
 2. The strongest **Gujarat-specific** legal hook found is a Gujarat High Court ruling (~8 May 2026,
-   attributed to Justice J.C. Doshi) that a §65B(4)/§63(4) certificate is a "condition precedent" —
+   *Kshitijbhai Manubhai Patel v. Dilipbhai Laxmanbhai Kanani*, SCA 120/2023, Justice J.C. Doshi)
+   that a §65B(4)/§63(4) certificate is a "condition precedent" — VERIFIED, see §3 —
    but it is sourced to a single legal-news aggregator (lawyerenews.com) and, despite two rounds of
    searching today including direct Indian Kanoon queries, **no primary judgment, case number, or
    LiveLaw digest entry was found**. Use the holding, never a citation.
@@ -159,23 +160,33 @@ capture — not that this tool addresses the volume of Gujarat's cybercrime prob
 
 ## 3. BSA 2023 / BNSS 2023 in practice in Gujarat
 
-- **Justice J.C. Doshi, Gujarat High Court, on or around 8 May 2026**: held that a certificate under
-  §65B(4) of the Evidence Act / §63(4) of the BSA is a **"condition precedent"** to a court even
-  considering electronic evidence, and that a trial court ordering FSL examination of an audio
-  recording *before* ruling on that certificate committed **"patent illegality."** The underlying
-  dispute was a specific-performance suit over an oral bungalow-sale agreement, evidenced by a tape
-  recording of a phone call. Sourced twice to the same aggregator:
-  [lawyerenews.com](https://lawyerenews.com/legal_detail/secondary-electronic-evidence-inadmissible-without-mandatory-certificate-sending-to-fsl-before-deciding-admissibility-is-patent-illegality-gujarat-high-court),
-  [lawyerenews.com companion](https://lawyerenews.com/legal_detail/fsl-probe-before-electronic-evidence-meets-section-65b-admissibility-standards-gujarat-high-court).
-  **Today's additional verification attempt**: targeted Indian Kanoon searches for the fact pattern
-  (oral bungalow agreement + audio cassette + §65B + FSL) surfaced *related* but *different* 2026
-  Gujarat High Court cases — `Punabhai Bijalbhai v. State of Gujarat` (20 Mar 2026), `Shreeji
-  Enterprise v. State of Gujarat` (1 Apr 2026), `State of Gujarat v. Bharatbhai Malubhai Gohil` (24
-  Apr 2026, confirmed by direct fetch to be an unrelated criminal-appeal acquittal case) — **none of
-  which matches** the Doshi ruling's fact pattern. LiveLaw's May 2026 Gujarat HC monthly digest,
-  checked directly in the prior pass, does not list it either. **⚠️ Still UNVERIFIED beyond a single
-  secondary aggregator after two independent verification attempts. Use the holding, never a case
-  citation, and flag this explicitly if asked "what's the case name?"**
+- **✅ VERIFIED — *Kshitijbhai Manubhai Patel & Ors. v. Dilipbhai Laxmanbhai Kanani & Anr.*, R/Special
+  Civil Application No. 120 of 2023 (C/SCA/120/2023), Gujarat High Court, Hon'ble Mr. Justice J.C.
+  Doshi, judgment dated 8 May 2026** (reserved 30 April 2026). Judgment text:
+  [indiankanoon.org/doc/19060776](https://indiankanoon.org/doc/19060776/).
+  **Holding**, verbatim: issuance of a certificate under §65B(4) "is a condition precedent for
+  admissibility of computer-generated secondary evidence. It cannot be supplemented through oral
+  evidence." And: "Before admitting the electronic evidence, the certificate under Section 65B(4) is
+  necessary, essential and mandatory." And: "in absence of the certificate under Section 65B(4) of
+  the 'Evidence Act' or Section 63(4) of the 'BSA', the Court cannot take decision in regards to
+  admissibility of electronic evidence, the tape record in the present case." The trial court's order
+  — which had sealed the audio tape and sent it to FSL Gandhinagar for tampering examination without
+  first deciding the certificate question — was set aside as "a patent illegality."
+  **Facts**: Special Civil Suit No. 187 of 2016, specific performance of an *oral* agreement to sell a
+  bungalow in Muni Hemchandra Acharya Co-operative Housing Society ("Bhikhubhai Bungalows"); the
+  plaintiffs relied on a recording of telephonic conversations to establish the concluded contract.
+  **How this was resolved**: three verification passes. The first two failed — targeted Indian Kanoon
+  queries surfaced three unrelated 2026 Gujarat HC cases (*Punabhai Bijalbhai*, *Shreeji Enterprise*,
+  *Bharatbhai Malubhai Gohil*, all ruled out) and LiveLaw's May 2026 Gujarat digest did not list it.
+  The third pass used the dedicated prompt in
+  [research/104](104_DOSHI_CITATION_PROMPT.md) against ChatGPT and Gemini independently; both returned
+  the same case number, the same URL and the same verbatim quotes, and the judgment was then read
+  directly to confirm. **Cite it.**
+  ⚠️ **One precision that must survive to the slide**: the judgment does *not* hold that referring
+  evidence to FSL is illegal. It holds that admissibility must be decided first, and that an order
+  which went to FSL without doing so was a patent illegality. The
+  [lawyerenews.com](https://lawyerenews.com/legal_detail/secondary-electronic-evidence-inadmissible-without-mandatory-certificate-sending-to-fsl-before-deciding-admissibility-is-patent-illegality-gujarat-high-court)
+  headline that first surfaced this case blurs the two; the judgment does not.
 - **Gujarat High Court's April 2026 "Policy on the Use of Artificial Intelligence in the Judicial and
   Court Administration"** — the second Indian High Court (after Kerala, July 2025) to formalise one.
   Bars AI from decision-making, reasoning, order-drafting, and bail/sentencing; permits it only for
@@ -387,9 +398,10 @@ Ranked by (impact to this specific audience) / (effort), highest first:
 - **The IsolationForest ML component vs. a "rules, not black-box ML" pitch framing.** These sit in
   tension. Decide the honest framing in advance (see §5 item 3) rather than have a technical judge
   surface the contradiction live.
-- **The 8 May 2026 Justice Doshi ruling's case name/citation.** Not confirmed after two independent
-  verification passes, including targeted Indian Kanoon queries today that surfaced three other 2026
-  Gujarat High Court cases but not this one. State the holding; never invent or imply a citation.
+- ~~**The 8 May 2026 Justice Doshi ruling's case name/citation.**~~ **RESOLVED 19 Aug 2026.**
+  *Kshitijbhai Manubhai Patel v. Dilipbhai Laxmanbhai Kanani*, SCA 120/2023, decided 8 May 2026 —
+  judgment read directly at indiankanoon.org/doc/19060776. Cite it, with the FSL precision noted
+  above.
 - **"BSA/the Schedule mandates dual- or triple-hashing."** False. THE SCHEDULE offers a checkbox of
   algorithm options (SHA1/SHA256/MD5/Other); it does not require more than one.
   [SPEC_01](SPEC_01_EVIDENCE_INTEGRITY.md) documents this correctly. The product now computes all

@@ -181,7 +181,7 @@ operations on evidence.
 A second agent swept only for hardcoded values — anything shown to a user, or
 used as a decision threshold, that does not trace to the database or to a cited
 source. **Three critical, three high, seven medium, sixteen low.** All resolved.
-Full report: [research/97](research/97_HARDCODE_AUDIT.md).
+Full report: [research/97](research/97_HARDCODE_AUDIT.md); the re-check after every fix, plus the walk through every way provenance could be defeated, is [research/100](research/100_FINAL_HARDCODE_AUDIT.md).
 
 The four that mattered:
 
@@ -254,16 +254,25 @@ claim for a reviewer to check.
 Researched 18 Aug 2026; full citations in
 [research/99](research/99_GUJARAT_FIT.md).
 
-**A Gujarat judge has just insisted on exactly this sequence.** Around 8 May
-2026, Justice J.C. Doshi of the Gujarat High Court held that the §63(4) / §65B(4)
-certificate is a **"condition precedent"** to a court even considering
-electronic evidence, and that a trial court which sent an audio recording to FSL
-*before* ruling on the certificate committed **"patent illegality."**
-⚠️ Sourced only to a legal-news aggregator, twice — **quote the holding, never a
-case number.** Even so, this is a Gujarat court rather than a national
-precedent or a training agenda, insisting on certificate-first, two-part
-sequencing. It belongs beside the Gujarat State Judicial Academy material, not
-instead of it.
+**A Gujarat judge has just insisted on exactly this sequence.** In
+*Kshitijbhai Manubhai Patel v. Dilipbhai Laxmanbhai Kanani*, Special Civil
+Application No. 120 of 2023, decided 8 May 2026, Justice J.C. Doshi of the
+Gujarat High Court held that a certificate under §65B(4) of the Evidence Act —
+now §63(4) of the BSA — is a **"condition precedent for admissibility of
+computer-generated secondary evidence"**, and set aside as a **"patent
+illegality"** a trial court order that had sent an audio tape to FSL
+Gandhinagar without first deciding the certificate question.
+✅ VERIFIED — judgment text read directly at
+[indiankanoon.org/doc/19060776](https://indiankanoon.org/doc/19060776/), after
+two independent external checks returned the same case number and quotes. This
+is a Gujarat court, this year, insisting on certificate-first sequencing. It
+belongs beside the Gujarat State Judicial Academy material, not instead of it.
+
+**Say the holding precisely.** The judgment does not state that referring
+evidence to FSL is itself illegal. It holds that admissibility must be decided
+first, and that the trial court's order — which proceeded to FSL without doing
+so — was a patent illegality. The aggregator headline that first surfaced this
+case blurs those two things; the judgment does not.
 
 **The Gujarat High Court's April 2026 AI Policy is why the engine is rules, not
 a model.** It bars AI from judicial reasoning, order drafting and sentencing,
@@ -331,6 +340,36 @@ opposed to a citizen-facing service is unresolved
 ([research/100](research/100_EXTERNAL_VERIFICATION_PROMPT.md), item 6). What can
 be said is narrower and checkable: the interface is tested against WCAG 2.1 AA
 contrast on every phase, and the test is in the repository.
+
+## Saying it accurately on the day
+
+Research in [research/99](research/99_GUJARAT_FIT.md) checked what this audience
+will actually know. Three things must be phrased carefully, and none of them is a
+code problem — they are ways to lose on stage with working software.
+
+| Say | Do not say | Why |
+|---|---|---|
+| "Gujarat launched Cyber Financial Fraud **e-Zero FIR** on 27 July 2026 — a 1930 complaint now generates an FIR automatically." | — | Verified across independent outlets. Current, Gujarat-specific, and the reason this build has an FIR field. |
+| "In *Kshitijbhai Manubhai Patel v. Dilipbhai Laxmanbhai Kanani*, SCA 120/2023, decided 8 May 2026, the Gujarat High Court held the §63(4) certificate is a condition precedent — and set aside as a patent illegality a trial court order that went to FSL before deciding admissibility." | "The Gujarat High Court has ruled that sending evidence to FSL is illegal." | Now VERIFIED against the judgment text (Indian Kanoon doc 19060776), confirmed by two independent external searches returning the same citation. The precision matters: the illegality was deciding the FSL question *before* the certificate question, not the FSL referral itself. |
+| "The organiser's own account credits **Karnavati University as a partner**." | "Karnavati University co-organises this event." | The site's own "Academic Partner" asset is named `naac.png`, which does not confirm the relationship. |
+| "**If** the commonly-cited FSL backlog figures are accurate, a sealed-at-capture, certificate-ready package removes that delay where network evidence is the bottleneck." | "Gujarat FSL takes 45–180 days." | Widely repeated, never sourced to a primary Gujarat document. |
+
+Two more, about our own work:
+
+- **Network forensics is a small slice of Gujarat's caseload.** Mule accounts,
+  digital arrest and investment fraud dominate, and they are financial-trail
+  problems, not packet problems. Say so first. Claiming to solve Gujarat's
+  cybercrime problem invites the one correction the room is qualified to make.
+- **"Nine rules, of which twelve thresholds are externally cited and
+  twenty-three are ours and tagged."** Not "nine cited rules." The distinction
+  is the whole point of the provenance work and volunteering it reads far
+  better than being caught on it.
+
+There is **no published judging rubric** for this event, and no prior edition —
+verified by fetching the organiser's own pages. A scoring phrase circulating in
+AI-search summaries traces to no primary source. Do not plan against it.
+
+---
 
 ## Known gaps — say these before a judge finds them
 

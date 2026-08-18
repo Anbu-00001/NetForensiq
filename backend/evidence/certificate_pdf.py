@@ -38,6 +38,7 @@ from reportlab.platypus import (
     Spacer, Table, TableStyle,
 )
 
+from . import timesource
 from .models import CustodianRelationship, DeviceType, HashAlgorithm
 
 # THE SCHEDULE prints the device types in this order across two lines. We keep
@@ -460,6 +461,35 @@ def _custody_annexure(certificate, styles):
         ParagraphStyle('verdict', parent=styles['field'],
                        textColor=colors.HexColor('#1A7F37' if ok else '#B3261E')),
     ))
+
+    # Where the timestamps in the table above actually come from.
+    #
+    # Every time in this annexure is the system clock of the machine that runs
+    # the platform. That machine is meant to be air-gapped, which means no NTP,
+    # which means the clock drifts — seconds to minutes a month is ordinary for
+    # an undisciplined RTC. "How do you know your clock was right?" is a fair
+    # question in cross-examination and the accepted answer in the forensic
+    # literature is to disclose the clock's state rather than to assert an
+    # accuracy the hardware cannot deliver. So it is printed here, beside the
+    # timestamps it qualifies, rather than left for someone to ask about.
+    state = timesource.describe()
+    unsynced = state['synchronisation'] != timesource.SYNCHRONISED
+    flow.append(Spacer(1, 4))
+    flow.append(Paragraph(
+        f"<b>Time basis:</b> {timesource.summary_line(state)}. {state['note']}",
+        ParagraphStyle(
+            'timebasis', parent=styles['note'],
+            textColor=colors.HexColor('#8A6D1F' if unsynced else '#444444'),
+        ),
+    ))
+    if state['rtc_in_local_time']:
+        flow.append(Paragraph(
+            "<b>Note:</b> this machine keeps its hardware clock in local time "
+            "rather than UTC. Times recorded either side of a daylight-saving "
+            "change on such a machine can be displaced by an hour.",
+            ParagraphStyle('rtcnote', parent=styles['note'],
+                           textColor=colors.HexColor('#B3261E')),
+        ))
     return flow
 
 
