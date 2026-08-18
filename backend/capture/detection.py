@@ -275,6 +275,15 @@ THRESHOLDS = {
     # Read from processor.IDLE_TIMEOUT_SECONDS rather than restated, so the
     # published figure cannot drift from the one actually applied. These
     # were duplicated as literals here and happened to agree.
+    'corroboration_distinct_rules': (
+        3,
+        '[OUR HEURISTIC] Number of independent rules that must implicate the '
+        'same host before the finding set is summarised as one CRITICAL '
+        'observation. Three is chosen because two rules often share an input '
+        '(a beacon and a covert channel can be the same flow seen twice) '
+        'while three rarely do. It adds no new evidence — it says that '
+        'evidence already recorded points repeatedly at one address.',
+    ),
     'entropy_max_samples': (
         MAX_ENTROPY_SAMPLES,
         '[OUR HEURISTIC] Memory bound on payload sampling. payload_entropy is '
@@ -965,8 +974,17 @@ def rule_exfiltration(session):
             rule_id='EXFIL_VOLUME_ASYMMETRY',
             title=f'{total_out / 1_048_576:.1f} MB outbound to {peer} ({ratio:.0f}:1)',
             category='exfiltration',
-            severity=Detection.Severity.HIGH if high_entropy and not tls_caveat
-            else Detection.Severity.MEDIUM,
+            # Three tiers, because the two signals are independent and the
+            # weakest combination is genuinely weak: a bulk upload over HTTPS
+            # whose payload entropy is unremarkable is what a backup, a video
+            # upload or a cloud sync looks like. Reporting that at the same
+            # level as an encrypted upload to a non-standard port would train
+            # an officer to ignore the rule.
+            severity=(
+                Detection.Severity.HIGH if high_entropy and not tls_caveat
+                else Detection.Severity.LOW if tls_caveat and not high_entropy
+                else Detection.Severity.MEDIUM
+            ),
             method=Detection.Method.RULE,
             confidence=min(ratio / (ratio_thresh * _t('confidence_scale_multiplier')), 1.0),
             subject_ip=flow.initiator_ip,
@@ -1084,6 +1102,71 @@ SEVERITY_WEIGHT = {
 }
 
 
+def synthesise_corroboration(session, findings):
+    """
+    Summarise hosts that several independent rules have implicated.
+
+    This is not another detector. It introduces no observation of its own and
+    can only restate what the rules already found — which is exactly why it is
+    the one thing in the engine allowed to say CRITICAL. A single rule firing
+    is a prompt to look; the same address turning up under three unrelated
+    rules is the shape of an actual incident, and an officer working a list of
+    three hundred findings should not have to spot that by eye.
+
+    Run after the rules rather than beside them, because its input is their
+    output. It is deliberately not in RULES: everything there takes a session
+    and reads packets.
+    """
+    minimum = _t('corroboration_distinct_rules')
+
+    by_subject = defaultdict(list)
+    for finding in findings:
+        if finding.subject_ip:
+            by_subject[finding.subject_ip].append(finding)
+
+    summaries = []
+    for subject, related in sorted(by_subject.items()):
+        rules = sorted({f.rule_id for f in related})
+        if len(rules) < minimum:
+            continue
+
+        categories = sorted({f.category for f in related if f.category})
+        worst = max(related, key=lambda f: SEVERITY_WEIGHT.get(f.severity, 0))
+
+        summaries.append(Detection(
+            session=session, flow=None,
+            rule_id='HOST_CORROBORATED',
+            title=f'{subject} implicated by {len(rules)} independent rules',
+            category='correlation',
+            severity=Detection.Severity.CRITICAL,
+            method=Detection.Method.RULE,
+            # Confidence rises with corroboration but is capped: this restates
+            # other findings, so it cannot be more certain than they are.
+            confidence=min(len(rules) / (minimum * 2), 1.0),
+            subject_ip=subject,
+            rationale=(
+                f'{subject} appears in {len(related)} finding(s) produced by '
+                f'{len(rules)} different rules: {", ".join(rules)}. '
+                f'The strongest single finding against it is "{worst.title}". '
+                f'No new measurement was taken — this finding exists because '
+                f'unrelated tests keep returning the same address, which one '
+                f'finding at a time is easy to miss in a long list. '
+                f'Read the contributing findings before acting on it.'
+            ),
+            evidence={
+                'contributing_rules': rules,
+                'contributing_findings': [
+                    {'rule_id': f.rule_id, 'severity': f.severity, 'title': f.title}
+                    for f in sorted(related, key=lambda f: f.rule_id)
+                ],
+                'categories': categories,
+                'distinct_rule_count': len(rules),
+                **_cite('corroboration_distinct_rules'),
+            },
+        ))
+    return summaries
+
+
 @transaction.atomic
 def analyse_session(session, clear_existing=True):
     """
@@ -1118,6 +1201,9 @@ def analyse_session(session, clear_existing=True):
     findings = []
     for rule in RULES:
         findings.extend(rule(session))
+
+    # Runs on the rules' output, so it comes after them and not in RULES.
+    findings.extend(synthesise_corroboration(session, findings))
 
     # Restore analyst decisions before the rows are written.
     restored = 0

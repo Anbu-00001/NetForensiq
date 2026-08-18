@@ -27,6 +27,12 @@ class CustodyEventSerializer(ModelSerializer):
 
 
 class EvidenceRecordSerializer(ModelSerializer):
+    # Where the bytes came from, in words. Exposed because a register that
+    # cannot tell generated traffic from a seized capture is worse than no
+    # register: both rows look identical and only one of them is evidence.
+    provenance_label = CharField(source='get_provenance_display', read_only=True)
+    is_demonstration_only = BooleanField(read_only=True)
+
     class Meta:
         model = EvidenceRecord
         fields = [
@@ -36,6 +42,8 @@ class EvidenceRecordSerializer(ModelSerializer):
             'device_make_model', 'device_serial', 'device_identifier',
             'custodian_relationship', 'case_reference', 'seized_from',
             'acquisition_notes', 'collected_by', 'created_at',
+            'provenance', 'provenance_label', 'provenance_detail',
+            'is_demonstration_only',
         ]
 
 

@@ -787,3 +787,64 @@ class SeverityRankHasOneDefinitionTests(TestCase):
                 {entry[0] for entry in published.values()},
                 f'rank for {severity} is not any published risk_score_* value',
             )
+
+
+class CorroborationTests(TestCase):
+    """
+    The CRITICAL tier had no way to be reached: every rule emitted HIGH or
+    MEDIUM, so the dashboard advertised a severity that could never appear.
+    Corroboration is what earns it — not a new measurement, a statement that
+    several independent rules keep naming the same address.
+    """
+
+    def test_a_host_flagged_by_several_rules_is_summarised_as_critical(self):
+        from .synthetic import generate_compromised_host
+
+        packets = generate_compromised_host(base_time=1_700_000_000.0)
+        path = write_pcap(packets)
+        session, _ = run_pcap_import(path, name='compromised', home_net='10.45.57.0/24')
+        analyse_session(session)
+
+        summaries = session.detections.filter(rule_id='HOST_CORROBORATED')
+        self.assertTrue(
+            summaries.exists(),
+            'one host doing several things must be summarised — otherwise the '
+            'CRITICAL tier on the dashboard can never populate',
+        )
+
+        finding = summaries.first()
+        self.assertEqual(finding.severity, Detection.Severity.CRITICAL)
+        self.assertGreaterEqual(
+            len(finding.evidence['contributing_rules']),
+            THRESHOLDS['corroboration_distinct_rules'][0],
+        )
+        # It must point at the findings it rests on, not assert independently.
+        self.assertTrue(finding.evidence['contributing_findings'])
+
+    def test_a_host_flagged_by_one_rule_is_not_escalated(self):
+        packets = generate_port_scan(base_time=1_700_000_000.0)
+        path = write_pcap(packets)
+        session, _ = run_pcap_import(path, name='single-rule', home_net='10.45.57.0/24')
+        analyse_session(session)
+
+        self.assertFalse(
+            session.detections.filter(rule_id='HOST_CORROBORATED').exists(),
+            'corroboration must require several rules, or it is just a relabel',
+        )
+
+    def test_every_published_severity_is_reachable_by_some_rule(self):
+        """
+        Guards the defect this class was written for: a tier rendered on the
+        dashboard that no code path can produce.
+        """
+        import re
+        from pathlib import Path
+
+        source = Path(__file__).with_name('detection.py').read_text()
+        emitted = set(re.findall(r'Detection\.Severity\.([A-Z]+)', source))
+
+        for severity in Detection.Severity.names:
+            self.assertIn(
+                severity, emitted,
+                f'{severity} is published to the UI but no rule emits it',
+            )

@@ -405,6 +405,35 @@ def generate_covert_channel(
     return packets
 
 
+def generate_compromised_host(base_time=None, victim='10.45.57.44',
+                             c2_server='198.51.100.77'):
+    """
+    One host doing several things at once — what a real compromise looks like.
+
+    Every other scenario in this file gives its behaviour to a different
+    address: the DNS tunnel is .33, the scanner is .52, the beacon is .28. That
+    made each rule easy to test in isolation and made the corpus quietly
+    unrealistic, because an actual compromised workstation beacons to its C2,
+    holds a covert channel open and pushes data out — all from one machine.
+
+    It also meant nothing in the corpus could exercise the corroboration pass,
+    which exists precisely to notice a host that several independent rules keep
+    pointing at.
+
+    The real AsyncRAT capture behaves this way: one victim, several behaviours,
+    one operator.
+    """
+    t = base_time or time.time()
+    packets = []
+    packets += generate_c2_beaconing_connections(base_time=t, infected=victim,
+                                                 c2_server=c2_server)
+    packets += generate_covert_channel(base_time=t + 300, infected=victim,
+                                       c2_server=c2_server)
+    packets += generate_dns_tunneling(base_time=t + 600, attacker=victim)
+    packets += generate_data_exfiltration(base_time=t + 900, insider=victim)
+    return packets
+
+
 SCENARIOS = {
     'benign': generate_benign,
     'dns_tunnel': generate_dns_tunneling,
@@ -414,6 +443,7 @@ SCENARIOS = {
     'icmp_tunnel': generate_icmp_tunnel,
     'c2_beacon_connections': generate_c2_beaconing_connections,
     'covert_channel': generate_covert_channel,
+    'compromised_host': generate_compromised_host,
 }
 
 
@@ -442,6 +472,9 @@ def build_mixed_capture(output_path, benign_packets=1500, include_attacks=True, 
         all_packets += generate_icmp_tunnel(base_time=start + 1800)
         all_packets += generate_covert_channel(base_time=start + 2100)
         all_packets += generate_data_exfiltration(base_time=start + 2400)
+        # One host exhibiting several behaviours, so the corpus contains
+        # the case the corroboration pass exists for.
+        all_packets += generate_compromised_host(base_time=start + 2700)
 
     all_packets.sort(key=lambda p: p.time)
 

@@ -38,6 +38,28 @@ step() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
 fail() { printf '\033[31m✘ %s\033[0m\n' "$1"; FAILED=1; }
 ok()   { printf '\033[32m✔ %s\033[0m\n' "$1"; }
 
+# ── 0. schema ────────────────────────────────────────────────────────────
+# A model change without its migration applied does not fail loudly: the API
+# returns 500 on the affected endpoint, the UI renders an empty list, and the
+# E2E suite reports a UI regression that is really a schema drift. Applying
+# migrations first makes that impossible.
+step "Database schema"
+if (cd "$BACKEND" && "$PY" manage.py migrate --check >/dev/null 2>&1); then
+  ok "schema up to date"
+else
+  echo "→ applying pending migrations"
+  (cd "$BACKEND" && "$PY" manage.py migrate 2>&1 | tail -3) \
+    && ok "migrations applied" || fail "migrate FAILED"
+fi
+
+# Model changes with no migration written at all are worse: they never reach
+# the database and nothing says so.
+if (cd "$BACKEND" && "$PY" manage.py makemigrations --check --dry-run >/dev/null 2>&1); then
+  ok "no un-generated model changes"
+else
+  fail "models have changed with no migration — run makemigrations"
+fi
+
 # ── 1. backend unit + integration tests ──────────────────────────────────
 step "Backend tests"
 if (cd "$BACKEND" && "$PY" manage.py test 2>&1 | tail -5); then
