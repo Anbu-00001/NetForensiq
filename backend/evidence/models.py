@@ -63,14 +63,20 @@ class CustodianRelationship(models.TextChoices):
     OPERATED = 'operated', 'Operated'
 
 
-def hash_file(path, algorithms=('sha256', 'md5'), chunk_size=1024 * 1024):
+def hash_file(path, algorithms=('sha256', 'sha1', 'md5'), chunk_size=1024 * 1024):
     """
     Hash a file in streaming chunks.
 
-    Multiple digests are computed in a single pass because re-reading a
-    multi-gigabyte capture once per algorithm is wasteful. SHA-256 is the
-    primary; MD5 is computed only because the Schedule prints a checkbox for
-    it and officers expect to see it — it is never relied on alone.
+    All three digests are computed in a single pass, because re-reading a
+    multi-gigabyte capture once per algorithm is wasteful and the marginal cost
+    of a second and third hash over the same bytes is small.
+
+    SHA-256 is the primary and the only one relied upon. SHA-1 and MD5 are
+    computed because THE SCHEDULE prints a checkbox for each — a certificate
+    that leaves two of the form's three named algorithms blank invites exactly
+    the literal reading Gujarat courts have been applying to §63 certificates.
+    Both are broken for collision resistance and neither is ever used alone;
+    the certificate says so in as many words.
     """
     digests = {name: hashlib.new(name) for name in algorithms}
     size = 0
@@ -111,6 +117,9 @@ class EvidenceRecord(models.Model):
     # Integrity — Schedule names SHA1/SHA256/MD5 explicitly
     sha256_hash = models.CharField(max_length=64, db_index=True)        # [STATUTORY]
     md5_hash = models.CharField(max_length=32, blank=True)              # [STATUTORY]
+    # Printed because the Schedule names it, never relied upon: SHA-1 has
+    # been collision-broken since SHAttered (2017).
+    sha1_hash = models.CharField(max_length=40, blank=True)             # [STATUTORY]
     hash_algorithm_declared = models.CharField(                          # [STATUTORY]
         max_length=10, choices=HashAlgorithm.choices, default=HashAlgorithm.SHA256,
     )
@@ -321,6 +330,7 @@ class Section63Certificate(models.Model):
     # Snapshot of the facts certified, frozen at issue time
     certified_sha256 = models.CharField(max_length=64)
     certified_md5 = models.CharField(max_length=32, blank=True)
+    certified_sha1 = models.CharField(max_length=40, blank=True)
     certified_algorithm = models.CharField(
         max_length=10, choices=HashAlgorithm.choices, default=HashAlgorithm.SHA256,
     )

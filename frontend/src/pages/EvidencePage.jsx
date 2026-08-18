@@ -8,6 +8,7 @@ import {
   listEvidence, getCustodyChain, verifyEvidence, unwrap, formatBytes,
   listCertificates, issueCertificate, signCertificatePartB, downloadCertificatePdf,
 } from '../services/forensics';
+import { useCurrentUser, canActOnEvidence } from '../services/session';
 
 const STATUS_STYLE = {
   sealed: { color: '#00E68A', label: 'Sealed — hash verified' },
@@ -37,7 +38,7 @@ function Hash({ label, value }) {
  * in charge of the device AND an expert, so a certificate signed by one
  * account is incomplete and is shown as a draft until countersigned.
  */
-function CertificatePanel({ record, certificates, onChanged }) {
+function CertificatePanel({ record, certificates, onChanged, canAct }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [expert, setExpert] = useState({ name: '', designation: '', qualification: '' });
@@ -66,13 +67,19 @@ function CertificatePanel({ record, certificates, onChanged }) {
           Section 63 certificates
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
-        <Button
-          size="small" variant="outlined" disabled={busy === 'issue'}
-          onClick={() => setShowPartA((v) => !v)}
-          sx={{ fontSize: 11.5, borderColor: 'rgba(0,230,138,0.4)', color: '#00E68A' }}
-        >
-          {showPartA ? 'Cancel' : 'Issue certificate (Part A)'}
-        </Button>
+        {canAct ? (
+          <Button
+            size="small" variant="outlined" disabled={busy === 'issue'}
+            onClick={() => setShowPartA((v) => !v)}
+            sx={{ fontSize: 11.5, borderColor: 'rgba(0,230,138,0.4)', color: '#00E68A' }}
+          >
+            {showPartA ? 'Cancel' : 'Issue certificate (Part A)'}
+          </Button>
+        ) : (
+          <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.45)' }}>
+            Issuing a certificate requires Investigator clearance
+          </Typography>
+        )}
       </Box>
 
       {/*
@@ -167,7 +174,7 @@ function CertificatePanel({ record, certificates, onChanged }) {
             </Button>
           </Box>
 
-          {!c.is_complete && (
+          {!c.is_complete && canAct && (
             <Box sx={{ mt: 1.2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
               {['name', 'designation', 'qualification'].map((field) => (
                 <TextField
@@ -203,7 +210,7 @@ function CertificatePanel({ record, certificates, onChanged }) {
   );
 }
 
-function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged }) {
+function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, canAct }) {
   const [chain, setChain] = useState(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -250,10 +257,12 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged })
             fontSize: 11, fontWeight: 600,
           }} />
           <Box sx={{ flexGrow: 1 }} />
-          <Button size="small" variant="outlined" disabled={busy} onClick={runVerify}
-            sx={{ fontSize: 11.5, borderColor: 'rgba(0,212,255,0.4)', color: '#00D4FF' }}>
-            {busy ? 'Verifying…' : 'Re-verify integrity'}
-          </Button>
+          {canAct && (
+            <Button size="small" variant="outlined" disabled={busy} onClick={runVerify}
+              sx={{ fontSize: 11.5, borderColor: 'rgba(0,212,255,0.4)', color: '#00D4FF' }}>
+              {busy ? 'Verifying…' : 'Re-verify integrity'}
+            </Button>
+          )}
           <Button size="small" onClick={toggle}
             sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.6)' }}>
             {open ? 'Hide' : 'Show'} chain of custody
@@ -299,6 +308,7 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged })
           record={record}
           certificates={certificates}
           onChanged={onCertificatesChanged}
+          canAct={canAct}
         />
 
         <Collapse in={open}>
@@ -348,6 +358,10 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged })
 }
 
 function EvidencePage() {
+  // Clearance decides which controls exist at all. An interface that renders
+  // a button returning 403 is a fake affordance; the server is the guard, but
+  // the officer should not be invited to press something they cannot do.
+  const canAct = canActOnEvidence(useCurrentUser());
   const [records, setRecords] = useState([]);
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -397,6 +411,7 @@ function EvidencePage() {
                 key={r.id} record={r} onUpdated={replace}
                 certificates={certificates}
                 onCertificatesChanged={refreshCertificates}
+                canAct={canAct}
               />
             ))
           )}

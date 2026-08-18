@@ -368,3 +368,87 @@ Recording these so the same ground is not re-walked:
 8. **M-2 … M-7**, then LOW.
 
 *Nothing in this audit was modified. Report only.*
+
+---
+
+# Resolution log — 18 Aug 2026
+
+Every finding above was worked through. What was done, and where the fix is
+pinned by a test.
+
+## CRITICAL
+
+| # | Resolution | Pinned by |
+|---|---|---|
+| C-1 | `Detection.SEVERITY_RANK` deleted; `Detection.severity_rank_for()` reads `detection.SEVERITY_WEIGHT`, itself derived from `THRESHOLDS`. **A second defect surfaced while fixing it:** the `Meta.indexes` list had been written *inside* `save()`, so none of the three indexes existed. | `capture.tests.SeverityRankHasOneDefinitionTests` |
+| C-2 | Seeding moved into `manage.py seed_demo`, whose case reference is `DEMO-NOT-A-REAL-CASE` and whose seizure location says no seizure took place. It refuses to run at all when `ALLOWED_HOSTS` names anything beyond loopback. | `capture.tests.SeedDemoSafetyTests` |
+| C-3 | `scripts/check_docs.py` measures the counts and compares them against every claim in README.md and PROGRESS.md; `verify.sh` runs it on every phase. | the harness itself |
+
+## HIGH
+
+| # | Resolution |
+|---|---|
+| H-1 | `netforensiq_backend/test_runner.IsolatedCacheRunner` gives the suite its own cache directory — still file-based, so throttling behaves as it does in a deployment. Verified by poisoning the shared cache with exhausted counters and re-running: green. |
+| H-2 | `score_beacon()` deleted, with a comment recording what it was and why a per-flow beacon scorer was wrong in the first place. |
+| H-3 | `ALLOWED_HOSTS` reads the environment. |
+
+## MEDIUM
+
+| # | Resolution |
+|---|---|
+| M-1 | `HOST_CORROBORATED` makes `CRITICAL` reachable — it restates findings rather than measuring anything, which is why it is the only rule allowed to say it. `LOW` is emitted by the exfiltration rule for a bulk upload over HTTPS with unremarkable entropy. A test scans the engine source and fails if any published severity is emitted by nothing. The synthetic corpus gained a `compromised_host` scenario, because every other scenario gave its behaviour to a different address — realistic for testing one rule, unrealistic as a model of a compromise. |
+| M-2 | `entropy_max_samples` and `entropy_sample_bytes` are published as informational thresholds, and every finding that rests on entropy states how many samples backed it. The comment claiming the bound was "without materially changing the entropy estimate" is gone — nothing established that. |
+| M-3 | The rationale interpolates `scan_inactivity_timeout` instead of restating it as "15 minutes". |
+| M-4 | The custody annexure prints `—` where no officer is attached, and `import_pcap --officer` attributes custody entries to a real account. |
+| M-5 | Provenance manifests. See the README section; four states, default `unattested`, `SYNTHETIC DATA — NOT EVIDENCE` banded across the certificate. |
+| M-6 | `'Operator'` → `'—'`; unrecognised evidence status renders as unrecognised rather than "Archived"; an absent capture duration renders `—` rather than "0 min". |
+| M-7 | `baseURL` threaded into the anonymous context; `API_BASE`, `apiGet`, `apiPost` and `rows` live in `e2e/fixtures.js`. The address appeared seven times; it now appears once. |
+
+## LOW
+
+Resolved: L-1 (`GET /api/engine/` serves the rule count and version to the
+pre-auth pages, with an E2E test comparing screen against engine), L-4
+(Playwright's origin comes from the harness, not from `settings.py`), L-5
+(`services/apiBase.js`; a production build with no `VITE_API_BASE` falls back to
+same-origin and says so), L-8 (duplicate Zeek citation removed), L-9
+(`app_protocol_source` distinguishes a protocol read off the wire from one
+guessed from the port — 94% of labels on the reference captures are guesses),
+L-10 (timeline resolution is a query parameter and the chart states what each
+point covers), L-11 and L-12 (measurability floors and evidence sample caps
+named, explained and reported in the findings that use them), L-13 (an approved
+application no longer shows its final stage as IN PROGRESS), L-14 (`VERSION`
+file, served through `/api/engine/`), L-16 (identifier prefixes come from
+settings).
+
+Judgement calls, unchanged and deliberately so:
+
+- **L-3 — `IST` in the certificate renderer.** The statutory form's field reads
+  "Time (IST)". Making it configurable would let a certificate print a time
+  under a label that is not the one the Schedule prescribes.
+- **L-2 — `TIME_ZONE = 'UTC'`.** Storage stays UTC: an evidential timestamp has
+  to mean the same instant wherever the file is opened. Presentation converts.
+- **L-6 / L-7 — known credentials.** The demo password is now created by a
+  command that refuses to run on anything reachable beyond loopback. The
+  archive password is a publicly documented scheme for a public research corpus.
+- **L-15 — ports repeated across harness files.** Harness-only; centralising
+  them would add indirection to four lines that change together or not at all.
+
+## Found while fixing, not in the original report
+
+- **`Meta.indexes` written inside `save()`** — see C-1. Three indexes the API
+  queries against did not exist.
+- **Re-sealing an exhibit lost its provenance.** The manifest sat beside the
+  *original* file, so re-importing the sealed copy — what someone does when
+  reprocessing an exhibit — produced a record marked `unattested`. A synthetic
+  capture downgraded to "origin unknown", quieter than the truth, which is the
+  direction a provenance system must never fail. The manifest is now copied
+  into the evidence store.
+- **Exhibit numbers became filenames unvalidated.** `../` in an exhibit number
+  would have written the sealed copy outside the evidence store while the
+  record claimed it was in custody.
+- **An N+1 query on the findings list.** Reporting each finding's exhibit added
+  two queries per row; over seven pages of 343 findings the page stopped
+  responding. `select_related('session__evidence')`, and the threshold panel no
+  longer shares a `Promise.all` with the findings request.
+- **Finding rows were clickable `div`s.** An officer working a long list with a
+  keyboard could not open any of them, and a screen reader announced nothing.

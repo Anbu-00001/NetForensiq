@@ -127,7 +127,11 @@ function Sidebar() {
   return (
     <Box
       sx={{
-        width: 210,
+        // An icon rail on a phone, the full sidebar on a laptop. A fixed
+        // 210px against a 390px viewport left 180px for the content and the
+        // page scrolled sideways — which on a tool an officer may open on a
+        // phone is not a cosmetic problem.
+        width: { xs: 56, md: 210 },
         flexShrink: 0,
         height: '100vh',
         position: 'sticky',
@@ -139,7 +143,7 @@ function Sidebar() {
         py: 2,
       }}
     >
-      <Box sx={{ px: 2, flexGrow: 1 }}>
+      <Box sx={{ px: { xs: 0.75, md: 2 }, flexGrow: 1 }}>
         {navItems.map((item, i) => {
           // Derived from the URL rather than held in state, so a direct visit
           // or a back-button navigation highlights the right entry.
@@ -152,7 +156,8 @@ function Sidebar() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1.5,
-                px: 1.5,
+                justifyContent: { xs: 'center', md: 'flex-start' },
+                px: { xs: 0.5, md: 1.5 },
                 py: 1.1,
                 mb: 0.4,
                 borderRadius: 1.5,
@@ -188,7 +193,10 @@ function Sidebar() {
               }}
             >
               <Box sx={{ display: 'flex', '& svg': { fontSize: 19 } }}>{item.icon}</Box>
-              <Typography sx={{ fontSize: 13.5, fontWeight: isActive ? 600 : 500 }}>
+              <Typography sx={{
+                fontSize: 13.5, fontWeight: isActive ? 600 : 500,
+                display: { xs: 'none', md: 'block' },
+              }}>
                 {item.label}
               </Typography>
             </Box>
@@ -196,7 +204,10 @@ function Sidebar() {
         })}
       </Box>
 
-      <Box sx={{ px: 2 }}>
+      {/* The capture window needs room for two timestamps; on a rail it
+          would truncate into something unreadable, so it is hidden rather
+          than shown badly. */}
+      <Box sx={{ px: 2, display: { xs: 'none', md: 'block' } }}>
         <CaptureWindow />
       </Box>
     </Box>

@@ -8,6 +8,7 @@ import TopBar from '../components/layout/TopBar';
 import {
   listAllDetections, triageDetection, listThresholds, unwrap, SEVERITY_COLOR,
 } from '../services/forensics';
+import { useCurrentUser, canActOnEvidence } from '../services/session';
 
 const TRIAGE_ACTIONS = [
   { key: 'confirmed', label: 'Confirm', color: '#FF6A2B' },
@@ -15,7 +16,7 @@ const TRIAGE_ACTIONS = [
   { key: 'escalated', label: 'Escalate', color: '#FF3B5C' },
 ];
 
-function DetectionCard({ detection, onTriaged }) {
+function DetectionCard({ detection, onTriaged, canTriage }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -145,7 +146,12 @@ function DetectionCard({ detection, onTriaged }) {
             </Box>
           </Box>
 
-          {detection.triage_status === 'new' ? (
+          {detection.triage_status === 'new' && !canTriage ? (
+            <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.5)' }}>
+              Awaiting review. Recording a decision requires Investigator
+              clearance; your account holds Viewer.
+            </Typography>
+          ) : detection.triage_status === 'new' ? (
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
               <TextField
                 size="small" placeholder="Analyst note (optional)"
@@ -189,14 +195,26 @@ function DetectionsPage() {
   const [thresholds, setThresholds] = useState([]);
   const [showThresholds, setShowThresholds] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const canTriage = canActOnEvidence(useCurrentUser());
 
+  // Loaded independently. Under Promise.all a slow or failing findings
+  // request also emptied the threshold panel — so the one page whose purpose
+  // is "every threshold is published" silently published none, and the
+  // failure looked like a UI regression rather than a request problem.
   useEffect(() => {
-    Promise.all([listAllDetections(), listThresholds()])
-      .then(([d, t]) => {
-        setDetections(unwrap(d));
-        setThresholds(t);
-      })
-      .finally(() => setLoading(false));
+    let live = true;
+
+    listAllDetections()
+      .then((d) => { if (live) setDetections(unwrap(d)); })
+      .catch(() => { if (live) setError('Could not load findings.'); })
+      .finally(() => { if (live) setLoading(false); });
+
+    listThresholds()
+      .then((t) => { if (live) setThresholds(t); })
+      .catch(() => {});
+
+    return () => { live = false; };
   }, []);
 
   const replace = (updated) =>
@@ -286,6 +304,8 @@ function DetectionsPage() {
             </Box>
           </Collapse>
 
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
               <CircularProgress sx={{ color: '#00D4FF' }} />
@@ -298,7 +318,10 @@ function DetectionsPage() {
             </Alert>
           ) : (
             visible.map((d) => (
-              <DetectionCard key={d.id} detection={d} onTriaged={replace} />
+              <DetectionCard
+                key={d.id} detection={d} onTriaged={replace}
+                canTriage={canTriage}
+              />
             ))
           )}
         </Box>

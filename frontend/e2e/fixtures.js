@@ -26,14 +26,42 @@ export const API_BASE = process.env.VITE_API_BASE ?? 'http://127.0.0.1:8011/api'
  *
  * `anonymousPage` is a clean context for testing that guards actually guard.
  */
+export function tokensFor(role) {
+  const all = JSON.parse(fs.readFileSync(TOKENS, 'utf-8'));
+  const tokens = all[role];
+  if (!tokens?.access) {
+    throw new Error(`No cached tokens for '${role}' — re-run global setup.`);
+  }
+  return tokens;
+}
+
+async function signedIn(page, role) {
+  await page.addInitScript(({ access, refresh }) => {
+    sessionStorage.setItem('access_token', access);
+    sessionStorage.setItem('refresh_token', refresh);
+  }, tokensFor(role));
+  return page;
+}
+
 export const test = base.extend({
   page: async ({ page }, use) => {
-    const tokens = JSON.parse(fs.readFileSync(TOKENS, 'utf-8'));
-    await page.addInitScript(({ access, refresh }) => {
-      sessionStorage.setItem('access_token', access);
-      sessionStorage.setItem('refresh_token', refresh);
-    }, tokens);
+    await use(await signedIn(page, 'analyst'));
+  },
+
+  /**
+   * A signed-in account holding Viewer clearance.
+   *
+   * The role model is enforced on the server, and every test until now ran as
+   * an investigator — so nothing checked that the interface stops offering
+   * actions a viewer cannot take. Rendering a Confirm button that always
+   * returns 403 is a fake affordance.
+   */
+  viewerPage: async ({ browser, baseURL }, use) => {
+    const context = await browser.newContext({ baseURL });
+    const page = await context.newPage();
+    await signedIn(page, 'viewer');
     await use(page);
+    await context.close();
   },
 
   // baseURL is threaded through so specs can use relative paths here too.
@@ -57,7 +85,20 @@ export { expect };
  * module scope does not exist. Five call sites each inlined the URL instead,
  * which is how the port ended up written out seven times.
  */
+/**
+ * The evaluate calls below read sessionStorage, which `about:blank` refuses —
+ * an opaque origin has no storage. A test that calls the API before its first
+ * navigation would otherwise fail with a SecurityError that says nothing about
+ * what it was testing.
+ */
+async function onAppOrigin(page) {
+  if (!page.url().startsWith('http')) {
+    await page.goto('/');
+  }
+}
+
 export async function apiGet(page, path) {
+  await onAppOrigin(page);
   return page.evaluate(async ({ base, p }) => {
     const token = sessionStorage.getItem('access_token');
     const response = await fetch(`${base}/${p}`, {
@@ -68,6 +109,7 @@ export async function apiGet(page, path) {
 }
 
 export async function apiPost(page, path, payload) {
+  await onAppOrigin(page);
   return page.evaluate(async ({ base, p, body }) => {
     const token = sessionStorage.getItem('access_token');
     const response = await fetch(`${base}/${p}`, {

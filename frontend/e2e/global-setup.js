@@ -3,7 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const API = process.env.VITE_API_BASE ?? 'http://127.0.0.1:8011/api';
-const USER = { username: 'analyst', password: 'demo-pass-1234' };
+// Both roles, because the clearance model is enforced on the server and was
+// never exercised through the browser. A viewer who can still click Confirm is
+// a defect no backend test can see.
+const PASSWORD = process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'demo-pass-1234';
+const ACCOUNTS = {
+  analyst: { username: 'analyst', password: PASSWORD },
+  viewer: { username: 'viewer', password: PASSWORD },
+};
 const STATE = path.join('e2e', '.auth', 'tokens.json');
 
 /**
@@ -41,20 +48,24 @@ export default async function globalSetup(config) {
   // Navigate first: a fetch from about:blank has no origin, so CORS blocks it.
   await page.goto('/login');
 
-  let tokens = null;
+  let cached = {};
   if (fs.existsSync(STATE)) {
     try {
-      const cached = JSON.parse(fs.readFileSync(STATE, 'utf-8'));
-      if (cached?.access && await tokenStillWorks(page, cached.access)) {
-        tokens = cached;
-      }
+      cached = JSON.parse(fs.readFileSync(STATE, 'utf-8')) ?? {};
     } catch {
-      tokens = null;   // unreadable cache is the same as no cache
+      cached = {};   // unreadable cache is the same as no cache
     }
   }
 
-  if (!tokens) {
-    tokens = await page.evaluate(async ({ api, user }) => {
+  const tokens = {};
+  for (const [role, credentials] of Object.entries(ACCOUNTS)) {
+    const existing = cached[role];
+    if (existing?.access && await tokenStillWorks(page, existing.access)) {
+      tokens[role] = existing;
+      continue;
+    }
+
+    const fresh = await page.evaluate(async ({ api, user }) => {
       const res = await fetch(`${api}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,25 +73,27 @@ export default async function globalSetup(config) {
       });
       if (!res.ok) return { error: `${res.status} ${await res.text()}` };
       return res.json();
-    }, { api: API, user: USER });
-  }
+    }, { api: API, user: credentials });
 
-  if (tokens.error || !tokens.access) {
-    await browser.close();
-    throw new Error(
-      `Global setup could not authenticate (${tokens.error ?? 'no token'}). ` +
-      `Is the backend running on ${API} with the seeded analyst account? ` +
-      `A 429 means the login throttle is exhausted — the cached token has also ` +
-      `expired or been invalidated. Either wait for the window to reset, or ` +
-      `clear the throttle for local runs:\n` +
-      `  cd backend && ./.venv/bin/python manage.py shell -c ` +
-      `"from django.core.cache import cache; cache.clear()"`,
-    );
+    if (fresh.error || !fresh.access) {
+      await browser.close();
+      throw new Error(
+        `Global setup could not authenticate '${credentials.username}' ` +
+        `(${fresh.error ?? 'no token'}). Is the backend running on ${API} with ` +
+        `the demo accounts seeded?\n` +
+        `  cd backend && ./.venv/bin/python manage.py seed_demo\n` +
+        `A 429 means the login throttle is exhausted and the cached token has ` +
+        `also expired. Either wait for the window, or clear it for local runs:\n` +
+        `  cd backend && ./.venv/bin/python manage.py shell -c ` +
+        `"from django.core.cache import cache; cache.clear()"`,
+      );
+    }
+    tokens[role] = fresh;
   }
 
   // The app keeps tokens in sessionStorage, which Playwright's storageState
   // does not capture (it persists cookies and localStorage). So the tokens are
-  // written to disk and injected per-page by the auth fixture instead.
+  // written to disk and injected per-page by the auth fixtures instead.
   fs.mkdirSync(path.dirname(STATE), { recursive: true });
   fs.writeFileSync(STATE, JSON.stringify(tokens, null, 2));
   await browser.close();

@@ -188,6 +188,7 @@ def ingest_evidence(
         file_size_bytes=size,
         sha256_hash=digests['sha256'],
         md5_hash=digests.get('md5', ''),
+        sha1_hash=digests.get('sha1', ''),
         acquisition_timestamp=timezone.now(),
         case_reference=case_reference,
         seized_from=seized_from,
@@ -211,7 +212,10 @@ def ingest_evidence(
     )
     record_custody(
         record, CustodyEvent.Action.HASHED, actor=collected_by,
-        detail=f"SHA256={digests['sha256']} MD5={digests.get('md5', '')}",
+        detail=(
+            f"SHA256={digests['sha256']} "
+            f"SHA1={digests.get('sha1', '')} MD5={digests.get('md5', '')}"
+        ),
         actor_ip=actor_ip,
     )
     return record
@@ -270,6 +274,7 @@ def issue_certificate(
         part_b_signed_at=timezone.now() if part_b_user else None,
         certified_sha256=evidence.sha256_hash,
         certified_md5=evidence.md5_hash,
+        certified_sha1=evidence.sha1_hash,
         device_description=device_description,
         findings_summary=findings_summary,
     )

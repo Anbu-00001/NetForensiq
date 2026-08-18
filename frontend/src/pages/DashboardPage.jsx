@@ -104,7 +104,8 @@ function DashboardPage() {
               value={sessionId}
               onChange={(e) => setSessionId(e.target.value)}
               sx={{
-                minWidth: 280, color: '#E5E7EB', fontSize: 13,
+                minWidth: { xs: 0, sm: 280 }, maxWidth: '100%',
+                color: '#E5E7EB', fontSize: 13,
                 backgroundColor: 'rgba(255,255,255,0.04)',
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
                 '& .MuiSvgIcon-root': { color: 'rgba(229,231,235,0.5)' },
@@ -224,7 +225,13 @@ function DashboardPage() {
                 <SeverityBreakdown data={severities} />
               </Box>
 
-              <Box sx={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Box sx={{
+                // Fixed at 300px this column could not wrap, so on a phone
+                // it pushed the page 250px wider than the screen.
+                width: { xs: '100%', md: 300 },
+                flexShrink: { xs: 1, md: 0 }, minWidth: 0,
+                display: 'flex', flexDirection: 'column', gap: 2.5,
+              }}>
                 <ProtocolBubbles protocols={summary?.protocols ?? []} />
                 <ProtocolRanking applications={summary?.applications ?? []} />
               </Box>

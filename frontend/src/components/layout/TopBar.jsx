@@ -53,7 +53,8 @@ const initials = user?.first_name
           gap: 1,
           px: 1.5,
           py: 0.6,
-          width: 240,
+          width: { xs: 120, sm: 240 },
+          maxWidth: '100%',
           borderRadius: 1.5,
           backgroundColor: 'rgba(255,255,255,0.04)',
           border: '1px solid transparent',
@@ -61,7 +62,7 @@ const initials = user?.first_name
           '&:focus-within': {
             borderColor: 'rgba(0,212,255,0.4)',
             backgroundColor: 'rgba(0,212,255,0.05)',
-            width: 300,
+            width: { xs: 150, sm: 300 },
           },
         }}
       >

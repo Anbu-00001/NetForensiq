@@ -162,13 +162,18 @@ def _hash_block(certificate, styles):
     """
     The Schedule's algorithm tick-list.
 
-    It names SHA1, SHA256 and MD5 explicitly, so all three lines are printed
-    even though we do not compute SHA1 — an absent line would misrepresent the
-    form. Ours are ticked and filled; the rest stay empty.
+    It names SHA1, SHA256 and MD5 explicitly and all three are now computed in
+    one streaming pass, so every line the form prints carries a value. Leaving
+    two of the three blank invited exactly the literal reading Gujarat courts
+    have been applying to s.63 certificates — a form with empty statutory
+    fields is a form with something missing.
+
+    Every box is ticked because every digest was in fact taken. Which one is
+    *relied upon* is a separate statement, made in the note beneath.
     """
     declared = certificate.certified_algorithm
     rows = [
-        (HashAlgorithm.SHA1, ''),
+        (HashAlgorithm.SHA1, certificate.certified_sha1),
         (HashAlgorithm.SHA256, certificate.certified_sha256),
         (HashAlgorithm.MD5, certificate.certified_md5),
     ]
@@ -178,7 +183,7 @@ def _hash_block(certificate, styles):
         "below, obtained through the following algorithm:—", styles['body'],
     )]
     for algorithm, value in rows:
-        ticked = bool(value) and (algorithm == declared or algorithm == HashAlgorithm.MD5)
+        ticked = bool(value)
         flow.append(Paragraph(
             f"{_box(ticked)} <b>{algorithm.label}:</b> "
             f"<font face='Courier' size='8'>{value or '&nbsp;' * 20}</font>",
@@ -355,6 +360,7 @@ def _hash_report(certificate, styles):
         ['Size (bytes)', f"{evidence.file_size_bytes:,}"],
         ['Acquired (IST)', f"{ist(evidence.acquisition_timestamp):%d/%m/%Y %H:%M:%S}"],
         ['SHA-256', certificate.certified_sha256],
+        ['SHA-1', certificate.certified_sha1 or '(not computed)'],
         ['MD5', certificate.certified_md5 or '(not computed)'],
         ['Algorithm declared', certificate.get_certified_algorithm_display()],
         ['Integrity status', evidence.get_status_display()],
@@ -378,9 +384,11 @@ def _hash_report(certificate, styles):
     flow.append(Spacer(1, 4))
     flow.append(Paragraph(
         "Digests were computed by streaming the file in 1 MiB chunks through Python's "
-        "hashlib (OpenSSL). SHA-256 is the primary digest. MD5 is reproduced only because "
-        "the Schedule prints a checkbox for it; it is not relied upon alone and is known to "
-        "be vulnerable to collision attack.", styles['note'],
+        "hashlib (OpenSSL), all three in a single pass. <b>SHA-256 is the primary digest "
+        "and the only one relied upon.</b> SHA-1 and MD5 are reproduced because the "
+        "Schedule prints a checkbox for each; both are broken for collision resistance "
+        "(SHA-1 since SHAttered, 2017; MD5 since 2004) and neither is used alone to "
+        "establish integrity.", styles['note'],
     ))
     return flow
 
