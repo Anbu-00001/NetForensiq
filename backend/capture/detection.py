@@ -36,10 +36,9 @@ SRC_HOME_NET = ('Snort/Suricata $HOME_NET convention; default RFC 1918 private '
                 'address space')
 
 
-def _home_networks():
-    nets = getattr(settings, 'HOME_NET', None) or DEFAULT_HOME_NET
+def _parse_networks(entries):
     parsed = []
-    for entry in nets:
+    for entry in entries:
         try:
             parsed.append(ipaddress.ip_network(entry, strict=False))
         except ValueError:
@@ -47,15 +46,50 @@ def _home_networks():
     return parsed
 
 
-def is_internal(ip):
-    """True if the address falls inside the monitored network."""
+def _home_networks():
+    """The deployment-wide default, used when a capture declares nothing."""
+    return _parse_networks(getattr(settings, 'HOME_NET', None) or DEFAULT_HOME_NET)
+
+
+def session_home_networks(session):
+    """
+    The monitored address space *for this capture*.
+
+    HOME_NET was a single global, which is wrong the moment a second case is
+    loaded: a capture taken inside an office is RFC 1918, and a capture of a
+    public-facing server is not. Analysing both against one setting means one
+    of them is analysed against the wrong network, and every egress rule
+    silently inverts. It is declared per capture at import and falls back to
+    the deployment default only when the officer did not state one.
+    """
+    declared = (getattr(session, 'home_net', '') or '').strip()
+    if not declared:
+        return _home_networks()
+    nets = _parse_networks(e.strip() for e in declared.split(',') if e.strip())
+    return nets or _home_networks()
+
+
+def describe_home_net(session):
+    """The ranges actually used, as a string, for a finding's evidence."""
+    return ', '.join(str(net) for net in session_home_networks(session))
+
+
+def is_internal(ip, networks=None):
+    """
+    True if the address falls inside the monitored network.
+
+    `networks` is the parsed list for the capture under analysis. Omitting it
+    falls back to the deployment default, which is correct for a single-tenant
+    install and wrong for a second capture — so every rule passes it.
+    """
     if not ip:
         return False
     try:
         address = ipaddress.ip_address(ip)
     except ValueError:
         return False
-    return any(address in net for net in _home_networks())
+    pool = networks if networks is not None else _home_networks()
+    return any(address in net for net in pool)
 
 
 def flow_direction(flow):
@@ -448,6 +482,7 @@ def rule_beaconing(session):
     inter-connection gaps, so the full Bowley-skew + MADM score can be computed
     rather than the dispersion component alone.
     """
+    home = session_home_networks(session)
     findings = []
     min_conns = _t('beacon_min_connections')
     alert = _t('beacon_alert_score')
@@ -465,7 +500,7 @@ def rule_beaconing(session):
         # controller. An external host connecting in repeatedly is a scanner,
         # and RECON_PORT_SCAN already covers it. On a real internet-facing
         # capture every one of 155 "beacons" was inbound scanning.
-        if not is_internal(initiator) or is_internal(peer):
+        if not is_internal(initiator, home) or is_internal(peer, home):
             continue
 
         flows.sort(key=lambda f: f.first_seen)
@@ -522,6 +557,7 @@ def rule_beaconing_keepalive(session):
     and there is only ever one. Scored with RITA's MADM formula so a score here
     means what a score there means, but the rule itself is ours.
     """
+    home = session_home_networks(session)
     findings = []
     alert = _t('beacon_alert_score')
     min_intervals = _t('keepalive_min_intervals')
@@ -532,7 +568,7 @@ def rule_beaconing_keepalive(session):
             continue
 
         initiator, peer, _ = flow_direction(flow)
-        if not is_internal(initiator) or is_internal(peer):
+        if not is_internal(initiator, home) or is_internal(peer, home):
             continue  # egress only — see rule_beaconing
 
         # RITA's MADM subscore, applied to intra-connection send intervals.
@@ -585,6 +621,7 @@ def rule_unknown_long_channel(session):
     proof of anything — but it is the shape of a covert channel, and it is
     cheap for an analyst to rule out.
     """
+    home = session_home_networks(session)
     findings = []
     min_duration = _t('unknown_channel_min_duration')
 
@@ -596,7 +633,7 @@ def rule_unknown_long_channel(session):
         # Egress only. An external host connecting *in* to an odd port is a
         # scanner, not a covert channel, and on an internet-facing capture
         # there are thousands of them.
-        if not is_internal(initiator) or is_internal(peer):
+        if not is_internal(initiator, home) or is_internal(peer, home):
             continue
         if service_port in WELL_KNOWN_PORTS:
             continue
@@ -632,6 +669,7 @@ def rule_unknown_long_channel(session):
                 'initiator': initiator,
                 'peer': peer,
                 'direction': 'egress (initiator inside HOME_NET)',
+                'home_net': describe_home_net(session),
                 'home_net_source': SRC_HOME_NET,
                 'app_protocol': flow.app_protocol or None,
                 'tls_sni': flow.tls_sni or None,
@@ -802,6 +840,7 @@ def rule_port_scan(session):
     timeout is still applied — to describe the shape of the activity, and to
     report the largest single burst — but it no longer decides what is seen.
     """
+    home = session_home_networks(session)
     findings = []
     remote_thresh = _t('scan_unique_ports')
     local_thresh = _t('scan_unique_ports_local')
@@ -815,7 +854,7 @@ def rule_port_scan(session):
 
     for source, probes in per_source.items():
         combos = {(peer, port) for _, peer, port, _ in probes}
-        threshold = local_thresh if is_internal(source) else remote_thresh
+        threshold = local_thresh if is_internal(source, home) else remote_thresh
         if len(combos) < threshold:
             continue
 
@@ -865,7 +904,7 @@ def rule_port_scan(session):
                 f'reached {largest} combinations. {syn_only} of {len(probes)} connections '
                 f'were SYN without a completed handshake ({syn_ratio:.0%}), the half-open '
                 f'scan signature. Threshold {threshold} combinations, applied because this '
-                f'source is {"inside" if is_internal(source) else "outside"} the monitored '
+                f'source is {"inside" if is_internal(source, home) else "outside"} the monitored '
                 f'network.'
                 + (' No single episode reached the threshold on its own — this is slow '
                    'probing spread across the capture, which a streaming detector holding '
@@ -882,12 +921,13 @@ def rule_port_scan(session):
                 'total_span_seconds': round(span, 1),
                 'syn_only_connections': syn_only,
                 'total_connections': len(probes),
-                'source_is_internal': is_internal(source),
+                'source_is_internal': is_internal(source, home),
                 'threshold_applied': threshold,
                 'aggregation': 'cumulative across the capture, not per episode — see the '
                                'rule docstring for why this departs from bro-simple-scan',
+                'home_net': describe_home_net(session),
                 'home_net_source': SRC_HOME_NET,
-                **_cite('scan_unique_ports' if not is_internal(source)
+                **_cite('scan_unique_ports' if not is_internal(source, home)
                         else 'scan_unique_ports_local'),
                 'inactivity_timeout': _cite('scan_inactivity_timeout'),
             },

@@ -34,6 +34,25 @@ class Command(BaseCommand):
         parser.add_argument('--seized-from', default='', help='Where the capture was taken')
         parser.add_argument('--exhibit', default='', help='Exhibit number (generated if omitted)')
         parser.add_argument(
+            '--home-net', default='',
+            help=(
+                'Comma-separated CIDRs describing the network this capture was '
+                'taken inside, e.g. 10.3.14.0/24. Egress rules only fire for '
+                'initiators inside it. Omit for the deployment default '
+                '(RFC 1918); set it explicitly for a capture of a '
+                'public-facing server, whose own addresses are public.'
+            ),
+        )
+        parser.add_argument(
+            '--provenance', choices=['seized', 'reference', 'synthetic'], default=None,
+            help=(
+                'Declare where this capture came from. Omit to take the sidecar '
+                'manifest beside the file, or to record it as unattested when '
+                'there is none. Use "seized" only for a capture actually taken '
+                'from a network under investigation.'
+            ),
+        )
+        parser.add_argument(
             '--no-seal', action='store_true',
             help='Import for analysis only, without taking the file into evidence.',
         )
@@ -55,10 +74,17 @@ class Command(BaseCommand):
                 exhibit_number=opts['exhibit'] or None,
                 case_reference=opts['case'],
                 seized_from=opts['seized_from'],
+                provenance=opts['provenance'],
             )
             self.stdout.write(self.style.SUCCESS(
                 f"  Exhibit : {record.exhibit_number}\n"
                 f"  SHA-256 : {record.sha256_hash}"
+            ))
+            style = (
+                self.style.ERROR if record.is_demonstration_only else self.style.WARNING
+            )
+            self.stdout.write(style(
+                f"  Origin  : {record.get_provenance_display()}"
             ))
             # Analyse the sealed copy, not the original: it is the artefact the
             # hash describes and the one a court will be shown.
@@ -69,6 +95,7 @@ class Command(BaseCommand):
         session, (flow_count, dns_count) = run_pcap_import(
             pcap_path=path,
             name=opts['name'] or None,
+            home_net=opts['home_net'],
         )
 
         self.stdout.write(self.style.SUCCESS(

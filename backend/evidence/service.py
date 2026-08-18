@@ -80,6 +80,7 @@ def ingest_evidence(
     device_serial='',
     device_identifier='',
     acquisition_notes='',
+    provenance=None,
     actor_ip=None,
 ):
     """
@@ -88,10 +89,39 @@ def ingest_evidence(
     The file is copied into the evidence store and hashed *before* anything
     reads it for analysis, so the recorded digest describes the artefact as
     received. The copy is what we keep; the original stays where it was.
+
+    Provenance is read from the sidecar manifest beside the source file, if
+    there is one, and can be overridden by an explicit `provenance` — which is
+    how an officer declares a capture SEIZED. Neither path can silently claim
+    a generated file is evidence: the manifest wins over nothing, and an
+    explicit declaration is recorded as a declaration.
     """
+    from capture.provenance import read_manifest, describe
+
     source = Path(source_path)
     if not source.exists():
         raise FileNotFoundError(f"No such capture file: {source}")
+
+    manifest = read_manifest(source)
+    if provenance:
+        declared_provenance = provenance
+        provenance_detail = describe(manifest) if manifest else ''
+        if manifest and manifest['kind'] != provenance:
+            # Someone is declaring a file to be something the tool that made
+            # it says it is not. Recording both is the only honest option.
+            provenance_detail = (
+                f"Declared '{provenance}' at intake, but the sidecar manifest "
+                f"says '{manifest['kind']}'. {provenance_detail}"
+            )
+    elif manifest:
+        declared_provenance = manifest['kind']
+        provenance_detail = describe(manifest)
+    else:
+        declared_provenance = EvidenceRecord.Provenance.UNATTESTED
+        provenance_detail = (
+            'No provenance manifest accompanied this file and no origin was '
+            'declared at intake.'
+        )
 
     exhibit_number = exhibit_number or f"NF-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
 
@@ -116,13 +146,19 @@ def ingest_evidence(
         device_serial=device_serial,
         device_identifier=device_identifier,
         acquisition_notes=acquisition_notes,
+        provenance=declared_provenance,
+        provenance_detail=provenance_detail,
         collected_by=collected_by,
         last_verified_at=timezone.now(),
     )
 
     record_custody(
         record, CustodyEvent.Action.ACQUIRED, actor=collected_by,
-        detail=f"Acquired from {source.name} ({size:,} bytes)", actor_ip=actor_ip,
+        detail=(
+            f"Acquired from {source.name} ({size:,} bytes) · "
+            f"provenance: {record.get_provenance_display()}"
+        ),
+        actor_ip=actor_ip,
     )
     record_custody(
         record, CustodyEvent.Action.HASHED, actor=collected_by,

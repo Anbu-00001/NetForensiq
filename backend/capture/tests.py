@@ -614,3 +614,145 @@ class SeverityOrderingTests(TestCase):
         for d in session.detections.all():
             self.assertEqual(d.severity_rank, Detection.SEVERITY_RANK[d.severity])
             self.assertGreater(d.severity_rank, 0)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# JA4 TLS client fingerprinting
+# ─────────────────────────────────────────────────────────────────────────
+
+def _build_client_hello(
+    ciphers, extensions, sig_algs=(), alpn=(b'h2',), server_name=b'example.test',
+    supported_versions=(0x0304,), legacy_version=0x0303,
+):
+    """
+    Assemble a real ClientHello on the wire format.
+
+    Built by hand rather than captured so a test can state exactly which
+    ciphers and extensions went in — which is the only way to check the
+    fingerprint that comes out against FoxIO's published values.
+    """
+    def u16(value):
+        return value.to_bytes(2, 'big')
+
+    ext_bytes = b''
+    for ext_type in extensions:
+        if ext_type == 0x0000:
+            host = server_name
+            payload = u16(len(host) + 3) + b'\x00' + u16(len(host)) + host
+        elif ext_type == 0x0010:
+            names = b''.join(bytes([len(a)]) + a for a in alpn)
+            payload = u16(len(names)) + names
+        elif ext_type == 0x000D:
+            values = b''.join(u16(v) for v in sig_algs)
+            payload = u16(len(values)) + values
+        elif ext_type == 0x002B:
+            values = b''.join(u16(v) for v in supported_versions)
+            payload = bytes([len(values)]) + values
+        else:
+            payload = b''
+        ext_bytes += u16(ext_type) + u16(len(payload)) + payload
+
+    cipher_bytes = b''.join(u16(c) for c in ciphers)
+
+    body = (
+        u16(legacy_version)
+        + b'\x00' * 32                       # random
+        + b'\x20' + b'\x11' * 32             # session id
+        + u16(len(cipher_bytes)) + cipher_bytes
+        + b'\x01\x00'                        # one compression method: null
+        + u16(len(ext_bytes)) + ext_bytes
+    )
+    handshake = b'\x01' + len(body).to_bytes(3, 'big') + body
+    return b'\x16\x03\x01' + u16(len(handshake)) + handshake
+
+
+# The worked example in FoxIO-LLC/ja4, technical_details/JA4.md.
+SPEC_CIPHERS = [
+    0x1301, 0x1302, 0x1303, 0xC02B, 0xC02F, 0xC02C, 0xC030, 0xCCA9,
+    0xCCA8, 0xC013, 0xC014, 0x009C, 0x009D, 0x002F, 0x0035,
+]
+SPEC_EXTENSIONS = [
+    0x001B, 0x0000, 0x0033, 0x0010, 0x4469, 0x0017, 0x002D, 0x000D,
+    0x0005, 0x0023, 0x0012, 0x002B, 0xFF01, 0x000B, 0x000A, 0x0015,
+]
+SPEC_SIG_ALGS = [0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601]
+
+
+class JA4FingerprintTests(TestCase):
+    """
+    Checked against the reference values published with the specification.
+
+    A fingerprint implementation that agrees only with itself proves nothing;
+    these assert the exact strings FoxIO documents, so a regression in the
+    parser shows up as a mismatch with the standard rather than as a
+    different-but-plausible hash.
+    """
+
+    def test_matches_the_published_reference_fingerprint(self):
+        from .tls_fingerprint import fingerprint_payload
+
+        payload = _build_client_hello(
+            SPEC_CIPHERS, SPEC_EXTENSIONS, sig_algs=SPEC_SIG_ALGS,
+        )
+        ja4, raw, sni = fingerprint_payload(payload)
+
+        self.assertEqual(ja4, 't13d1516h2_8daaf6152771_e5627efa2ab1')
+        self.assertEqual(sni, 'example.test')
+        self.assertIn('002f,0035,009c,009d,1301', raw)
+
+    def test_grease_values_are_ignored(self):
+        """
+        RFC 8701 GREASE entries are noise a client inserts deliberately.
+
+        Counting them would make the same browser fingerprint differently on
+        every connection, which is the failure that retired JA3.
+        """
+        from .tls_fingerprint import fingerprint_payload
+
+        greased_ciphers = [0x0A0A] + SPEC_CIPHERS + [0x3A3A]
+        greased_extensions = [0x1A1A] + SPEC_EXTENSIONS
+        payload = _build_client_hello(
+            greased_ciphers, greased_extensions, sig_algs=SPEC_SIG_ALGS,
+        )
+        ja4, _, _ = fingerprint_payload(payload)
+
+        self.assertEqual(ja4, 't13d1516h2_8daaf6152771_e5627efa2ab1')
+
+    def test_no_sni_reports_i_and_no_alpn_reports_00(self):
+        from .tls_fingerprint import fingerprint_payload
+
+        extensions = [e for e in SPEC_EXTENSIONS if e not in (0x0000, 0x0010)]
+        payload = _build_client_hello(
+            SPEC_CIPHERS, extensions, sig_algs=SPEC_SIG_ALGS,
+        )
+        ja4, _, sni = fingerprint_payload(payload)
+
+        self.assertTrue(ja4.startswith('t13i1514' + '00'), ja4)
+        self.assertEqual(sni, '')
+
+    def test_missing_signature_algorithms_drops_the_underscore(self):
+        """The spec's second worked example: the extension list hashes alone."""
+        from .tls_fingerprint import fingerprint_payload
+
+        # The extension is still advertised — it just carries no algorithms,
+        # which is the case the spec describes.
+        payload = _build_client_hello(SPEC_CIPHERS, SPEC_EXTENSIONS, sig_algs=())
+        ja4, _, _ = fingerprint_payload(payload)
+
+        self.assertEqual(ja4, 't13d1516h2_8daaf6152771_6d807ffa2a79')
+
+    def test_a_truncated_handshake_yields_nothing_rather_than_a_guess(self):
+        from .tls_fingerprint import fingerprint_payload
+
+        payload = _build_client_hello(SPEC_CIPHERS, SPEC_EXTENSIONS)
+        ja4, raw, sni = fingerprint_payload(payload[:40])
+
+        self.assertEqual((ja4, raw, sni), ('', '', ''))
+
+    def test_non_tls_payload_is_not_fingerprinted(self):
+        from .tls_fingerprint import fingerprint_payload
+
+        self.assertEqual(
+            fingerprint_payload(b'GET / HTTP/1.1\r\nHost: example.test\r\n\r\n'),
+            ('', '', ''),
+        )

@@ -21,6 +21,17 @@ class CaptureSession(models.Model):
     pcap_filename = models.CharField(max_length=255, blank=True)
     bpf_filter = models.CharField(max_length=255, blank=True)
 
+    # The address space being monitored in THIS capture, in the sense Snort
+    # and Suricata use $HOME_NET. Comma-separated CIDRs; blank means fall back
+    # to the deployment-wide default in settings.
+    #
+    # It belongs on the capture and not in settings because the answer is a
+    # property of the traffic, not of the install: an office capture is
+    # RFC 1918 and a capture of a public-facing server is not. With one global
+    # value, loading the second case silently inverts every egress rule
+    # applied to the first.
+    home_net = models.CharField(max_length=400, blank=True)
+
     state = models.CharField(max_length=12, choices=State.choices, default=State.RUNNING)
 
     # When we processed the capture. For an imported PCAP this is the import
@@ -110,14 +121,27 @@ class Flow(models.Model):
     max_dns_entropy = models.FloatField(default=0.0)
     http_host = models.CharField(max_length=255, blank=True)
     tls_sni = models.CharField(max_length=255, blank=True)
-    ja3_hash = models.CharField(max_length=64, blank=True)
+    # JA4, not JA3. Salesforce retired JA3 and its own README points at
+    # FoxIO's successor; since Chrome 110 randomised ClientHello extension
+    # order in 2023, a real browser produces a different JA3 every connection,
+    # so the hash stops identifying anything. JA4 sorts the lists before
+    # hashing, which is exactly what survives that. See capture/tls_fingerprint.py.
+    #
+    # ja4_raw keeps the sorted cipher and extension lists in the clear: an
+    # analyst asked in court why two flows share a fingerprint can point at
+    # the values, not at twelve hex characters.
+    ja4_fingerprint = models.CharField(max_length=64, blank=True, db_index=True)
+    ja4_raw = models.TextField(blank=True)
 
     # Populated by the detection engine (capture/detection.py).
-    # risk_score is the 0-100 rollup of matched rules; anomaly_score is the
-    # separate unsupervised score, kept distinct so a rule-based finding is
-    # never conflated with a model's opinion.
+    # risk_score is the 0-100 rollup of matched rules.
+    #
+    # There was an `anomaly_score` here too, documented as "the separate
+    # unsupervised score". No unsupervised model exists in this codebase, so
+    # the column was always null and the API published a field that would
+    # never carry a value. It is gone rather than filled with something
+    # invented; if a model is ever trained, the field comes back with it.
     is_analyzed = models.BooleanField(default=False)
-    anomaly_score = models.FloatField(null=True, blank=True)
     risk_score = models.IntegerField(null=True, blank=True)
 
     class Meta:
@@ -147,7 +171,9 @@ class DNSRecord(models.Model):
     src_ip = models.GenericIPAddressField()
     query_name = models.CharField(max_length=512)
     query_type = models.CharField(max_length=12, blank=True)
-    response_ip = models.CharField(max_length=64, blank=True)
+    # Addresses the reply carried, comma-separated. A/AAAA only: CNAME and
+    # NS records answer a different question than 'where did this resolve'.
+    response_ip = models.CharField(max_length=255, blank=True)
 
     subdomain_length = models.IntegerField(default=0)
     label_count = models.IntegerField(default=0)

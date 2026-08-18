@@ -6,6 +6,7 @@ from scapy.layers.inet6 import IPv6
 from scapy.layers.dns import DNS
 
 from .features import shannon_entropy, dns_query_features, compute_flow_metrics
+from .tls_fingerprint import fingerprint_payload
 
 
 TCP_FLAG_MAP = {
@@ -104,6 +105,8 @@ class FlowAggregator:
         # linked back by tuple. Each flow gets a unique id instead.
         self._next_uid = 0
         self.dns_records = []
+        # (client_ip, transaction_id, qname) -> addresses seen in the reply
+        self._dns_answers = {}
         self.total_packets = 0
         self.total_bytes = 0
         self.first_packet_time = None
@@ -193,7 +196,7 @@ class FlowAggregator:
         # technique, it is the port allowed out. Gating on the port first
         # skips the traversal for the overwhelming majority of packets.
         if 53 in (sport, dport):
-            self._process_dns(pkt, f, src_ip, now)
+            self._process_dns(pkt, f, src_ip, dst_ip, now)
 
         if protocol == 'TCP' and payload:
             self._process_app_layer(payload, f, dport)
@@ -270,6 +273,8 @@ class FlowAggregator:
             'app_protocol': '',
             'http_host': '',
             'tls_sni': '',
+            'ja4_fingerprint': '',
+            'ja4_raw': '',
         }
 
     def _payload_of(self, transport):
@@ -285,12 +290,16 @@ class FlowAggregator:
             char for bit, char in TCP_FLAG_MAP.items() if int(flag_value) & bit
         )
 
-    def _process_dns(self, pkt, f, src_ip, now):
+    def _process_dns(self, pkt, f, src_ip, dst_ip, now):
         # Callers gate on port 53, which is necessary but not sufficient:
         # traffic on 53 that scapy did not dissect as DNS (truncated, or
         # something else entirely on that port) has no DNS layer.
         dns = pkt.getlayer(DNS)
-        if dns is None or dns.qr != 0 or not dns.qd:
+        if dns is None or not dns.qd:
+            return
+
+        if dns.qr == 1:
+            self._record_dns_answers(dns, dst_ip)
             return
 
         try:
@@ -311,6 +320,7 @@ class FlowAggregator:
             pass
 
         self.dns_records.append({
+            '_answer_key': (src_ip, int(dns.id), qname.rstrip('.').lower()),
             'src_ip': src_ip,
             'query_name': qname.rstrip('.')[:512],
             'query_type': qtype[:12],
@@ -320,6 +330,44 @@ class FlowAggregator:
             'timestamp': datetime.fromtimestamp(now, tz=dt_timezone.utc),
             'flow_uid': f['_uid'],
         })
+
+    def _record_dns_answers(self, dns, client_ip):
+        """
+        Remember the addresses a response carried, keyed to its query.
+
+        `response_ip` was a column on the model, exposed on the API, that
+        nothing ever wrote — a field promising data it never delivered. It
+        matters for forensics: a tunnelling domain that resolves to the same
+        host as the C2 channel ties two findings to one operator, and an
+        analyst cannot make that link from query names alone.
+
+        Correlation uses the transaction ID together with the client address
+        and the queried name, which is the association the protocol itself
+        provides. Matching on name alone would merge unrelated lookups of the
+        same host made minutes apart.
+        """
+        try:
+            qname = dns.qd.qname.decode('utf-8', errors='ignore').rstrip('.').lower()
+        except Exception:
+            return
+
+        key = (client_ip, int(dns.id), qname)
+        addresses = self._dns_answers.setdefault(key, [])
+
+        for index in range(int(getattr(dns, 'ancount', 0) or 0)):
+            try:
+                answer = dns.an[index]
+            except (IndexError, TypeError):
+                break
+            # A and AAAA carry addresses; CNAME/NS and friends carry names,
+            # which belong to a different question than "where did this go".
+            if getattr(answer, 'type', None) in (1, 28):
+                value = getattr(answer, 'rdata', None)
+                if value is None:
+                    continue
+                text = value.decode() if isinstance(value, bytes) else str(value)
+                if text not in addresses:
+                    addresses.append(text)
 
     def _process_app_layer(self, payload, f, dport):
         # HTTP Host header
@@ -334,49 +382,24 @@ class FlowAggregator:
             except Exception:
                 pass
 
-        # TLS SNI from ClientHello — gives us the destination domain
-        # even though the session is encrypted. This is the
-        # "encrypted traffic analysis without decryption" capability.
-        elif dport == 443 and not f['tls_sni']:
-            sni = self._extract_sni(payload)
-            if sni:
+        # TLS ClientHello — the destination domain and the client's JA4
+        # fingerprint, both readable although the session is encrypted. This
+        # is the "encrypted traffic analysis without decryption" capability.
+        #
+        # Gated on 443 for cost, not correctness: parsing every TCP payload in
+        # a multi-gigabyte capture to look for a handshake is not affordable,
+        # and TLS on a non-standard port is what rule_unknown_long_channel is
+        # for. A capture where that matters can be re-run with the port list
+        # widened; pretending otherwise would be the wrong trade to hide.
+        elif dport == 443 and not f['ja4_fingerprint']:
+            ja4, ja4_raw, sni = fingerprint_payload(payload)
+            if ja4:
+                f['ja4_fingerprint'] = ja4
+                f['ja4_raw'] = ja4_raw
+                f['app_protocol'] = 'TLS'
+            if sni and not f['tls_sni']:
                 f['tls_sni'] = sni[:255]
                 f['app_protocol'] = 'TLS'
-
-    def _extract_sni(self, data):
-        """
-        Pull the server_name from a TLS ClientHello.
-
-        Offset 43 = 5-byte record header + 4-byte handshake header
-        + 2-byte client version + 32-byte random, which lands on session_id.
-        Only handles a ClientHello contained in a single segment; fragmented
-        handshakes are skipped rather than guessed at.
-        """
-        try:
-            if len(data) < 45 or data[0] != 0x16:
-                return None
-            pos = 43
-            sid_len = data[pos]
-            pos += 1 + sid_len
-            cs_len = int.from_bytes(data[pos:pos + 2], 'big')
-            pos += 2 + cs_len
-            comp_len = data[pos]
-            pos += 1 + comp_len
-            ext_total = int.from_bytes(data[pos:pos + 2], 'big')
-            pos += 2
-            end = pos + ext_total
-
-            while pos + 4 <= end and pos + 4 <= len(data):
-                ext_type = int.from_bytes(data[pos:pos + 2], 'big')
-                ext_len = int.from_bytes(data[pos + 2:pos + 4], 'big')
-                pos += 4
-                if ext_type == 0x0000:
-                    name_len = int.from_bytes(data[pos + 3:pos + 5], 'big')
-                    return data[pos + 5:pos + 5 + name_len].decode('utf-8', errors='ignore')
-                pos += ext_len
-        except Exception:
-            return None
-        return None
 
     # ── output ───────────────────────────────────────────────────────────
 
@@ -409,8 +432,17 @@ class FlowAggregator:
                 'max_dns_entropy': round(f['max_dns_entropy'], 4),
                 'http_host': f['http_host'],
                 'tls_sni': f['tls_sni'],
+                'ja4_fingerprint': f['ja4_fingerprint'],
+                'ja4_raw': f['ja4_raw'],
                 '_uid': f['_uid'],
                 '_timestamps': f['timestamps'],
                 **metrics,
             })
+        # Attach the answers to the queries they belong to. Done here rather
+        # than during the stream because a reply is only seen after its query
+        # record already exists.
+        for record in self.dns_records:
+            addresses = self._dns_answers.get(record.pop('_answer_key'), [])
+            record['response_ip'] = ', '.join(addresses)[:255]
+
         return results, self.dns_records
