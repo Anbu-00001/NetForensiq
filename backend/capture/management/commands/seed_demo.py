@@ -19,7 +19,6 @@ pass itself off as a case.** Three rules follow from that.
    than presenting demo traffic as seized evidence.
 """
 
-import os
 from pathlib import Path
 
 from django.conf import settings
@@ -244,9 +243,9 @@ class Command(BaseCommand):
 
     def _certify_one(self, record, officer):
         expert = get_user_model().objects.get(username='fsl-expert')
-        session = CaptureSession.objects.filter(
-            pcap_filename__contains=os.path.basename(record.stored_path),
-        ).first()
+        # The foreign key, not a filename match — the session records which
+        # exhibit it analysed.
+        session = record.sessions.first()
         findings = Detection.objects.filter(session=session).count() if session else 0
 
         certificate = issue_certificate(

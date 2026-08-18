@@ -5,6 +5,19 @@ from .models import CaptureSession, Flow, DNSRecord, Detection
 
 class DetectionSerializer(serializers.ModelSerializer):
     severity_label = serializers.CharField(source='get_severity_display', read_only=True)
+    # A finding is an assertion about traffic in a specific sealed artefact.
+    # Carrying the exhibit number and its provenance means an officer reading
+    # the findings list can see, without navigating anywhere, both which
+    # exhibit the claim rests on and whether that exhibit is evidence at all.
+    exhibit_number = serializers.CharField(
+        source='session.evidence.exhibit_number', read_only=True, default=None,
+    )
+    exhibit_provenance = serializers.CharField(
+        source='session.evidence.provenance', read_only=True, default=None,
+    )
+    is_demonstration_only = serializers.BooleanField(
+        source='session.evidence.is_demonstration_only', read_only=True, default=False,
+    )
     method_label = serializers.CharField(source='get_method_display', read_only=True)
     reviewed_by_username = serializers.CharField(
         source='reviewed_by.username', read_only=True, default=None,
@@ -21,6 +34,7 @@ class DetectionSerializer(serializers.ModelSerializer):
             # never render.
             'triage_status', 'reviewed_by', 'reviewed_by_username',
             'reviewed_at', 'review_note',
+            'exhibit_number', 'exhibit_provenance', 'is_demonstration_only',
         ]
 
 
@@ -94,6 +108,15 @@ class CaptureSessionSerializer(serializers.ModelSerializer):
     )
     detection_count = serializers.IntegerField(read_only=True, default=0)
     capture_duration_seconds = serializers.SerializerMethodField()
+    exhibit_number = serializers.CharField(
+        source='evidence.exhibit_number', read_only=True, default=None,
+    )
+    exhibit_provenance_label = serializers.CharField(
+        source='evidence.get_provenance_display', read_only=True, default=None,
+    )
+    is_demonstration_only = serializers.BooleanField(
+        source='evidence.is_demonstration_only', read_only=True, default=False,
+    )
 
     class Meta:
         model = CaptureSession
@@ -104,6 +127,12 @@ class CaptureSessionSerializer(serializers.ModelSerializer):
             'packet_count', 'byte_count', 'flow_count',
             'started_by', 'started_by_username', 'error_message',
             'detection_count',
+            # The monitored network is a property of this capture, not of the
+            # install, and every egress finding depends on it. Published so an
+            # analyst can see what the rules were applied against.
+            'home_net',
+            'evidence', 'exhibit_number', 'exhibit_provenance_label',
+            'is_demonstration_only',
         ]
         read_only_fields = [
             'state', 'started_at', 'ended_at', 'capture_start', 'capture_end',

@@ -119,6 +119,7 @@ class Command(BaseCommand):
             name=opts['name'] or None,
             home_net=opts['home_net'],
             user=officer,
+            evidence=record,
         )
 
         self.stdout.write(self.style.SUCCESS(

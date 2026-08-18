@@ -869,3 +869,58 @@ class RuleRegistryTests(TestCase):
             set(RULE_IDS), emitted,
             'RULE_IDS must list exactly the rule_ids the engine emits',
         )
+
+
+class FindingTraceabilityTests(TestCase):
+    """
+    A finding is an assertion about traffic. An assertion nobody can tie to a
+    hashed artefact in custody is worth nothing in court, and the link has to
+    be a foreign key — matching filenames is a coincidence that usually holds.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        packets = generate_port_scan(base_time=1_700_000_000.0)
+        self.path = Path(self.tmp) / 'scan.pcap'
+        wrpcap(str(self.path), packets)
+
+    def test_a_sealed_import_links_every_finding_to_its_exhibit(self):
+        from evidence.service import ingest_evidence
+
+        record = ingest_evidence(self.path)
+        session, _ = run_pcap_import(
+            record.stored_path, name='sealed', home_net='10.45.57.0/24',
+            evidence=record,
+        )
+        analyse_session(session)
+
+        self.assertEqual(session.evidence_id, record.pk)
+        for finding in session.detections.all():
+            self.assertEqual(finding.session.evidence.exhibit_number,
+                             record.exhibit_number)
+
+    def test_an_unsealed_import_reports_no_exhibit_rather_than_a_wrong_one(self):
+        """
+        `--no-seal` exists for exploring a capture that is not being taken into
+        evidence. Those findings must say they rest on nothing sealed, not
+        borrow the nearest exhibit number.
+        """
+        session, _ = run_pcap_import(self.path, name='unsealed')
+        analyse_session(session)
+
+        self.assertIsNone(session.evidence_id)
+
+        from .serializers import DetectionSerializer
+        finding = session.detections.first()
+        self.assertIsNotNone(finding)
+        self.assertIsNone(DetectionSerializer(finding).data['exhibit_number'])
+
+    def test_deleting_an_exhibit_cannot_orphan_its_analysis(self):
+        from django.db.models import ProtectedError
+        from evidence.service import ingest_evidence
+
+        record = ingest_evidence(self.path)
+        run_pcap_import(record.stored_path, name='protected', evidence=record)
+
+        with self.assertRaises(ProtectedError):
+            record.delete()

@@ -112,7 +112,8 @@ def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='', name=
     return session, persist_results(session, flows, dns_records, aggregator)
 
 
-def run_pcap_import(pcap_path, name=None, user=None, session=None, home_net=''):
+def run_pcap_import(pcap_path, name=None, user=None, session=None, home_net='',
+                    evidence=None):
     """
     Read a stored PCAP and persist the resulting flows.
 
@@ -128,6 +129,7 @@ def run_pcap_import(pcap_path, name=None, user=None, session=None, home_net=''):
         state=CaptureSession.State.RUNNING,
         started_by=user,
         home_net=home_net or '',
+        evidence=evidence,
     )
 
     aggregator = FlowAggregator()

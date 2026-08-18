@@ -170,10 +170,10 @@ npm run dev
 Or piecemeal:
 
 ```bash
-# Backend: 106 tests
+# Backend: 109 tests
 cd backend && ./.venv/bin/python manage.py test
 
-# Frontend: 22 Playwright E2E tests
+# Frontend: 24 Playwright E2E tests
 cd frontend && npx playwright test
 
 # The counts above are measured, not remembered
@@ -229,6 +229,12 @@ A synthetic exhibit is stamped `SYNTHETIC DATA — NOT EVIDENCE` across the top 
 its Section 63 certificate and flagged in red on the evidence register. Guessing
 "this looks synthetic" from packet contents would be a heuristic, and a heuristic
 wrong in either direction is worse than no claim at all.
+
+**Every finding names the exhibit it rests on.** A capture session carries a
+foreign key to the sealed record it analysed, so an assertion about traffic can
+be traced to a hashed artefact in custody — and a finding from a capture
+imported with `--no-seal` says `not in evidence` rather than looking like every
+other row. Deleting an exhibit is refused while any analysis of it exists.
 
 ### 2. Detection Engine
 
@@ -490,10 +496,10 @@ individually confirmed.
 
 ## Test Coverage
 
-- **106 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **109 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
-- **22 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+- **24 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
   placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
   download
 

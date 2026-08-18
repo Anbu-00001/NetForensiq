@@ -202,6 +202,10 @@ ICMP and exfiltration findings were artifacts of merged flows, not signal.
 
 **7,052 → 235**, while the AsyncRAT true positives went **0 → 5**.
 
+> These figures are from the run described here. They changed again when
+> `$HOME_NET` became a per-capture value — see the addendum at the end of this
+> file for the current numbers and why they moved.
+
 The 235 port-scan findings are not noise. The capture is titled *"one week of
 server scans and probes"*; finding 235 distinct scanning hosts in it is the rule
 working. One alert per scanner, not per probe.
@@ -234,4 +238,50 @@ wrong for it:
 
 ```bash
 HOME_NET="203.161.44.0/24" python manage.py analyze_session <id>
+```
+
+---
+
+## Addendum — 18 Aug 2026: the numbers moved, and why
+
+The counts above were measured when `$HOME_NET` was a single deployment-wide
+setting. It is now declared **per capture**, read from the traffic by
+`manage.py suggest_home_net` and confirmed by the officer at import. That
+changed which host each rule considers "inside", so the figures changed with it.
+Both sets are recorded rather than one quietly overwriting the other.
+
+| Capture | `home_net` used | Findings |
+|---|---|---|
+| AsyncRAT / XWorm infection | `10.3.14.101/32` | **5** — all `COVERT_CHANNEL_UNKNOWN_PORT`, all on the documented C2 host |
+| One week of server scans | `203.161.44.0/24` | **320** — 307 `RECON_PORT_SCAN`, 13 `C2_BEACON_PERIODIC` |
+
+**The 13 beacons are new and they are real.** Under the RFC 1918 default the
+monitored server's own address was "external", so every rule that fires only on
+an internal initiator was silently disabled for it. Correcting the network
+revealed 13 periodic outbound callbacks *from the server*, which is exactly the
+class of finding the beacon rule exists for and exactly what the old default
+hid. `RECON_PORT_SCAN` rose from 235 to 307 for the same reason: probes aimed at
+the server are now recognised as inbound to a monitored host.
+
+This is the second time the same lesson has appeared in this file: **a rule that
+depends on knowing which side is "inside" is only as good as that answer.**
+
+### Why neither reference capture produces a `HOST_CORROBORATED` finding
+
+Nothing is wrong. One capture is a single-victim infection — one host, one
+behaviour — and the other is a server being probed by hundreds of unrelated
+sources, each doing one thing. Corroboration needs three independent rules to
+name the same address, and neither shape produces that.
+
+It is exercised by the generated capture, whose `compromised_host` scenario puts
+beaconing, a covert channel, DNS tunnelling and exfiltration on one machine —
+which is what a real compromised workstation does, and what the rest of the
+synthetic corpus was quietly failing to model by giving each behaviour its own
+address.
+
+### Reproducing, current form
+
+```bash
+./scripts/fetch_reference_captures.sh     # ~72 MB, not committed
+cd backend && ./.venv/bin/python manage.py seed_demo --include-synthetic
 ```

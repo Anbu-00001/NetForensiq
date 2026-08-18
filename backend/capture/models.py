@@ -32,6 +32,22 @@ class CaptureSession(models.Model):
     # applied to the first.
     home_net = models.CharField(max_length=400, blank=True)
 
+    # The sealed exhibit this analysis was run against.
+    #
+    # Without it, a finding could only be tied back to evidence by matching
+    # filenames — which is not a relationship, it is a coincidence that usually
+    # holds. The project's whole claim is that an assertion about a network
+    # traces to a hashed artefact in custody; that trace has to be a foreign
+    # key.
+    #
+    # PROTECT, not CASCADE: deleting an exhibit must not silently take the
+    # analysis of it with it. String reference because evidence links back to
+    # capture in the other direction.
+    evidence = models.ForeignKey(
+        'evidence.EvidenceRecord', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='sessions',
+    )
+
     state = models.CharField(max_length=12, choices=State.choices, default=State.RUNNING)
 
     # When we processed the capture. For an imported PCAP this is the import

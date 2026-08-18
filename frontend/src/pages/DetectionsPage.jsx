@@ -79,6 +79,31 @@ function DetectionCard({ detection, onTriaged }) {
           backgroundColor: 'rgba(255,255,255,0.05)',
           color: 'rgba(229,231,235,0.6)', fontSize: 10.5, fontFamily: 'monospace',
         }} />
+        {/*
+          Which sealed exhibit this claim rests on. A finding is an assertion
+          about traffic, and an assertion about traffic nobody can point to a
+          hashed artefact for is worth nothing in court. When the exhibit is
+          generated traffic, that is said in red — a demonstration finding must
+          never be mistaken for a finding about a case.
+        */}
+        {detection.is_demonstration_only ? (
+          <Chip label="DEMO DATA" size="small" sx={{
+            backgroundColor: 'rgba(255,59,92,0.16)', color: '#FF3B5C',
+            fontSize: 10.5, fontWeight: 700,
+          }} />
+        ) : detection.exhibit_number ? (
+          <Chip label={detection.exhibit_number} size="small" sx={{
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            color: 'rgba(229,231,235,0.5)', fontSize: 10.5, fontFamily: 'monospace',
+          }} />
+        ) : (
+          // The capture was imported with --no-seal, so this finding rests on
+          // a file that was never taken into custody. Saying nothing would
+          // leave it looking like every other row.
+          <Chip label="not in evidence" size="small" sx={{
+            backgroundColor: 'rgba(255,176,32,0.14)', color: '#FFB020', fontSize: 10.5,
+          }} />
+        )}
         {detection.triage_status !== 'new' && (
           <Chip label={detection.triage_status} size="small" sx={{
             backgroundColor: 'rgba(0,230,138,0.14)', color: '#00E68A', fontSize: 10.5,

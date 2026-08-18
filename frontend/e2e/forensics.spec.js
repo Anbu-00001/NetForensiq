@@ -181,6 +181,31 @@ test.describe('provenance', () => {
   });
 });
 
+test.describe('findings trace back to an exhibit', () => {
+  test.beforeEach(async ({ page }) => login(page));
+
+  test('a finding names the sealed exhibit its claim rests on', async ({ page }) => {
+    const findings = rows(await apiGet(page, 'detections/'));
+    test.skip(findings.length === 0, 'no findings seeded');
+
+    for (const finding of findings) {
+      expect(
+        finding.exhibit_number,
+        `finding ${finding.id} (${finding.rule_id}) is not traceable to an exhibit`,
+      ).toBeTruthy();
+    }
+  });
+
+  test('a finding from generated traffic says so on screen', async ({ page }) => {
+    const findings = rows(await apiGet(page, 'detections/'));
+    const demo = findings.find((f) => f.is_demonstration_only);
+    test.skip(!demo, 'no findings from a synthetic exhibit');
+
+    await page.goto(`/detections?q=${encodeURIComponent(demo.subject_ip)}`);
+    await expect(page.getByText('DEMO DATA').first()).toBeVisible();
+  });
+});
+
 test.describe('section 63 certificate', () => {
   test.beforeEach(async ({ page }) => login(page));
 
