@@ -255,6 +255,13 @@ REST_FRAMEWORK = {
         'anon': '30/hour',
         'user': '1000/hour',
         'login': '8/hour',
+        # Enrolment writes rows to the user table from unauthenticated input.
+        # A flooded approval queue is a denial of service against the
+        # administrator who has to work through it, not just against the server.
+        'register': '5/hour',
+        # Public by necessity — an applicant has no account to sign in with —
+        # so it is limited by volume rather than by identity.
+        'approval_status': '20/hour',
     },
 }
 

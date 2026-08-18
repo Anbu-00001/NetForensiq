@@ -14,9 +14,21 @@ from .models import User, AuditLog
 from .utils import log_action, get_client_ip
 
 class RegisterView(generics.CreateAPIView):
+    """
+    Submit an enrolment request.
+
+    Throttled on its own scope rather than sharing the general anonymous
+    limit: this endpoint creates rows in the user table from unauthenticated
+    input, and an approval queue buried under a thousand fabricated
+    applications is a denial of service against the administrator, not just
+    against the server.
+    """
+
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'register'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -75,7 +87,20 @@ class MeView(APIView):
         return Response(UserSerializer(request.user).data)
 
 class ApprovalStatusView(APIView):
+    """
+    Check where an enrolment request has got to.
+
+    Public by necessity — an applicant has no account to sign in with —
+    which makes it an oracle: it answers "does this username hold this badge
+    number" for anyone who asks. Both must match, and the reply is identical
+    for a wrong username, a wrong badge and a pair that does not exist, so a
+    single query leaks nothing. Volume is the remaining risk, so it has its
+    own throttle scope.
+    """
+
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'approval_status'
 
     def post(self, request):
         username = request.data.get('username', '').strip()

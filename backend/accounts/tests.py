@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import TestCase
 
 # Create your tests here.
@@ -192,3 +193,88 @@ class AuditTaxonomyTests(TestCase):
                 re.search(rf'Action\.{name}\b', sources),
                 f'AuditLog.Action.{name} is declared but never written',
             )
+
+
+class PublicEndpointThrottleTests(TestCase):
+    """
+    Three endpoints answer unauthenticated callers. Each has its own limit,
+    because they fail in different ways: login leaks credentials to a guesser,
+    registration floods the approval queue an administrator has to work
+    through, and the status check answers "does this username hold this badge"
+    for anyone who asks.
+    """
+
+    def setUp(self):
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_registration_is_throttled_on_its_own_scope(self):
+        from django.conf import settings
+
+        limit = int(
+            settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['register'].split('/')[0]
+        )
+
+        accepted = 0
+        for i in range(limit + 3):
+            response = self.client.post('/api/auth/register/', {
+                'username': f'applicant{i}',
+                'password': 'a-long-enough-password',
+                'badge_id': f'B-{i}',
+                'department': 'Cyber',
+                'role': 'investigator',
+            }, content_type='application/json')
+            if response.status_code == 429:
+                break
+            accepted += 1
+
+        self.assertLessEqual(
+            accepted, limit,
+            'registration must stop accepting once its hourly limit is reached',
+        )
+        self.assertEqual(response.status_code, 429)
+
+    def test_the_status_check_is_throttled(self):
+        from django.conf import settings
+
+        limit = int(
+            settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['approval_status']
+            .split('/')[0]
+        )
+
+        for _ in range(limit + 2):
+            response = self.client.post('/api/auth/status/', {
+                'username': 'nobody', 'badge_id': 'B-0',
+            }, content_type='application/json')
+            if response.status_code == 429:
+                break
+
+        self.assertEqual(
+            response.status_code, 429,
+            'an unauthenticated oracle must be limited by volume',
+        )
+
+    def test_the_status_check_answers_identically_for_every_kind_of_miss(self):
+        """
+        A different message for "no such user" and "wrong badge" would turn
+        this into a username enumerator.
+        """
+        User.objects.create_user(
+            username='real', password='x', badge_id='B-REAL', department='Cyber',
+        )
+
+        replies = set()
+        for username, badge in (
+            ('real', 'B-WRONG'), ('ghost', 'B-REAL'), ('ghost', 'B-WRONG'),
+        ):
+            response = self.client.post('/api/auth/status/', {
+                'username': username, 'badge_id': badge,
+            }, content_type='application/json')
+            replies.add((response.status_code, response.json().get('detail')))
+
+        self.assertEqual(
+            len(replies), 1,
+            f'the three misses must be indistinguishable, got {replies}',
+        )

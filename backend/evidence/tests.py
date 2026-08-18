@@ -8,6 +8,7 @@ tampering is not detected here, nothing else in the product matters.
 import tempfile
 from pathlib import Path
 
+from django.conf import settings
 from django.test import TestCase, override_settings
 
 from accounts.models import User
@@ -437,3 +438,34 @@ class ProvenanceTests(TestCase):
         text = CertificatePdfTests._text(certificate.pdf_path)
         self.assertIn('SYNTHETIC DATA', text)
         self.assertIn('NOT EVIDENCE', text)
+
+
+class ExhibitNumberSafetyTests(TestCase):
+    """
+    The exhibit number becomes a filename inside the evidence store. A record
+    can claim a file is in custody while the bytes were written somewhere else
+    entirely, which is the worst possible failure for an evidence layer.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.source = Path(self.tmp) / 'capture.pcap'
+        self.source.write_bytes(b'\xd4\xc3\xb2\xa1' + b'\x00' * 64)
+
+    def test_a_traversing_exhibit_number_is_refused(self):
+        for attempt in ('../escaped', '..', 'a/b', '/absolute', 'x\x00y'):
+            with self.assertRaises(ValueError, msg=attempt):
+                ingest_evidence(self.source, exhibit_number=attempt)
+
+    def test_an_overlong_exhibit_number_is_refused(self):
+        with self.assertRaises(ValueError):
+            ingest_evidence(self.source, exhibit_number='A' * 101)
+
+    def test_an_ordinary_exhibit_number_is_accepted(self):
+        record = ingest_evidence(self.source, exhibit_number='GJ-CYB-2026-0001')
+        self.assertEqual(record.exhibit_number, 'GJ-CYB-2026-0001')
+        self.assertTrue(Path(record.stored_path).exists())
+        self.assertEqual(
+            Path(record.stored_path).parent.resolve(),
+            Path(settings.EVIDENCE_ROOT).resolve(),
+        )

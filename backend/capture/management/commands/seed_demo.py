@@ -226,10 +226,23 @@ class Command(BaseCommand):
             self.stdout.write('  · certificate already issued')
             return
 
-        record = EvidenceRecord.objects.order_by('created_at').first()
-        if record is None:
+        records = list(EvidenceRecord.objects.order_by('created_at'))
+        if not records:
             return
 
+        # One certificate over a real capture, and — when a generated capture
+        # was sealed too — one over that. Side by side they are the same
+        # document except for the band across the top, which is the whole
+        # point: a demonstration certificate must be unmistakable.
+        chosen = [records[0]]
+        synthetic = next((r for r in records if r.is_demonstration_only), None)
+        if synthetic and synthetic not in chosen:
+            chosen.append(synthetic)
+
+        for record in chosen:
+            self._certify_one(record, officer)
+
+    def _certify_one(self, record, officer):
         expert = get_user_model().objects.get(username='fsl-expert')
         session = CaptureSession.objects.filter(
             pcap_filename__contains=os.path.basename(record.stored_path),

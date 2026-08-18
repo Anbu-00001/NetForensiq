@@ -1,5 +1,6 @@
 """Evidence intake, custody chain maintenance, and certificate issue."""
 
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -11,6 +12,25 @@ from django.utils import timezone
 from .models import (
     CustodyEvent, EvidenceRecord, Section63Certificate, hash_file,
 )
+
+
+# Exhibit numbers become filenames inside the evidence store, so they are
+# constrained to characters that cannot escape it. `../` in an exhibit number
+# would write the sealed copy anywhere the process can reach, and the record
+# would still claim the file was safely in custody. Only the CLI supplies this
+# today; a validation that depends on which caller happens to reach the code is
+# not a validation.
+EXHIBIT_NUMBER_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$')
+
+
+def validate_exhibit_number(value):
+    if not EXHIBIT_NUMBER_PATTERN.match(value or ''):
+        raise ValueError(
+            f"Refusing exhibit number {value!r}: it becomes a filename in the "
+            f"evidence store, so it must be 1-100 characters of letters, "
+            f"digits, dot, dash or underscore, starting with a letter or digit."
+        )
+    return value
 
 
 def _next_sequence(evidence):
@@ -124,13 +144,20 @@ def ingest_evidence(
         )
 
     prefix = getattr(settings, 'EXHIBIT_PREFIX', 'NF')
-    exhibit_number = exhibit_number or (
+    exhibit_number = validate_exhibit_number(exhibit_number or (
         f"{prefix}-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
-    )
+    ))
 
     store = Path(settings.EVIDENCE_ROOT)
     store.mkdir(parents=True, exist_ok=True)
-    destination = store / f"{exhibit_number}{source.suffix or '.pcap'}"
+    # Belt and braces: the suffix comes from a path the caller chose, so it is
+    # taken as a name rather than trusted as a path fragment.
+    suffix = Path(source.suffix or '.pcap').name
+    destination = store / f"{exhibit_number}{suffix}"
+    if destination.parent.resolve() != store.resolve():
+        raise ValueError(
+            f"Refusing to write {destination} — it falls outside the evidence store."
+        )
     shutil.copy2(source, destination)
 
     digests, size = hash_file(destination)

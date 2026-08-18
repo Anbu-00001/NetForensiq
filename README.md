@@ -170,10 +170,10 @@ npm run dev
 Or piecemeal:
 
 ```bash
-# Backend: 100 tests
+# Backend: 106 tests
 cd backend && ./.venv/bin/python manage.py test
 
-# Frontend: 19 Playwright E2E tests
+# Frontend: 22 Playwright E2E tests
 cd frontend && npx playwright test
 
 # The counts above are measured, not remembered
@@ -490,10 +490,10 @@ individually confirmed.
 
 ## Test Coverage
 
-- **100 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **106 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
-- **19 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+- **22 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
   placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
   download
 
@@ -505,21 +505,44 @@ Copy `backend/.env.example` to `backend/.env` and adjust as needed:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SECRET_KEY` | auto-generated | Django secret key (set for production) |
+| `SECRET_KEY` | auto-generated | Django secret key. Ephemeral by default so a fresh clone runs; set it or every restart invalidates all tokens |
 | `DEBUG` | `False` | Django debug mode |
-| `DB_NAME` | (none -- uses SQLite) | PostgreSQL database name |
-| `HOME_NET` | `10.0.0.0/8,...` (RFC 1918) | Address space being defended |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hostnames this instance answers on |
+| `DB_NAME` | (none — uses SQLite) | PostgreSQL database name |
+| `HOME_NET` | `10.0.0.0/8,…` (RFC 1918) | **Fallback only.** The monitored network is declared per capture at import; this is used when a capture declares none |
+| `CACHE_BACKEND` / `CACHE_LOCATION` | file-based, `backend/.cache` | Where DRF's throttle counters live — this decides whether the login rate limit is real. Point at Redis in a deployment |
+| `MEDIA_ROOT` | `backend/evidence_store` | Where sealed evidence and rendered certificates are written |
+| `EXHIBIT_PREFIX` / `CERTIFICATE_PREFIX` | `NF` / `S63` | Identifier schemes. Most units have their own; ours should not appear on a case file |
+| `ISSUING_ORGANISATION` | (none) | Printed on the certificate as the issuing body. Blank prints nothing rather than inventing one |
 | `CORS_EXTRA_ORIGINS` | (none) | Additional allowed CORS origins |
+| `VITE_API_BASE` | dev: `http://127.0.0.1:8000/api` | Frontend build-time API address. A production build without it falls back to same-origin `/api` and says so in the console |
+
+**Rate limits** (`REST_FRAMEWORK.DEFAULT_THROTTLE_RATES`): login 8/hour,
+registration 5/hour, approval-status check 20/hour, anonymous 30/hour,
+authenticated 1000/hour. The three public endpoints are scoped separately
+because they fail differently — login leaks credentials to a guesser,
+registration floods the queue an administrator has to work through, and the
+status check answers "does this username hold this badge" for anyone who asks.
 
 ---
 
 ## Ground Rules
 
-1. **No hardcoded demo data.** Every number on screen comes from the database.
-2. **No invented thresholds.** Detection parameters carry a citation or are explicitly
-   labelled `[OUR HEURISTIC]`.
-3. **No overclaiming.** Synthetic-data performance is reported as such.
-4. Test at the end of every phase.
+1. **No hardcoded demo data.** Every number on screen comes from the database,
+   including the rule count and version on the pre-auth landing page. Guarded by
+   E2E tests on both public and authenticated pages.
+2. **No fake affordances.** If a control is rendered, it does something.
+3. **No invented thresholds.** Detection parameters carry a citation or are
+   explicitly labelled `[OUR HEURISTIC]`, and that tag travels into the stored
+   evidence of every finding that used one. A test fails the build if a
+   published threshold is read by no rule.
+4. **No overclaiming.** Synthetic results are labelled synthetic; no precision or
+   recall is claimed from three captures.
+5. **A demonstration must not be able to pass itself off as a case.** Provenance
+   is recorded for every capture and printed on every certificate.
+6. **The documented figures are measured**, by `scripts/check_docs.py`, on every
+   phase.
+7. `./scripts/verify.sh` at the end of every phase.
 
 ---
 

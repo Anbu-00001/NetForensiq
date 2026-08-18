@@ -1,4 +1,4 @@
-import { test, expect, apiGet, apiPost, rows } from './fixtures';
+import { test, expect, apiGet, apiPost, rows, API_BASE } from './fixtures';
 
 /**
  * Any rule the engine can emit. Findings are addressed by their accessible
@@ -136,6 +136,48 @@ test.describe('evidence', () => {
     await expect(
       page.getByText(/Custody chain intact|Custody chain BROKEN/i).first(),
     ).toBeVisible();
+  });
+});
+
+test.describe('provenance', () => {
+  test.beforeEach(async ({ page }) => login(page));
+
+  test('every exhibit states where its bytes came from', async ({ page }) => {
+    await page.goto('/evidence');
+    await expect(page.getByText(/Evidence register/i)).toBeVisible();
+
+    const exhibits = rows(await apiGet(page, 'evidence/'));
+    test.skip(exhibits.length === 0, 'no evidence seeded');
+
+    // A sealed generated capture and a sealed seized one are byte-identical
+    // artefacts. If the register cannot tell them apart on screen, neither can
+    // anyone reading it.
+    const body = await page.locator('body').innerText();
+    for (const exhibit of exhibits) {
+      expect(
+        exhibit.provenance,
+        `${exhibit.exhibit_number} has no recorded provenance`,
+      ).toBeTruthy();
+    }
+
+    if (exhibits.some((e) => e.is_demonstration_only)) {
+      expect(body).toContain('SYNTHETIC');
+      expect(body).toContain('NOT EVIDENCE');
+    }
+  });
+
+  test('a synthetic exhibit cannot be mistaken for evidence', async ({ page }) => {
+    await page.goto('/evidence');
+
+    const exhibits = rows(await apiGet(page, 'evidence/'));
+    const demo = exhibits.find((e) => e.is_demonstration_only);
+    test.skip(!demo, 'no synthetic exhibit seeded');
+
+    const body = await page.locator('body').innerText();
+    // The warning has to name the exhibit it belongs to, not float loose on
+    // the page where it could be read as applying to a different row.
+    expect(body).toContain(demo.exhibit_number);
+    expect(body).toMatch(/SYNTHETIC[^\n]*NOT EVIDENCE/i);
   });
 });
 
@@ -310,6 +352,31 @@ test.describe('public pages make no false claims', () => {
       }
     });
   }
+
+  test('the rule count on the landing page comes from the engine', async ({ anonymousPage, request }) => {
+    // Three separate strings used to carry this number as prose. Adding a rule
+    // made all of them wrong, on the first page a judge sees, with nothing to
+    // catch it.
+    //
+    // Fetched through Playwright's own client rather than from inside the
+    // page: a cross-origin fetch from about:blank has a null origin and is
+    // refused before it reaches the server.
+    const engine = await (await request.get(`${API_BASE}/engine/`)).json();
+
+    await anonymousPage.goto('/');
+    const body = await anonymousPage.locator('body').innerText();
+
+    const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six',
+                   'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+    const spelled = WORDS[engine.rule_count] ?? String(engine.rule_count);
+
+    expect(
+      body.toLowerCase(),
+      `landing page should say "${spelled}" rules, matching the engine`,
+    ).toContain(`${spelled} deterministic rules`);
+
+    expect(body).toContain(`v${engine.version}`);
+  });
 
   test('the landing page does not claim to be tamper-proof', async ({ anonymousPage }) => {
     // The custody model's own docstring says tamper-EVIDENT, "which is the

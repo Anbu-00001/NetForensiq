@@ -157,3 +157,7 @@ dmypy.json
 .serena/
 backend/reference_captures/
 backend/.cache/
+
+# Local artefacts — regenerated, never reviewed in a diff
+# Playwright failure artefacts
+frontend/test-results/
