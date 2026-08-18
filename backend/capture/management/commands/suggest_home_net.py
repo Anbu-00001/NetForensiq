@@ -45,12 +45,16 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'\n  --home-net {proposal}\n'))
         self.stdout.write(f"  Sampled {detail['sampled_packets']:,} packets.")
         self.stdout.write(f"  {detail['basis']}\n")
-        self.stdout.write('  Busiest networks in the sample:')
+        self.stdout.write(
+            '  Busiest networks in the sample (an appearance is one endpoint of\n'
+            '  one packet, so the totals sum to about twice the packet count):'
+        )
         for entry in detail['top_networks']:
             hosts = ', '.join(
-                f"{h['address']} ({h['packets']:,})" for h in entry['busy_hosts']
+                f"{h['address']} ({h['appearances']:,})" for h in entry['busy_hosts']
             ) or '—'
             self.stdout.write(
-                f"    {entry['network']:<22} {entry['packets']:>10,} packets   {hosts}"
+                f"    {entry['network']:<22} "
+                f"{entry['endpoint_appearances']:>10,} appearances   {hosts}"
             )
         self.stdout.write(self.style.WARNING(f"\n  {detail['heuristic']}"))

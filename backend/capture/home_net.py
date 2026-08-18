@@ -47,6 +47,19 @@ SAMPLE_PACKETS = 200_000
 # exclude a remote peer that happened to be chatty.
 BUSY_SHARE = 0.01
 
+# ...but never fewer than this many packets. On a short capture the share
+# collapses to one packet, at which point every address that appeared once is
+# "busy" and the proposal is meaningless.
+MIN_BUSY_PACKETS = 2
+
+# The monitored network has to be on at least this share of the traffic.
+#
+# This is the defining property of a vantage point: a capture is taken *at*
+# somewhere, so one endpoint of nearly every packet is inside the network being
+# monitored. Without it, the busiest group of a capture full of unrelated
+# conversations wins by default and the proposal is noise wearing a CIDR.
+COVERAGE_SHARE = 0.5
+
 
 def _addresses(packet):
     layer = packet.getlayer(IP) or packet.getlayer(IPv6)
@@ -56,7 +69,15 @@ def _addresses(packet):
 
 
 def observe(pcap_path, sample=SAMPLE_PACKETS):
-    """Packets per address over the first `sample` packets."""
+    """
+    How many of the sampled packets each address appears in.
+
+    Both endpoints of a packet are counted, so the totals across all addresses
+    sum to roughly twice the packet count — which is why the per-network
+    figure below is labelled `endpoint_appearances` and not `packets`. It is
+    used for ranking, where that is exactly the right quantity: a monitored
+    host is on one end of nearly everything.
+    """
     counts = Counter()
     seen = 0
     with PcapReader(str(pcap_path)) as reader:
@@ -82,7 +103,8 @@ def _group_key(address):
     return ipaddress.ip_network(f'{address}/{prefix}', strict=False)
 
 
-def suggest(pcap_path, sample=SAMPLE_PACKETS, busy_share=BUSY_SHARE):
+def suggest(pcap_path, sample=SAMPLE_PACKETS, busy_share=BUSY_SHARE,
+            coverage_share=COVERAGE_SHARE):
     """
     (proposal, explanation) for a capture.
 
@@ -94,24 +116,46 @@ def suggest(pcap_path, sample=SAMPLE_PACKETS, busy_share=BUSY_SHARE):
     if not sampled:
         return '', {'sampled_packets': 0, 'reason': 'no IP packets in the sample'}
 
-    busy_floor = max(1, int(sampled * busy_share))
+    busy_floor = max(MIN_BUSY_PACKETS, int(sampled * busy_share))
 
     groups = {}
     for address, hits in counts.items():
         key = _group_key(address)
         if key is None:
             continue
-        entry = groups.setdefault(key, {'packets': 0, 'busy_hosts': []})
-        entry['packets'] += hits
+        entry = groups.setdefault(key, {'appearances': 0, 'busy_hosts': []})
+        entry['appearances'] += hits
         if hits >= busy_floor:
             entry['busy_hosts'].append((address, hits))
 
     if not groups:
         return '', {'sampled_packets': sampled, 'reason': 'no parseable addresses'}
 
-    ranked = sorted(groups.items(), key=lambda kv: kv[1]['packets'], reverse=True)
+    # Ranked by how much of the capture the group's *busy* hosts carry, then by
+    # the group's total. Ranking on the total alone ties whenever every packet
+    # has one endpoint on each side — which is most captures — and the tie then
+    # breaks arbitrarily, sometimes onto the far side. The vantage point is the
+    # side with concentrated volume: a few hosts on nearly everything, rather
+    # than many hosts on one packet each.
+    def _weight(item):
+        _, info = item
+        return (sum(hits for _, hits in info['busy_hosts']), info['appearances'])
+
+    ranked = sorted(groups.items(), key=_weight, reverse=True)
     network, detail = ranked[0]
     busy = sorted(detail['busy_hosts'], key=lambda h: h[1], reverse=True)
+
+    if detail['appearances'] < sampled * coverage_share:
+        return '', {
+            'sampled_packets': sampled,
+            'reason': (
+                f'the busiest network, {network}, is an endpoint of only '
+                f'{detail["appearances"] / sampled:.0%} of the sampled packets. '
+                f'A capture is taken at a vantage point, so the monitored '
+                f'network should be on nearly all of them — this traffic does '
+                f'not look like it was captured inside any one network.'
+            ),
+        }
 
     if not busy:
         return '', {
@@ -142,9 +186,9 @@ def suggest(pcap_path, sample=SAMPLE_PACKETS, busy_share=BUSY_SHARE):
         'top_networks': [
             {
                 'network': str(net),
-                'packets': info['packets'],
+                'endpoint_appearances': info['appearances'],
                 'busy_hosts': [
-                    {'address': a, 'packets': n}
+                    {'address': a, 'appearances': n}
                     for a, n in sorted(info['busy_hosts'], key=lambda h: h[1], reverse=True)[:5]
                 ],
             }

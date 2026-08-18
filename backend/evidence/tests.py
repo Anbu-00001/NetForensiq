@@ -469,3 +469,53 @@ class ExhibitNumberSafetyTests(TestCase):
             Path(record.stored_path).parent.resolve(),
             Path(settings.EVIDENCE_ROOT).resolve(),
         )
+
+
+class ProvenanceSurvivesResealingTests(TestCase):
+    """
+    Reprocessing an exhibit means importing the sealed copy, not the original.
+    If the statement of origin stays behind with the original file, a synthetic
+    capture re-imported from the store comes back as "origin unknown" — quieter
+    than the truth, which is the direction a provenance system must never fail.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.source = Path(self.tmp) / 'generated.pcap'
+        self.source.write_bytes(b'\xd4\xc3\xb2\xa1' + b'\x00' * 128)
+
+    def test_re_sealing_the_stored_copy_keeps_the_synthetic_marker(self):
+        from capture.provenance import write_manifest, KIND_SYNTHETIC
+
+        write_manifest(self.source, kind=KIND_SYNTHETIC, scenario='mixed', seed=7)
+        first = ingest_evidence(self.source)
+        self.assertTrue(first.is_demonstration_only)
+
+        # Someone reprocesses the exhibit from the evidence store.
+        second = ingest_evidence(first.stored_path)
+
+        self.assertTrue(
+            second.is_demonstration_only,
+            're-sealing the stored copy lost the SYNTHETIC marker',
+        )
+        self.assertEqual(second.provenance, EvidenceRecord.Provenance.SYNTHETIC)
+
+    def test_the_copied_manifest_still_only_describes_its_own_file(self):
+        """
+        The manifest carries the digest, so copying it beside a different file
+        must not transfer the claim.
+        """
+        from capture.provenance import (
+            write_manifest, read_manifest, manifest_path, KIND_SYNTHETIC,
+        )
+        import shutil as _shutil
+
+        write_manifest(self.source, kind=KIND_SYNTHETIC, scenario='mixed')
+
+        other = Path(self.tmp) / 'unrelated.pcap'
+        other.write_bytes(b'\xd4\xc3\xb2\xa1' + b'\xee' * 128)
+        _shutil.copy2(manifest_path(self.source), manifest_path(other))
+
+        self.assertIsNone(read_manifest(other))
+        record = ingest_evidence(other)
+        self.assertEqual(record.provenance, EvidenceRecord.Provenance.UNATTESTED)

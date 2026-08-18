@@ -285,3 +285,61 @@ address.
 ./scripts/fetch_reference_captures.sh     # ~72 MB, not committed
 cd backend && ./.venv/bin/python manage.py seed_demo --include-synthetic
 ```
+
+---
+
+## Addendum — JA4 and DNS answers on the real captures
+
+Two capabilities added after the original run, checked against the same real
+traffic rather than against the generator.
+
+### JA4 fingerprints
+
+Twelve TLS ClientHellos were fingerprinted in the AsyncRAT capture. Three of
+them belong to the campaign's own infrastructure:
+
+```
+t13d201100_2b729b4bf6f3_9e7b989ebec8   sunshine-bizrate-inc-software.trycloudflare.com
+t13d2012h2_2b729b4bf6f3_9e7b989ebec8   sunshine-bizrate-inc-software.trycloudflare.com
+t13d201000_2b729b4bf6f3_29829a46703f   api.mylnikov.org
+```
+
+The `2b729b4bf6f3` cipher hash is shared across all three — the same client
+build reaching three destinations, which is the entire point of a client
+fingerprint and something no amount of destination-based filtering would show.
+
+An independent check on the implementation came for free: an ordinary
+`edge.microsoft.com` flow produced `t13d1516h2_8daaf6152771_02713d6af862`, whose
+cipher hash `8daaf6152771` is **the value FoxIO publishes in the specification's
+worked example**. The unit tests assert against that constant; real traffic
+reproduced it without being asked to.
+
+### DNS answers
+
+Fourteen queries in the AsyncRAT capture were matched to their replies. The one
+that matters:
+
+```
+sunshine-bizrate-inc-software.trycloudflare.com  ->  104.17.123.55, 104.17.124.55
+```
+
+`104.17.123.55` is the address the JA4-fingerprinted TLS flow connects to. The
+lookup and the connection are separate observations by separate rules, and the
+answer is what ties them to one operator. `response_ip` was a column on the
+model that nothing ever wrote; this is what it was for.
+
+### What the protocol labels are actually worth
+
+Of 166,972 flows in the two reference captures:
+
+| `app_protocol_source` | Flows | Meaning |
+|---|---|---|
+| `observed` | 1,281 | Read off the wire — HTTP Host, TLS ClientHello, DNS message |
+| `port` | 21,034 | Guessed from the port number alone |
+| (none) | 144,657 | Nothing identifiable; mostly single-packet scan attempts |
+
+**94% of the non-empty protocol labels are guesses.** That is not a defect —
+there is nothing else to go on for a bare SYN — but presenting the two kinds
+under one label would have been, and a covert channel on a permitted port is
+exactly the case where the guess is wrong. The dashboard now says which is
+which.

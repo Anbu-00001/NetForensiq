@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **109 backend tests + 24 Playwright E2E, all green, zero skips**
+## Status: Phases 0–13 complete · **119 backend tests + 24 Playwright E2E, all green, zero skips**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -70,6 +70,26 @@ inverts. `manage.py suggest_home_net` reads a proposal off the traffic and shows
 its working — it deliberately does not apply it.
 
 ---
+
+## What the real captures actually proved
+
+Beyond the six defects below, three capabilities were checked against real
+traffic rather than against the generator (full detail in
+[research/96](research/96_REAL_TRAFFIC_VALIDATION.md)):
+
+- **JA4 fingerprinting works on real malware.** Three flows to the campaign's
+  own infrastructure share one cipher hash — the same client build reaching
+  three destinations, which no destination-based filter would show. An ordinary
+  Microsoft flow in the same capture reproduced `8daaf6152771`, the exact cipher
+  hash FoxIO publishes in the specification's worked example, without being
+  asked to.
+- **DNS answers tie the lookup to the connection.** The C2 domain resolved to
+  `104.17.123.55`, which is the address the fingerprinted TLS flow connects to.
+  Two separate observations, one operator.
+- **94% of protocol labels are port guesses.** Of 166,972 flows, 1,281 protocol
+  labels were read off the wire and 21,034 were inferred from the port number
+  alone. Presenting both under one label would have been the defect; the
+  dashboard says which is which.
 
 ## Validation against real traffic — the part that matters
 

@@ -26,6 +26,23 @@ different capture without the mismatch being visible.
 
 A file with no manifest is *unattested* — not thereby proven real. Only an
 officer declaring it at intake makes it `seized`.
+
+What this is not
+----------------
+It is **not a security control.** Anyone who can write to the capture directory
+can write a manifest, and the digest binds a manifest to a file without proving
+who wrote either. It is not signed, and signing it would only move the question
+to who holds the key.
+
+What it does is make an *accident* impossible: a demonstration capture cannot
+quietly become an exhibit because someone forgot which file was which. Every
+failure mode is closed in the alarming direction — a missing, unreadable or
+mismatched manifest yields `unattested`, never `seized` — and the manifest is
+copied into the evidence store beside the sealed file, so re-processing an
+exhibit does not lose what is known about it.
+
+Defeating it requires deliberately forging a statement of origin, which is the
+same act as forging any other part of a case file and is answered the same way.
 """
 
 import json

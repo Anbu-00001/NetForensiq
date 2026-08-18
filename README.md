@@ -170,7 +170,7 @@ npm run dev
 Or piecemeal:
 
 ```bash
-# Backend: 109 tests
+# Backend: 119 tests
 cd backend && ./.venv/bin/python manage.py test
 
 # Frontend: 24 Playwright E2E tests
@@ -229,6 +229,21 @@ A synthetic exhibit is stamped `SYNTHETIC DATA — NOT EVIDENCE` across the top 
 its Section 63 certificate and flagged in red on the evidence register. Guessing
 "this looks synthetic" from packet contents would be a heuristic, and a heuristic
 wrong in either direction is worse than no claim at all.
+
+**What the manifest is not.** It is not a security control. Anyone who can
+write to the capture directory can write a manifest, and it is not signed —
+signing would only move the question to who holds the key. What it does is make
+an *accident* impossible: a demonstration capture cannot quietly become an
+exhibit because someone lost track of which file was which. Every failure mode
+closes in the alarming direction — a missing, unreadable or mismatched manifest
+yields `unattested`, never `seized` — and the manifest is copied into the
+evidence store beside the sealed file, so re-processing an exhibit does not lose
+what is known about it.
+
+`seed_demo` refuses to run at all when `ALLOWED_HOSTS` names anything beyond
+loopback: it creates accounts with a password printed in its own help text, and
+on a deployment that is an unauthenticated account and fabricated exhibits in a
+case register.
 
 **Every finding names the exhibit it rests on.** A capture session carries a
 foreign key to the sealed record it analysed, so an assertion about traffic can
@@ -496,7 +511,7 @@ individually confirmed.
 
 ## Test Coverage
 
-- **109 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **119 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
 - **24 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of

@@ -924,3 +924,139 @@ class FindingTraceabilityTests(TestCase):
 
         with self.assertRaises(ProtectedError):
             record.delete()
+
+
+class SeedDemoSafetyTests(TestCase):
+    """
+    `seed_demo` creates accounts with a password printed in its own help text
+    and writes exhibits into whatever database it is pointed at. On a laptop
+    that is the point; on a deployment it is an unauthenticated account and
+    fabricated exhibits in a case register.
+    """
+
+    def test_it_refuses_on_an_instance_reachable_beyond_loopback(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with self.settings(ALLOWED_HOSTS=['netforensiq.example.gov.in']):
+            with self.assertRaises(CommandError) as caught:
+                call_command('seed_demo', verbosity=0)
+
+        self.assertIn('Refusing to seed', str(caught.exception))
+
+    def test_a_wildcard_host_is_also_refused(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with self.settings(ALLOWED_HOSTS=['*']):
+            with self.assertRaises(CommandError):
+                call_command('seed_demo', verbosity=0)
+
+    def test_the_demo_case_reference_could_not_be_mistaken_for_an_fir(self):
+        from .management.commands.seed_demo import DEMO_CASE_REFERENCE
+
+        # Gujarat crime-register numbers look like "I-CR-2026-0042". This must
+        # not: a plausible number on a Section 63 certificate is a forged
+        # statutory declaration.
+        self.assertIn('NOT-A-REAL', DEMO_CASE_REFERENCE)
+
+
+class HomeNetSuggestionTests(TestCase):
+    """
+    The monitored network decides whether every egress rule fires or inverts.
+    Getting it wrong on the server capture produced 7,052 false alerts, so the
+    proposal has to be right about the two shapes that actually occur — a
+    capture taken at one host, and a capture of a network.
+    """
+
+    def _write(self, packets):
+        path = Path(tempfile.mkdtemp()) / 'sample.pcap'
+        wrpcap(str(path), packets)
+        return path
+
+    def test_a_single_monitored_host_is_proposed_as_a_host_not_a_range(self):
+        from scapy.layers.inet import IP, TCP
+
+        from .home_net import suggest
+
+        packets = []
+        for i in range(200):
+            packets.append(IP(src='10.3.14.101', dst=f'203.0.113.{i % 40}')
+                           / TCP(sport=40000 + i, dport=443))
+        path = self._write(packets)
+
+        proposal, detail = suggest(path)
+
+        # Proposing 10.3.14.0/24 would assert monitoring of 253 neighbours that
+        # never appeared in the capture.
+        self.assertEqual(proposal, '10.3.14.101/32')
+        self.assertIn('only 10.3.14.101', detail['basis'])
+
+    def test_several_busy_hosts_in_one_range_propose_the_range(self):
+        from scapy.layers.inet import IP, TCP
+
+        from .home_net import suggest
+
+        packets = []
+        for i in range(200):
+            local = '203.161.44.208' if i % 2 else '203.161.44.39'
+            packets.append(IP(src=local, dst=f'198.51.100.{i % 50}')
+                           / TCP(sport=40000 + i, dport=80))
+        path = self._write(packets)
+
+        proposal, detail = suggest(path)
+
+        self.assertEqual(proposal, '203.161.44.0/24')
+        self.assertIn('2 hosts', detail['basis'])
+
+    def test_traffic_captured_at_no_vantage_point_yields_no_proposal(self):
+        """
+        A capture is taken *at* somewhere, so one endpoint of nearly every
+        packet is inside the monitored network. Traffic between many unrelated
+        networks has no such side, and inventing one would invert every egress
+        rule.
+        """
+        from scapy.layers.inet import IP, TCP
+
+        from .home_net import suggest
+
+        packets = [
+            IP(src=f'198.51.{i}.{i}', dst=f'203.0.{i}.{i}') / TCP(sport=1024 + i, dport=80)
+            for i in range(1, 200)
+        ]
+        path = self._write(packets)
+
+        proposal, detail = suggest(path)
+
+        self.assertEqual(proposal, '', detail.get('basis', detail.get('reason')))
+        self.assertIn('vantage point', detail['reason'])
+
+    def test_a_short_capture_does_not_call_every_address_busy(self):
+        """
+        With `busy_share` alone, a 20-packet capture makes the floor one
+        packet, at which point every address that appeared at all is "busy".
+        """
+        from scapy.layers.inet import IP, TCP
+
+        from .home_net import suggest
+
+        packets = [
+            IP(src=f'10.0.0.{i}', dst='198.51.100.7') / TCP(sport=1024 + i, dport=80)
+            for i in range(1, 20)
+        ]
+        path = self._write(packets)
+
+        proposal, _ = suggest(path)
+
+        # Every 10.0.0.x host appears exactly once, so none of them is busy;
+        # 198.51.100.7 is on every packet and is the honest answer.
+        self.assertEqual(proposal, '198.51.100.7/32')
+
+    def test_an_empty_capture_is_reported_rather_than_crashing(self):
+        from .home_net import suggest
+
+        path = self._write([])
+        proposal, detail = suggest(path)
+
+        self.assertEqual(proposal, '')
+        self.assertEqual(detail['sampled_packets'], 0)

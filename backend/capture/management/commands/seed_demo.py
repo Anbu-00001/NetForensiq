@@ -24,7 +24,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from capture.detection import analyse_session
 from capture.home_net import suggest
@@ -95,10 +95,53 @@ class Command(BaseCommand):
             '--skip-analysis', action='store_true',
             help='Import without running the detection engine.',
         )
+        parser.add_argument(
+            '--force', action='store_true',
+            help=(
+                'Seed even on an instance that looks deployed. Required when '
+                'ALLOWED_HOSTS names anything beyond loopback.'
+            ),
+        )
 
     # ── entry point ──────────────────────────────────────────────────────
 
+    LOOPBACK = {'localhost', '127.0.0.1', '::1'}
+
+    def _refuse_on_a_deployment(self, forced):
+        """
+        Do not seed demonstration data onto something that looks live.
+
+        This command creates accounts with a password printed in its own help
+        text and writes exhibits into whatever database it is pointed at. On a
+        laptop that is the point; on a deployment it is an unauthenticated
+        account and three fabricated exhibits in a case register.
+
+        ALLOWED_HOSTS is the test because it is the one setting an operator
+        must change to serve anyone but themselves.
+        """
+        beyond_loopback = sorted(
+            set(settings.ALLOWED_HOSTS) - self.LOOPBACK - {'*'}
+        )
+        if '*' in settings.ALLOWED_HOSTS:
+            beyond_loopback.append('* (any host)')
+
+        if beyond_loopback and not forced:
+            raise CommandError(
+                'Refusing to seed demonstration data: ALLOWED_HOSTS names '
+                f'{", ".join(beyond_loopback)}, so this instance is reachable by '
+                'someone other than you. This command creates accounts with a '
+                'known password and writes exhibits into the case register. '
+                'Pass --force if you are certain this is a demonstration '
+                'machine.'
+            )
+        if beyond_loopback:
+            self.stdout.write(self.style.ERROR(
+                f'--force given: seeding demonstration data onto an instance '
+                f'reachable at {", ".join(beyond_loopback)}.'
+            ))
+
     def handle(self, *args, **opts):
+        self._refuse_on_a_deployment(opts['force'])
         self.stdout.write(self.style.WARNING(
             '\n' + '=' * 72 + '\n'
             '  DEMONSTRATION DATA\n'

@@ -162,6 +162,25 @@ def ingest_evidence(
 
     digests, size = hash_file(destination)
 
+    # Carry the provenance manifest into the store beside the sealed copy.
+    #
+    # Without this the statement of origin stays next to the *original* file,
+    # and re-importing the sealed copy — which is exactly what someone does
+    # when reprocessing an exhibit — produced a new record marked "unattested".
+    # A synthetic capture would have quietly downgraded to "origin unknown",
+    # which is less alarming than the truth. The manifest carries the file's
+    # digest, so the copy still only describes the bytes it was written for.
+    if manifest is not None:
+        from capture.provenance import manifest_path as _manifest_path
+
+        try:
+            shutil.copy2(_manifest_path(source), _manifest_path(destination))
+        except OSError:
+            # A missing or unreadable sidecar is not a reason to refuse
+            # custody of the evidence; the origin is already recorded on the
+            # record itself.
+            pass
+
     record = EvidenceRecord.objects.create(
         exhibit_number=exhibit_number,
         original_filename=original_filename or source.name,
