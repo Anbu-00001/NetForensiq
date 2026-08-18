@@ -39,7 +39,12 @@ export const listDetections = (params = {}) =>
  */
 export const listAllDetections = async (params = {}) => {
   const collected = [];
-  let response = await api.get('/detections/', { params }).then((r) => r.data);
+  // Ask for a large page. The default of 50 meant seven sequential round trips
+  // for one capture's findings — slow, and enough on its own to eat into the
+  // hourly request budget. The server caps this at 500, so paging still works
+  // for anything larger.
+  const first = { page_size: 500, ...params };
+  let response = await api.get('/detections/', { params: first }).then((r) => r.data);
 
   if (Array.isArray(response)) return response;
 

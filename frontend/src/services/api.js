@@ -50,8 +50,30 @@ api.interceptors.response.use(
       }
     }
 
+    // Rate limiting is a real answer, not a failure to answer. Without this a
+    // 429 reached the page as a bare AxiosError and every caller rendered
+    // "Request failed" — or, where a caller forgot to catch, nothing at all.
+    if (error.response?.status === 429) {
+      const retry = error.response.headers?.['retry-after'];
+      error.friendlyMessage =
+        'Too many requests — this endpoint is rate limited.'
+        + (retry ? ` Try again in about ${Math.ceil(Number(retry) / 60)} minute(s).` : '');
+    }
+
     return Promise.reject(error);
   }
 );
+
+/** The clearest thing we can say about a failed request. */
+export function describeError(error, fallback = 'Request failed.') {
+  return (
+    error?.friendlyMessage
+    ?? error?.response?.data?.detail
+    ?? (error?.message === 'Network Error'
+      ? 'Could not reach the API. Is the backend running?'
+      : null)
+    ?? fallback
+  );
+}
 
 export default api;

@@ -170,10 +170,10 @@ npm run dev
 Or piecemeal:
 
 ```bash
-# Backend: 119 tests
+# Backend: 121 tests
 cd backend && ./.venv/bin/python manage.py test
 
-# Frontend: 24 Playwright E2E tests
+# Frontend: 46 Playwright E2E tests
 cd frontend && npx playwright test
 
 # The counts above are measured, not remembered
@@ -244,6 +244,15 @@ what is known about it.
 loopback: it creates accounts with a password printed in its own help text, and
 on a deployment that is an unauthenticated account and fabricated exhibits in a
 case register.
+
+**Readable by a Gujarati-medium officer, where it can be rendered correctly.**
+The evidence register carries a Gujarati gloss of the legal terms —
+`મુદ્દામાલ ક્રમાંક` (exhibit number), `કબજાની સાંકળ` (chain of custody),
+`ભારતીય સાક્ષ્ય અધિનિયમ` — with English authoritative throughout. The
+certificate PDF is deliberately **not** translated: ReportLab does not shape
+complex scripts, so `અધિનિયમ` renders as `અધનિયિમ` and `સ્થળ` loses its virama.
+Mangled Gujarati on a statutory declaration is worse than English only. The
+rendered comparison is in [research/99](research/99_GUJARAT_FIT.md).
 
 **Every finding names the exhibit it rests on.** A capture session carries a
 foreign key to the sealed record it analysed, so an assertion about traffic can
@@ -511,10 +520,10 @@ individually confirmed.
 
 ## Test Coverage
 
-- **119 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **121 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
-- **24 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+- **46 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
   placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
   download
 

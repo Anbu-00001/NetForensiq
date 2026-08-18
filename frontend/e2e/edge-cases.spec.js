@@ -125,24 +125,28 @@ test.describe('the findings list is the whole findings list', () => {
   test('every finding is loaded, not just the first page', async ({ page }) => {
     // The page once rendered data.results — the first 50 rows of every session
     // pooled — while the "awaiting review" chip counted only what had loaded.
-    const total = await page.evaluate(async (base) => {
-      const token = sessionStorage.getItem('access_token');
-      const r = await fetch(`${base}/detections/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((x) => x.json());
-      return r.count ?? (Array.isArray(r) ? r.length : r.results.length);
-    }, API_BASE);
+    await page.goto('/detections');
+    const firstPage = await apiGet(page, 'detections/');
+    const total = firstPage.count
+      ?? (Array.isArray(firstPage) ? firstPage.length : firstPage.results.length);
 
     test.skip(total <= 50, 'fewer than one page of findings; nothing to prove');
 
-    await page.goto('/detections');
-    await expect(page.getByRole('button', { name: RULE_ID }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: RULE_ID }).first())
+      .toBeVisible({ timeout: 30_000 });
 
-    // Wait for paging to finish, then count rendered rows.
+    // Every finding is loaded and counted; the list renders in batches because
+    // putting hundreds of expandable cards in the DOM at once takes seconds.
+    // What must never happen is the page implying it holds fewer than it does,
+    // so the true total has to be on screen.
+    await expect(page.getByText(new RegExp(`of ${total} findings`)))
+      .toBeVisible({ timeout: 30_000 });
+
+    const before = await page.getByRole('button', { name: RULE_ID }).count();
+    await page.getByRole('button', { name: /Show \d+ more/ }).click();
     await expect
-      .poll(async () => page.getByRole('button', { name: RULE_ID }).count(),
-            { timeout: 40_000 })
-      .toBe(total);
+      .poll(async () => page.getByRole('button', { name: RULE_ID }).count())
+      .toBeGreaterThan(before);
   });
 
   test('a search that matches nothing says so instead of showing everything', async ({ page }) => {
@@ -281,6 +285,118 @@ test.describe('certificates refuse what section 63 refuses', () => {
       expect(chain.events[i].previous_hash).toBe(chain.events[i - 1].entry_hash);
     }
     expect(chain.events[0].previous_hash).toBe('');
+  });
+});
+
+// ── reading the artefacts in Gujarati ───────────────────────────────────
+
+test.describe('the legal terms are readable in Gujarati', () => {
+  test('the evidence register carries a Gujarati gloss', async ({ page }) => {
+    await page.goto('/evidence');
+    const gloss = page.locator('[lang="gu"]').first();
+    await expect(gloss).toBeVisible();
+
+    const text = await gloss.innerText();
+    // મુદ્દામાલ is the word Gujarat Police's own case-property registers use
+    // for a seized exhibit, and it is the term a magistrate would look for.
+    expect(text).toContain('મુદ્દામાલ');
+    expect(text).toContain('ભારતીય સાક્ષ્ય અધિનિયમ');
+  });
+
+  test('Gujarati is marked as Gujarati for assistive technology', async ({ page }) => {
+    // Without lang="gu" a screen reader pronounces the script with an English
+    // voice, which is worse than not offering it.
+    await page.goto('/evidence');
+    const count = await page.locator('[lang="gu"]').count();
+    expect(count).toBeGreaterThan(0);
+  });
+});
+
+// ── accessibility ───────────────────────────────────────────────────────
+
+/**
+ * GIGW 3.0 — the Guidelines for Indian Government Websites, which state and
+ * central departments are expected to meet as a condition of digital service
+ * delivery — takes WCAG 2.1 AA as its baseline. AA requires 4.5:1 contrast for
+ * normal text.
+ *
+ * On this dark palette the muted greys sat at alpha 0.35–0.45, which measures
+ * 2.8–3.9:1 against #080B14. Every one of them failed.
+ */
+const CONTRAST_PROBE = () => {
+  const luminance = ([r, g, b]) => {
+    const f = (c) => {
+      const v = c / 255;
+      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const parse = (colour) => {
+    const m = colour.match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const parts = m[1].split(',').map((n) => parseFloat(n));
+    return { rgb: parts.slice(0, 3), a: parts.length > 3 ? parts[3] : 1 };
+  };
+  const backdrop = (el) => {
+    let node = el;
+    while (node && node !== document.documentElement) {
+      const c = parse(getComputedStyle(node).backgroundColor);
+      if (c && c.a > 0.9) return c.rgb;
+      node = node.parentElement;
+    }
+    return [8, 11, 20];
+  };
+
+  const bad = [];
+  for (const el of document.querySelectorAll('p, span, h1, h2, h3, h4, li, td, th, label, button, a')) {
+    const text = (el.textContent || '').trim();
+    if (!text || el.children.length) continue;
+
+    const style = getComputedStyle(el);
+    if (style.visibility === 'hidden' || style.display === 'none') continue;
+    const box = el.getBoundingClientRect();
+    if (box.width === 0 || box.height === 0) continue;
+
+    const fg = parse(style.color);
+    if (!fg) continue;
+    const bg = backdrop(el);
+    const blended = fg.rgb.map((c, i) => fg.a * c + (1 - fg.a) * bg[i]);
+
+    const size = parseFloat(style.fontSize);
+    const weight = parseInt(style.fontWeight, 10) || 400;
+    // WCAG "large text": >=18.66px bold, or >=24px.
+    const large = size >= 24 || (size >= 18.66 && weight >= 700);
+    const required = large ? 3 : 4.5;
+
+    const l1 = luminance(blended);
+    const l2 = luminance(bg);
+    const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+
+    if (ratio < required) {
+      bad.push(`"${text.slice(0, 40)}" ${ratio.toFixed(2)}:1 (needs ${required})`);
+    }
+  }
+  return bad;
+};
+
+test.describe('text meets WCAG 2.1 AA contrast', () => {
+  for (const route of ['/dashboard', '/detections', '/evidence']) {
+    test(`${route} has no unreadable text`, async ({ page }) => {
+      await page.goto(route);
+      await expect(page.getByText(/Dashboard/i).first()).toBeVisible({ timeout: 20_000 });
+      await page.waitForTimeout(1500);
+
+      const failures = await page.evaluate(CONTRAST_PROBE);
+      expect(failures, `${route}: ${failures.join(' | ')}`).toEqual([]);
+    });
+  }
+
+  test('the public landing page is readable too', async ({ anonymousPage }) => {
+    await anonymousPage.goto('/');
+    await anonymousPage.waitForLoadState('networkidle');
+
+    const failures = await anonymousPage.evaluate(CONTRAST_PROBE);
+    expect(failures, `landing: ${failures.join(' | ')}`).toEqual([]);
   });
 });
 

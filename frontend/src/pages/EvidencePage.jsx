@@ -9,6 +9,8 @@ import {
   listCertificates, issueCertificate, signCertificatePartB, downloadCertificatePdf,
 } from '../services/forensics';
 import { useCurrentUser, canActOnEvidence } from '../services/session';
+import { describeError } from '../services/api';
+import { GUJARATI } from '../i18n/gujarati';
 
 const STATUS_STYLE = {
   sealed: { color: '#00E68A', label: 'Sealed — hash verified' },
@@ -20,7 +22,7 @@ function Hash({ label, value }) {
   return (
     <Box sx={{ mb: 0.8 }}>
       <Typography sx={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.6,
-        color: 'rgba(229,231,235,0.4)' }}>
+        color: 'rgba(229,231,235,0.55)' }}>
         {label}
       </Typography>
       <Typography sx={{ fontSize: 11.5, fontFamily: 'monospace', color: '#E5E7EB',
@@ -76,7 +78,7 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
             {showPartA ? 'Cancel' : 'Issue certificate (Part A)'}
           </Button>
         ) : (
-          <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.45)' }}>
+          <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)' }}>
             Issuing a certificate requires Investigator clearance
           </Typography>
         )}
@@ -142,7 +144,7 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
       {error && <Alert severity="error" sx={{ mb: 1.5, fontSize: 12 }}>{error}</Alert>}
 
       {!mine.length ? (
-        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.45)' }}>
+        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
           None issued. Issuing re-verifies the hash first and refuses if it no longer matches.
         </Typography>
       ) : mine.map((c) => (
@@ -295,7 +297,7 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
               : (record.provenance_label ?? 'Origin not recorded')}
           </Typography>
           {record.provenance_detail && (
-            <Typography sx={{ fontSize: 11, color: 'rgba(229,231,235,0.45)', mt: 0.3 }}>
+            <Typography sx={{ fontSize: 11, color: 'rgba(229,231,235,0.55)', mt: 0.3 }}>
               {record.provenance_detail}
             </Typography>
           )}
@@ -328,7 +330,7 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
                     display: 'flex', gap: 1.5, py: 1,
                     borderBottom: '1px solid rgba(255,255,255,0.05)',
                   }}>
-                    <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.35)',
+                    <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)',
                       minWidth: 26, fontFamily: 'monospace' }}>
                       #{e.sequence}
                     </Typography>
@@ -337,12 +339,12 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
                         {e.action}
                         {e.actor_badge ? ` · badge ${e.actor_badge}` : ''}
                       </Typography>
-                      <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.5)',
+                      <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)',
                         wordBreak: 'break-all' }}>
                         {e.detail}
                       </Typography>
                       <Typography sx={{ fontSize: 10.5, fontFamily: 'monospace',
-                        color: 'rgba(229,231,235,0.3)', wordBreak: 'break-all' }}>
+                        color: 'rgba(229,231,235,0.55)', wordBreak: 'break-all' }}>
                         {new Date(e.timestamp).toLocaleString()} · hash {e.entry_hash?.slice(0, 24)}…
                       </Typography>
                     </Box>
@@ -365,17 +367,28 @@ function EvidencePage() {
   const [records, setRecords] = useState([]);
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const refreshCertificates = () =>
-    listCertificates().then((d) => setCertificates(unwrap(d)));
+    listCertificates()
+      .then((d) => setCertificates(unwrap(d)))
+      .catch((err) => setError(describeError(err, 'Could not refresh certificates.')));
 
   useEffect(() => {
+    let live = true;
+    // Without a catch here a failed request — a 429, a stopped backend —
+    // became an unhandled rejection and the page rendered an empty evidence
+    // register with no explanation, which reads as "there is no evidence".
     Promise.all([listEvidence(), listCertificates()])
       .then(([e, c]) => {
+        if (!live) return;
         setRecords(unwrap(e));
         setCertificates(unwrap(c));
+        setError('');
       })
-      .finally(() => setLoading(false));
+      .catch((err) => { if (live) setError(describeError(err, 'Could not load the evidence register.')); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
   }, []);
 
   const replace = (updated) =>
@@ -390,12 +403,26 @@ function EvidencePage() {
           <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#E5E7EB', mb: 0.5 }}>
             Evidence register
           </Typography>
-          <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.45)', mb: 2.5 }}>
+          {/*
+            A reading aid, not a translation. BSA/GSJA training assumes a
+            Gujarati-medium judicial officer at the taluka-court level, and
+            these are the terms they would look for. English stays
+            authoritative; see src/i18n/gujarati.js for why the certificate PDF
+            is not translated.
+          */}
+          <Typography lang="gu" sx={{
+            fontSize: 13, color: 'rgba(229,231,235,0.55)', mb: 0.5,
+          }}>
+            {GUJARATI.evidenceRegister} · {GUJARATI.act} · {GUJARATI.section}
+          </Typography>
+          <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mb: 2.5 }}>
             Each exhibit is hashed on arrival, before any analysis reads it. The custody log is
             hash-chained, so an altered or removed entry breaks every later link.
             Certificates follow THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023,
             referenced by s.63(4)(c).
           </Typography>
+
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

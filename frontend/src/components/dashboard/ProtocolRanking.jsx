@@ -26,7 +26,7 @@ function ProtocolRanking({ applications = [] }) {
       </Typography>
 
       {!applications.length ? (
-        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.4)' }}>
+        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
           No application protocols identified in this capture.
         </Typography>
       ) : (

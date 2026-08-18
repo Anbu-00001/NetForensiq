@@ -21,8 +21,14 @@ const initials = user?.first_name
         height: 58,
         display: 'flex',
         alignItems: 'center',
-        px: 3,
-        gap: 2,
+        // The bar held a wordmark, a subtitle, a fixed-width search box and an
+        // account block, none of which could shrink; on a 390px screen the
+        // page scrolled sideways by nearly 100px. Nothing is removed — the
+        // pieces that carry no information at small sizes step aside, and the
+        // rest are allowed to shrink.
+        px: { xs: 1.5, md: 3 },
+        gap: { xs: 1, md: 2 },
+        minWidth: 0,
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         backgroundColor: 'rgba(11,15,26,0.8)',
         backdropFilter: 'blur(14px)',
@@ -31,20 +37,29 @@ const initials = user?.first_name
         zIndex: 20,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
         <ShieldOutlinedIcon sx={{ color: '#00D4FF', fontSize: 24 }} />
-        <Typography sx={{ fontWeight: 800, letterSpacing: 2.5, fontSize: 15 }}>
+        <Typography sx={{
+          fontWeight: 800, letterSpacing: 2.5, fontSize: 15,
+          display: { xs: 'none', sm: 'block' },
+        }}>
           NETFORENSIQ
         </Typography>
       </Box>
 
-      <Box sx={{ width: '1px', height: 22, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+      <Box sx={{
+        width: '1px', height: 22, backgroundColor: 'rgba(255,255,255,0.1)',
+        display: { xs: 'none', md: 'block' },
+      }} />
 
-      <Typography sx={{ fontSize: 14, color: 'rgba(229,231,235,0.7)' }}>
+      <Typography sx={{
+        fontSize: 14, color: 'rgba(229,231,235,0.7)',
+        display: { xs: 'none', md: 'block' },
+      }}>
         Packet Forensics Console
       </Typography>
 
-      <Box sx={{ flexGrow: 1 }} />
+      <Box sx={{ flexGrow: 1, minWidth: 0 }} />
 
       <Box
         sx={{
@@ -53,8 +68,10 @@ const initials = user?.first_name
           gap: 1,
           px: 1.5,
           py: 0.6,
-          width: { xs: 120, sm: 240 },
-          maxWidth: '100%',
+          // Shrinks with the bar rather than forcing it wider.
+          flex: { xs: '1 1 0', sm: '0 0 auto' },
+          width: { sm: 240 },
+          minWidth: 0,
           borderRadius: 1.5,
           backgroundColor: 'rgba(255,255,255,0.04)',
           border: '1px solid transparent',
@@ -66,7 +83,7 @@ const initials = user?.first_name
           },
         }}
       >
-        <SearchIcon sx={{ fontSize: 17, color: 'rgba(229,231,235,0.4)' }} />
+        <SearchIcon sx={{ fontSize: 17, color: 'rgba(229,231,235,0.55)' }} />
         <InputBase
           placeholder="Search IP, domain, rule…"
           value={term}
@@ -111,7 +128,7 @@ const initials = user?.first_name
                 side of this one already use an em dash. */}
             {user?.role || '—'}
           </Typography>
-          <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.45)', lineHeight: 1.2 }}>
+          <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', lineHeight: 1.2 }}>
             {user?.username || '—'}
           </Typography>
         </Box>
@@ -133,7 +150,7 @@ const initials = user?.first_name
         }}
       >
         <Box sx={{ px: 2, py: 1.2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <Typography sx={{ fontSize: 9.5, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.35)' }}>
+          <Typography sx={{ fontSize: 9.5, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)' }}>
             BADGE ID
           </Typography>
           <Typography sx={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#E5E7EB' }}>

@@ -125,7 +125,7 @@ function LoginPage() {
                     sx={{
                       fontSize: 10.5, letterSpacing: 0.8,
                       fontFamily: "'JetBrains Mono', monospace",
-                      color: 'rgba(229,231,235,0.42)',
+                      color: 'rgba(229,231,235,0.55)',
                     }}
                   >
                     SECURE ACCESS TERMINAL
@@ -179,7 +179,7 @@ function LoginPage() {
                           <IconButton
                             onClick={() => setShowPassword(!showPassword)}
                             edge="end" size="small"
-                            sx={{ color: 'rgba(229,231,235,0.4)' }}
+                            sx={{ color: 'rgba(229,231,235,0.55)' }}
                           >
                             {showPassword ? <VisibilityOff sx={{ fontSize: 17 }} />
                               : <Visibility sx={{ fontSize: 17 }} />}
@@ -211,7 +211,7 @@ function LoginPage() {
                 </Button>
               </form>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.5)', mt: 2.5, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mt: 2.5, textAlign: 'center' }}>
                 No credentials issued?{' '}
                 <RouterLink
                   to="/register"
@@ -221,7 +221,7 @@ function LoginPage() {
                 </RouterLink>
               </Typography>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.5)', mt: 0.8, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mt: 0.8, textAlign: 'center' }}>
                 Awaiting authorization?{' '}
                 <RouterLink
                   to="/status"
@@ -242,7 +242,7 @@ function LoginPage() {
                   sx={{
                     fontSize: 10.5, lineHeight: 1.7, textAlign: 'center',
                     fontFamily: "'JetBrains Mono', monospace",
-                    color: 'rgba(229,231,235,0.42)',
+                    color: 'rgba(229,231,235,0.55)',
                   }}
                 >
                   SIGN-IN ATTEMPTS ARE RECORDED WITH TIMESTAMP,
@@ -266,7 +266,7 @@ export function FieldLabel({ text }) {
       sx={{
         fontSize: 10, letterSpacing: 1.4, mb: 0.7,
         fontFamily: "'JetBrains Mono', monospace",
-        color: 'rgba(229,231,235,0.38)',
+        color: 'rgba(229,231,235,0.55)',
       }}
     >
       {text}
@@ -293,7 +293,7 @@ export function ConsoleBar() {
         sx={{
           fontSize: 10, letterSpacing: 0.8,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.3)',
+          color: 'rgba(229,231,235,0.55)',
           display: { xs: 'none', sm: 'block' },
         }}
       >
@@ -318,7 +318,7 @@ export function Dot({ color, label }) {
         sx={{
           fontSize: 10, letterSpacing: 0.7,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.45)',
+          color: 'rgba(229,231,235,0.55)',
         }}
       >
         {label}
@@ -355,7 +355,7 @@ export function TelemetryPanel() {
         sx={{
           fontSize: 10, letterSpacing: 1.6, mb: 1.4,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.35)',
+          color: 'rgba(229,231,235,0.55)',
         }}
       >
         CAPABILITIES

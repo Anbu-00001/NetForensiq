@@ -52,10 +52,10 @@ function CaptureWindow() {
         backgroundColor: 'rgba(255,255,255,0.03)',
         border: '1px solid rgba(255,255,255,0.06)',
       }}>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.4)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', letterSpacing: 0.8 }}>
           CAPTURE WINDOW
         </Typography>
-        <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.5)' }}>
+        <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)' }}>
           No capture loaded
         </Typography>
       </Box>
@@ -87,7 +87,7 @@ function CaptureWindow() {
       border: '1px solid rgba(255,255,255,0.06)',
     }}>
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.4)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', letterSpacing: 0.8 }}>
           CAPTURE START
         </Typography>
         <Typography sx={{
@@ -100,7 +100,7 @@ function CaptureWindow() {
         }}>
           {`${pad(start.getHours())}:${pad(start.getMinutes())}:${pad(start.getSeconds())}`}
         </Typography>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.4)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', letterSpacing: 0.8 }}>
           SPAN COVERED
         </Typography>
         <Typography sx={{

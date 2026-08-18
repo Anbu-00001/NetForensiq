@@ -22,5 +22,8 @@ export const consoleField = {
       boxShadow: '0 0 0 3px rgba(0,212,255,0.08)',
     },
   },
-  '& input::placeholder': { color: 'rgba(229,231,235,0.25)', opacity: 1 },
+  // Placeholder text is exempt from the 4.5:1 rule only when it duplicates a
+  // visible label. These fields carry real hints ("as per service record",
+  // "e.g. INV-0042"), so they are held to the same contrast as body text.
+  '& input::placeholder': { color: 'rgba(229,231,235,0.55)', opacity: 1 },
 };

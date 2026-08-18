@@ -519,3 +519,50 @@ class ProvenanceSurvivesResealingTests(TestCase):
         self.assertIsNone(read_manifest(other))
         record = ingest_evidence(other)
         self.assertEqual(record.provenance, EvidenceRecord.Provenance.UNATTESTED)
+
+
+class ScheduleAlgorithmTests(TestCase):
+    """
+    THE SCHEDULE prints a checkbox for SHA1, SHA256 and MD5. A certificate that
+    fills one and leaves two blank is a statutory form with something missing —
+    and Gujarat courts have been reading these forms literally.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.source = Path(self.tmp) / 'capture.pcap'
+        self.source.write_bytes(b'\xd4\xc3\xb2\xa1' + b'\x2a' * 512)
+        self.officer = User.objects.create_user(
+            username='io', password='x', badge_id='B-1', department='Cyber',
+        )
+
+    def test_all_three_named_digests_are_computed_in_one_pass(self):
+        record = ingest_evidence(self.source)
+
+        self.assertEqual(len(record.sha256_hash), 64)
+        self.assertEqual(len(record.sha1_hash), 40)
+        self.assertEqual(len(record.md5_hash), 32)
+
+        # And they must actually be digests of this file, not of anything else.
+        import hashlib
+        raw = self.source.read_bytes()
+        self.assertEqual(record.sha256_hash, hashlib.sha256(raw).hexdigest())
+        self.assertEqual(record.sha1_hash, hashlib.sha1(raw).hexdigest())
+        self.assertEqual(record.md5_hash, hashlib.md5(raw).hexdigest())
+
+    def test_the_certificate_prints_every_digest_and_names_the_one_relied_upon(self):
+        record = ingest_evidence(self.source)
+        certificate = issue_certificate(record, part_a_user=self.officer)
+
+        text = CertificatePdfTests._text(certificate.pdf_path)
+
+        self.assertIn(record.sha256_hash, text)
+        self.assertIn(record.sha1_hash, text)
+        self.assertIn(record.md5_hash, text)
+
+        # Printing three digests without saying which one carries the weight
+        # would be worse than printing one.
+        # The bold run splits the sentence across two text objects in the
+        # PDF stream, so the assertion matches the half that carries the claim.
+        self.assertIn('primary digest and the only one relied upon', text)
+        self.assertIn('collision resistance', text)

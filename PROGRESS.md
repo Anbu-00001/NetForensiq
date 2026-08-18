@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **119 backend tests + 24 Playwright E2E, all green, zero skips**
+## Status: Phases 0–13 complete · **121 backend tests + 46 Playwright E2E, all green, zero skips**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -248,6 +248,64 @@ claim for a reviewer to check.
 5. `./scripts/verify.sh` at the end of every phase.
 
 ---
+
+## Why this lands in Gujarat specifically
+
+Researched 18 Aug 2026; full citations in
+[research/99](research/99_GUJARAT_FIT.md).
+
+**A Gujarat judge has just insisted on exactly this sequence.** Around 8 May
+2026, Justice J.C. Doshi of the Gujarat High Court held that the §63(4) / §65B(4)
+certificate is a **"condition precedent"** to a court even considering
+electronic evidence, and that a trial court which sent an audio recording to FSL
+*before* ruling on the certificate committed **"patent illegality."**
+⚠️ Sourced only to a legal-news aggregator, twice — **quote the holding, never a
+case number.** Even so, this is a Gujarat court rather than a national
+precedent or a training agenda, insisting on certificate-first, two-part
+sequencing. It belongs beside the Gujarat State Judicial Academy material, not
+instead of it.
+
+**The Gujarat High Court's April 2026 AI Policy is why the engine is rules, not
+a model.** It bars AI from judicial reasoning, order drafting and sentencing,
+permitting it only for administrative and research work, and requires human
+verification throughout. It governs *courts*, not police tooling — **do not
+claim it regulates us.** The honest use is analogical: this state's judiciary
+has just said it wants auditable, human-verified reasoning rather than model
+output, and nine rules each carrying a citation or an explicit
+`[OUR HEURISTIC]` tag is that posture applied to network evidence.
+
+**Say plainly that packet forensics is a minority of the real caseload.** In the
+first nine months of 2025 Gujarat recorded 142,476 people targeted, 72,091
+defrauded and ₹678 crore lost — dominated by mule accounts, digital arrest and
+investment fraud, not malware C2. KANAD S.H.I.E.L.D.'s own 26 problem statements
+bear this out: exactly one is packet-forensics. So the claim is not "we solve
+Gujarat's cybercrime problem." It is: **every one of those other 25 tools
+eventually produces digital evidence that has to survive a Gujarati courtroom,
+and network capture is the evidence type that currently has no custody layer at
+all.** The niche is the argument, not something to hide.
+
+**Deployment has a concrete answer.** The Gujarat State Data Center — India's
+first under the National e-Governance Plan — already hosts e-GujCop and CCTNS.
+"Designed to be deployable on GSDC, the infrastructure Gujarat Police's other
+systems already run on" is checkable. Claims of a live CCTNS or ICJS
+integration are not: those networks are point-to-point and firewall-cleared
+([SPEC_03](research/SPEC_03_CONNECTORS_AND_MCP.md)).
+
+**Gujarati where it renders correctly, and nowhere else.** BSA training assumes
+a Gujarati-medium judicial officer at taluka level, so the evidence register
+carries a Gujarati gloss of the legal terms — `મુદ્દામાલ ક્રમાંક`,
+`કબજાની સાંકળ`, `ભારતીય સાક્ષ્ય અધિનિયમ` — with English authoritative. The
+certificate PDF stays English-only for a measured reason: ReportLab does not
+shape complex scripts, and rendered through it `અધિનિયમ` becomes `અધનિયિમ` and
+`સ્થળ` loses its virama. Mangled Gujarati on a statutory declaration is worse
+than none. The rendered evidence is in [research/99](research/99_GUJARAT_FIT.md).
+
+**Do not say, on the day:** that dual hashing is legally required (the Schedule
+offers algorithm choices, it does not mandate several); that Gujarat courts have
+ruled on packet evidence specifically (they have not); that a named
+post-hackathon procurement programme exists (only generic marketing language was
+found — ask the organisers instead); or anything about a prior edition of this
+event or its judging rubric, neither of which is published.
 
 ## Known gaps — say these before a judge finds them
 

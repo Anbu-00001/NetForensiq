@@ -262,6 +262,14 @@ REST_FRAMEWORK = {
         # Public by necessity — an applicant has no account to sign in with —
         # so it is limited by volume rather than by identity.
         'approval_status': '20/hour',
+        # The landing and login pages read the rule count and version from
+        # /api/engine/ on every visit. Under the generic 30/hour anonymous
+        # bucket that ran out during a single test run, and on a police network
+        # behind one NAT address it would run out during a demo — the public
+        # page would then render em dashes where the figures belong. The
+        # response is five integers and a version string, identical for every
+        # caller, so it is cheap to serve and pointless to ration tightly.
+        'engine': '600/hour',
     },
 }
 

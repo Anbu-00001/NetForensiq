@@ -123,7 +123,7 @@ function StatusPage() {
                   sx={{
                     fontSize: 10.5, letterSpacing: 0.8,
                     fontFamily: "'JetBrains Mono', monospace",
-                    color: 'rgba(229,231,235,0.42)',
+                    color: 'rgba(229,231,235,0.55)',
                   }}
                 >
                   CHECK YOUR AUTHORIZATION STATUS
@@ -215,7 +215,7 @@ function StatusPage() {
                         <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#FFB3C0' }}>
                           Enrollment not authorized
                         </Typography>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.5)', mt: 0.4 }}>
+                        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)', mt: 0.4 }}>
                           Contact your unit administrator for clarification.
                         </Typography>
                       </Box>
@@ -307,7 +307,7 @@ function StatusPage() {
               </Grow>
             )}
 
-            <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.5)', mt: 3, textAlign: 'center' }}>
+            <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mt: 3, textAlign: 'center' }}>
               <RouterLink to="/login" style={{ color: '#00D4FF', textDecoration: 'none', fontWeight: 600 }}>
                 Return to terminal
               </RouterLink>
@@ -325,7 +325,7 @@ function Meta({ k, v }) {
       <Typography
         sx={{
           fontSize: 9, letterSpacing: 1,
-          fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.3)',
+          fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)',
         }}
       >
         {k}

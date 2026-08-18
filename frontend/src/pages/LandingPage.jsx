@@ -279,7 +279,7 @@ function LandingPage() {
               <Typography
                 sx={{
                   fontSize: 10, letterSpacing: 1.5, flexGrow: 1,
-                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.35)',
+                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)',
                 }}
               >
                 HOW A CAPTURE BECOMES EVIDENCE
@@ -321,7 +321,7 @@ function LandingPage() {
                   <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB' }}>
                     {title}
                   </Typography>
-                  <Typography sx={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(229,231,235,0.5)' }}>
+                  <Typography sx={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(229,231,235,0.55)' }}>
                     {body}
                   </Typography>
                 </Box>
@@ -332,7 +332,7 @@ function LandingPage() {
 
             <Typography
               sx={{
-                fontSize: 11, lineHeight: 1.6, color: 'rgba(229,231,235,0.45)',
+                fontSize: 11, lineHeight: 1.6, color: 'rgba(229,231,235,0.55)',
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
@@ -412,7 +412,7 @@ function LandingPage() {
                 {f.tag}
               </Typography>
               <Typography sx={{ fontSize: 14.5, fontWeight: 700, mb: 1 }}>{f.title}</Typography>
-              <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(229,231,235,0.52)' }}>
+              <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(229,231,235,0.55)' }}>
                 {typeof f.desc === 'function' ? f.desc(engine) : f.desc}
               </Typography>
             </Box>
@@ -431,7 +431,7 @@ function LandingPage() {
         <Typography
           sx={{
             fontSize: 10.5, letterSpacing: 0.8,
-            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.3)',
+            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)',
           }}
         >
           NETFORENSIQ v{engine?.version ?? '—'}
@@ -440,7 +440,7 @@ function LandingPage() {
         <Typography
           sx={{
             fontSize: 10.5, letterSpacing: 0.8,
-            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.3)',
+            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)',
           }}
         >
           Sign-in attempts are recorded

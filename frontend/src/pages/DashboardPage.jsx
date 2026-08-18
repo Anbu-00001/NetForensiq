@@ -3,6 +3,7 @@ import { Box, Typography, MenuItem, Select, CircularProgress, Button, Alert } fr
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { describeError } from '../services/api';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import StatCard from '../components/dashboard/StatCard';
@@ -39,8 +40,11 @@ function DashboardPage() {
         if (list.length) setSessionId(list[0].id);
         else setLoading(false);
       })
-      .catch(() => {
-        setError('Could not reach the API. Is the backend running?');
+      // describeError distinguishes "the backend is down" from "you are being
+      // rate limited" — telling an officer to check the server when the server
+      // is fine and throttling them sends them the wrong way.
+      .catch((err) => {
+        setError(describeError(err, 'Could not reach the API. Is the backend running?'));
         setLoading(false);
       });
   }, []);
@@ -60,7 +64,7 @@ function DashboardPage() {
         setBucketSeconds(t.bucket_seconds ?? null);
         setError('');
       })
-      .catch(() => { if (current) setError('Failed to load session data.'); })
+      .catch((err) => { if (current) setError(describeError(err, 'Failed to load session data.')); })
       .finally(() => { if (current) setLoading(false); });
 
     // Switching sessions while a request is in flight would otherwise let the
@@ -108,7 +112,7 @@ function DashboardPage() {
                 color: '#E5E7EB', fontSize: 13,
                 backgroundColor: 'rgba(255,255,255,0.04)',
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-                '& .MuiSvgIcon-root': { color: 'rgba(229,231,235,0.5)' },
+                '& .MuiSvgIcon-root': { color: 'rgba(229,231,235,0.55)' },
               }}
             >
               {sessions.map((s) => (
@@ -128,7 +132,7 @@ function DashboardPage() {
               {analysing ? 'Analysing…' : 'Run detection'}
             </Button>
             {summary?.session?.capture_start && (
-              <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.4)' }}>
+              <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
                 traffic captured {new Date(summary.session.capture_start).toLocaleString()}
                 {' · span '}
                 {/* A missing span is not a span of zero — the same distinction
@@ -151,7 +155,7 @@ function DashboardPage() {
               <Typography sx={{ color: 'rgba(229,231,235,0.7)', mb: 1 }}>
                 No capture sessions yet.
               </Typography>
-              <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.45)' }}>
+              <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.55)' }}>
                 Import one:&nbsp;
                 <code>python manage.py import_pcap &lt;file.pcap&gt;</code>
               </Typography>
@@ -180,7 +184,7 @@ function DashboardPage() {
                   <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.6)', mb: 0.5 }}>
                     Activity across the capture window
                   </Typography>
-                  <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.35)', mb: 1.5 }}>
+                  <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)', mb: 1.5 }}>
                     Bucketed from packet timestamps, not from processing time
                     {/* A week-long capture drawn in 30 points is one point per
                         5.6 hours, which can hide a burst completely. Saying

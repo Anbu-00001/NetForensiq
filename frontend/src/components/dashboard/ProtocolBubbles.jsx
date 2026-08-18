@@ -46,7 +46,7 @@ function ProtocolBubbles({ protocols = [] }) {
       </Typography>
 
       {!bubbles.length ? (
-        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.4)' }}>
+        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
           No flows in this capture.
         </Typography>
       ) : (

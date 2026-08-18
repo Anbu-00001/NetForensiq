@@ -130,7 +130,7 @@ function RegisterPage() {
                 sx={{
                   fontSize: 10, letterSpacing: 1.6, mb: 2.5,
                   fontFamily: "'JetBrains Mono', monospace",
-                  color: 'rgba(229,231,235,0.35)',
+                  color: 'rgba(229,231,235,0.55)',
                 }}
               >
                 ENROLLMENT PIPELINE
@@ -213,7 +213,7 @@ function RegisterPage() {
                     sx={{
                       fontSize: 10.5, letterSpacing: 0.8,
                       fontFamily: "'JetBrains Mono', monospace",
-                      color: 'rgba(229,231,235,0.42)',
+                      color: 'rgba(229,231,235,0.55)',
                     }}
                   >
                     NETFORENSIQ · CYBER CRIME BRANCH
@@ -283,7 +283,7 @@ function RegisterPage() {
                       displayEmpty: true,
                       renderValue: (v) => v
                         ? roles.find((r) => r.value === v)?.label
-                        : <span style={{ color: 'rgba(229,231,235,0.25)' }}>select clearance…</span>,
+                        : <span style={{ color: 'rgba(229,231,235,0.55)' }}>select clearance…</span>,
                       MenuProps: {
                         PaperProps: {
                           sx: {
@@ -299,7 +299,7 @@ function RegisterPage() {
                       <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                     ))}
                   </TextField>
-                  <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.32)', mt: 0.6 }}>
+                  <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', mt: 0.6 }}>
                     Administrator clearance cannot be self-requested.
                   </Typography>
                 </Box>
@@ -323,7 +323,7 @@ function RegisterPage() {
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton size="small" onClick={() => setShowPassword(!showPassword)}
-                              sx={{ color: 'rgba(229,231,235,0.4)' }}>
+                              sx={{ color: 'rgba(229,231,235,0.55)' }}>
                               {showPassword ? <VisibilityOff sx={{ fontSize: 17 }} /> : <Visibility sx={{ fontSize: 17 }} />}
                             </IconButton>
                           </InputAdornment>
@@ -341,7 +341,7 @@ function RegisterPage() {
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton size="small" onClick={() => setShowConfirm(!showConfirm)}
-                              sx={{ color: 'rgba(229,231,235,0.4)' }}>
+                              sx={{ color: 'rgba(229,231,235,0.55)' }}>
                               {showConfirm ? <VisibilityOff sx={{ fontSize: 17 }} /> : <Visibility sx={{ fontSize: 17 }} />}
                             </IconButton>
                           </InputAdornment>
@@ -372,14 +372,14 @@ function RegisterPage() {
                 </Button>
               </form>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.5)', mt: 2.4, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mt: 2.4, textAlign: 'center' }}>
                 Already enrolled?{' '}
                 <RouterLink to="/login" style={{ color: '#00D4FF', textDecoration: 'none', fontWeight: 600 }}>
                   Return to terminal
                 </RouterLink>
               </Typography>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.5)', mt: 0.8, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mt: 0.8, textAlign: 'center' }}>
                 Already submitted?{' '}
                 <RouterLink to="/status" style={{ color: '#FFB020', textDecoration: 'none', fontWeight: 600 }}>
                   Track your request

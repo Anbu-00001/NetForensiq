@@ -3,12 +3,17 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, Collapse, TextField,
 } from '@mui/material';
+import { describeError } from '../services/api';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import {
   listAllDetections, triageDetection, listThresholds, unwrap, SEVERITY_COLOR,
 } from '../services/forensics';
 import { useCurrentUser, canActOnEvidence } from '../services/session';
+
+// How many findings to put in the DOM at once. Not a limit on what is
+// loaded or counted — see the note where it is used.
+const RENDER_BATCH = 100;
 
 const TRIAGE_ACTIONS = [
   { key: 'confirmed', label: 'Confirm', color: '#FF6A2B' },
@@ -95,7 +100,7 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
         ) : detection.exhibit_number ? (
           <Chip label={detection.exhibit_number} size="small" sx={{
             backgroundColor: 'rgba(255,255,255,0.05)',
-            color: 'rgba(229,231,235,0.5)', fontSize: 10.5, fontFamily: 'monospace',
+            color: 'rgba(229,231,235,0.55)', fontSize: 10.5, fontFamily: 'monospace',
           }} />
         ) : (
           // The capture was imported with --no-seal, so this finding rests on
@@ -134,7 +139,7 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
           }}>
             <Typography sx={{
               fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6,
-              color: 'rgba(229,231,235,0.4)', mb: 0.8,
+              color: 'rgba(229,231,235,0.55)', mb: 0.8,
             }}>
               Evidence — observed values, thresholds and their provenance
             </Typography>
@@ -147,7 +152,7 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
           </Box>
 
           {detection.triage_status === 'new' && !canTriage ? (
-            <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.5)' }}>
+            <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
               Awaiting review. Recording a decision requires Investigator
               clearance; your account holds Viewer.
             </Typography>
@@ -176,7 +181,7 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
               ))}
             </Box>
           ) : (
-            <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.5)' }}>
+            <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
               Reviewed{detection.reviewed_at
                 ? ` at ${new Date(detection.reviewed_at).toLocaleString()}` : ''}
               {detection.review_note ? ` — "${detection.review_note}"` : ''}
@@ -197,6 +202,10 @@ function DetectionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const canTriage = canActOnEvidence(useCurrentUser());
+  // Keyed by the query so a new search starts from the top of its own
+  // result set. Deriving it beats syncing state to `query` in an effect,
+  // which costs an extra render on every keystroke.
+  const [rendered, setRendered] = useState({ q: '', n: RENDER_BATCH });
 
   // Loaded independently. Under Promise.all a slow or failing findings
   // request also emptied the threshold panel — so the one page whose purpose
@@ -207,7 +216,7 @@ function DetectionsPage() {
 
     listAllDetections()
       .then((d) => { if (live) setDetections(unwrap(d)); })
-      .catch(() => { if (live) setError('Could not load findings.'); })
+      .catch((err) => { if (live) setError(describeError(err, 'Could not load findings.')); })
       .finally(() => { if (live) setLoading(false); });
 
     listThresholds()
@@ -234,6 +243,15 @@ function DetectionsPage() {
   }, [detections, query]);
 
   const pending = visible.filter((d) => d.triage_status === 'new').length;
+
+  // Every finding is loaded — the counts above are computed over all of them —
+  // but rendering 343 expandable cards at once takes seconds and a real case
+  // could hold thousands. The list renders in batches; the true total is
+  // always stated beside it, so the page never implies it is showing more
+  // than it is.
+  const renderCount = rendered.q === query ? rendered.n : RENDER_BATCH;
+  const shown = visible.slice(0, renderCount);
+  const remaining = visible.length - shown.length;
 
   return (
     <Box sx={{ display: 'flex', backgroundColor: '#080B14', minHeight: '100vh' }}>
@@ -265,7 +283,7 @@ function DetectionsPage() {
               {showThresholds ? 'Hide' : 'Show'} detection thresholds
             </Button>
           </Box>
-          <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.45)', mb: 2.5 }}>
+          <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mb: 2.5 }}>
             Nothing here is auto-actioned. Each finding is a prompt for an officer to look,
             and the decision recorded against it is theirs.
           </Typography>
@@ -296,7 +314,7 @@ function DetectionsPage() {
                       }} />
                     )}
                   </Typography>
-                  <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.45)' }}>
+                  <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)' }}>
                     {t.source}
                   </Typography>
                 </Box>
@@ -317,12 +335,28 @@ function DetectionsPage() {
                 : 'No findings yet. Import a capture and run detection from the dashboard.'}
             </Alert>
           ) : (
-            visible.map((d) => (
-              <DetectionCard
-                key={d.id} detection={d} onTriaged={replace}
-                canTriage={canTriage}
-              />
-            ))
+            <>
+              {shown.map((d) => (
+                <DetectionCard
+                  key={d.id} detection={d} onTriaged={replace}
+                  canTriage={canTriage}
+                />
+              ))}
+              {remaining > 0 && (
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mb: 1 }}>
+                    Showing {shown.length} of {visible.length} findings
+                  </Typography>
+                  <Button
+                    size="small" variant="outlined"
+                    onClick={() => setRendered({ q: query, n: renderCount + RENDER_BATCH })}
+                    sx={{ fontSize: 12, borderColor: 'rgba(0,212,255,0.4)', color: '#00D4FF' }}
+                  >
+                    Show {Math.min(remaining, RENDER_BATCH)} more
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
         </Box>
       </Box>

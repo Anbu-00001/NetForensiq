@@ -402,3 +402,63 @@ it.
 - 2023 Ahmedabad Cyber Crime Branch hackathon (possible predecessor, unconfirmed link): https://www.cyberyodha.org/2023/03/ahmedabad-cyber-crime-branch-has.html
 - Karnavati Innovation and Incubation Foundation: https://kiif.org/
 - Gujarat Police Innovation Challenge 2026 (separate, concurrent event): https://aninews.in/news/national/general-news/gujarat-police-to-host-countrys-largest-ai-based-cctv-hackathon20260817135250/ , https://openthemagazine.com/india/can-80000-cameras-think-as-one-inside-gujarat-polices-mega-ai-hackathon , https://www.prokerala.com/news/articles/a1801331.html
+
+---
+
+# Implementation notes — 18 Aug 2026
+
+What was acted on, what was already done, and one recommendation that was
+tested and rejected on evidence.
+
+## Already in place before this research
+
+**Recommendation 3 (MD5 as a real secondary hash) was already implemented** and
+the report's source for the gap — SPEC_01's `[GOOD PRACTICE]` note — was stale.
+`hash_file()` had been computing MD5 alongside SHA-256 since the evidence layer
+was built, and the certificate printed it.
+
+What *was* missing is now fixed: **SHA-1 is computed too**, so all three
+algorithms THE SCHEDULE names carry a value and every checkbox on the form is
+ticked. A statutory form with two of its three named fields blank invites
+exactly the literal reading Justice Doshi's ruling demonstrates. The note
+beneath states plainly that SHA-256 is the only digest relied upon and that
+SHA-1 and MD5 are both broken for collision resistance — printing three digests
+without saying which one carries the weight would be worse than printing one.
+
+## Rejected on evidence: Gujarati text in the certificate PDF
+
+**Recommendation 5 was tested and cannot be done safely with the current PDF
+renderer.** ReportLab does not shape complex scripts. It maps characters to
+glyphs in codepoint order, with no reordering and no conjunct formation, which
+Gujarati requires.
+
+Rendered with Noto Sans Gujarati through ReportLab, actual output against
+intended text:
+
+| Intended | Rendered | Problem |
+|---|---|---|
+| અધિનિયમ | અધનિયિમ | the િ matra belongs *before* its consonant; it was placed after |
+| સ્થળ | સથળ | the virama was dropped, changing the word |
+| પ્રમાણપત્ર | પ્રમાણપત્ર with ત ્ ર separated | the ત્ર conjunct did not form |
+| મુદ્દામાલ | દ્દ separated | the દ્દ conjunct did not form |
+| તારીખ, સમય, નામ, સહી | correct | no matra reordering, no conjuncts |
+
+Only words with neither an i-matra nor a conjunct survive — which is a small
+enough subset that any later edit would silently break it.
+
+**Mangled Gujarati on a Section 63 certificate is worse than English-only.** A
+Gujarati-medium magistrate reading `અધનિયિમ` on a statutory form sees a document
+that has been handled carelessly, and the whole argument this project makes is
+that the document was not. Shipping it would be the same class of error as a
+fabricated figure: something that looks right to whoever wrote it and is wrong
+to the person who matters.
+
+Doing it properly needs HarfBuzz shaping and a Type 0 font with explicit glyph
+runs, which is a real piece of work rather than a hackathon afternoon.
+
+**What was done instead:** the Gujarati glossary lives in the web interface,
+where the browser shapes the script correctly and can be checked by looking at
+it. See `frontend/src/i18n/gujarati.js`. The certificate PDF stays English-only,
+and the reason is recorded here so the answer to "why isn't the certificate in
+Gujarati?" is an engineering constraint with evidence behind it, not an
+oversight.

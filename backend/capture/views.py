@@ -2,8 +2,12 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from rest_framework import status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import (
+    action, api_view, permission_classes, throttle_classes,
+)
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 
 from accounts.models import AuditLog
@@ -197,11 +201,27 @@ class DNSRecordViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
+class LargePageAllowed(PageNumberPagination):
+    """
+    Default page of 50, up to 500 on request.
+
+    The findings list is read whole — an officer triaging a capture needs all
+    of it, and the page counts "awaiting review" across the set. At 50 per page
+    that was seven sequential requests for one capture, which is slow and
+    spends the hourly request budget for no benefit. The cap stays, because an
+    unbounded page_size is a denial-of-service parameter.
+    """
+
+    page_size_query_param = 'page_size'
+    max_page_size = 500
+
+
 class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
     """Findings, plus the analyst triage action."""
 
     permission_classes = [IsInvestigatorOrReadOnly]
     serializer_class = DetectionSerializer
+    pagination_class = LargePageAllowed
 
     def get_queryset(self):
         # session__evidence is joined, not lazily loaded: every finding now
@@ -281,8 +301,15 @@ class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
         ])
 
 
+class EngineInfoThrottle(ScopedRateThrottle):
+    """Its own bucket, so a public page cannot exhaust the general one."""
+
+    scope = 'engine'
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@throttle_classes([EngineInfoThrottle])
 def engine_info(request):
     """
     What the engine is, for pages shown before anyone signs in.
