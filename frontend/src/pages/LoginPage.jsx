@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/auth';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { consoleField } from '../theme/formStyles';
+import { getEngineInfo } from '../services/engine';
 import {
   Box, Typography, TextField, Button, InputAdornment, IconButton, Alert, Grow,
 } from '@mui/material';
@@ -327,6 +328,17 @@ export function Dot({ color, label }) {
 }
 
 export function TelemetryPanel() {
+  // The rule count is read from the engine rather than written into the copy.
+  const [engine, setEngine] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    getEngineInfo()
+      .then((info) => { if (live) setEngine(info); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
   return (
     <Box
       sx={{
@@ -358,7 +370,7 @@ export function TelemetryPanel() {
       */}
       {[
         ['Packet analysis', 'PCAP', '#00E68A'],
-        ['Detection', '7 RULES, SOURCED OR TAGGED', '#00E68A'],
+        ['Detection', `${engine?.rule_count ?? '—'} RULES, SOURCED OR TAGGED`, '#00E68A'],
         ['Evidence', 'SHA-256 SEALED', '#00D4FF'],
         ['Certificate', 'BSA s.63', '#FFB020'],
       ].map(([k, v, c], i) => (

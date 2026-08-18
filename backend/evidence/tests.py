@@ -367,3 +367,73 @@ class CertificatePdfTests(TestCase):
         render_certificate_pdf(cert)
         text = self._text(cert.pdf_path)
         self.assertIn('CHAIN BROKEN', text)
+
+
+class ProvenanceTests(TestCase):
+    """
+    A generated capture and a seized one are byte-identical artefacts. The
+    only thing that can tell them apart downstream is a recorded statement
+    about where each came from — and that statement has to reach the register
+    and the certificate, or it protects nothing.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.source = Path(self.tmp) / 'capture.pcap'
+        self.source.write_bytes(b'\xd4\xc3\xb2\xa1' + b'\x00' * 200)
+
+    def test_a_file_with_no_manifest_is_unattested_not_seized(self):
+        record = ingest_evidence(self.source)
+        self.assertEqual(record.provenance, EvidenceRecord.Provenance.UNATTESTED)
+        self.assertFalse(record.is_demonstration_only)
+
+    def test_a_generated_file_is_sealed_as_synthetic(self):
+        from capture.provenance import write_manifest, KIND_SYNTHETIC
+
+        write_manifest(self.source, kind=KIND_SYNTHETIC, scenario='mixed', seed=7)
+        record = ingest_evidence(self.source)
+
+        self.assertEqual(record.provenance, EvidenceRecord.Provenance.SYNTHETIC)
+        self.assertTrue(record.is_demonstration_only)
+        self.assertIn('seed 7', record.provenance_detail)
+
+    def test_a_manifest_describing_a_different_file_is_ignored(self):
+        """
+        Detaching a manifest and reattaching it elsewhere must not transfer a
+        claim about origin. The digest in the manifest is what prevents it.
+        """
+        from capture.provenance import write_manifest, read_manifest, KIND_SYNTHETIC
+
+        write_manifest(self.source, kind=KIND_SYNTHETIC, scenario='mixed')
+        self.source.write_bytes(b'\xd4\xc3\xb2\xa1' + b'\xff' * 400)
+
+        self.assertIsNone(read_manifest(self.source))
+        record = ingest_evidence(self.source)
+        self.assertEqual(record.provenance, EvidenceRecord.Provenance.UNATTESTED)
+
+    def test_an_intake_declaration_that_contradicts_the_manifest_records_both(self):
+        from capture.provenance import write_manifest, KIND_SYNTHETIC
+
+        write_manifest(self.source, kind=KIND_SYNTHETIC, scenario='mixed')
+        record = ingest_evidence(
+            self.source, provenance=EvidenceRecord.Provenance.SEIZED,
+        )
+
+        self.assertEqual(record.provenance, EvidenceRecord.Provenance.SEIZED)
+        self.assertIn('manifest', record.provenance_detail.lower())
+        self.assertIn('synthetic', record.provenance_detail.lower())
+
+    def test_the_certificate_pdf_says_synthetic_in_terms_no_one_could_miss(self):
+        from capture.provenance import write_manifest, KIND_SYNTHETIC
+
+        write_manifest(self.source, kind=KIND_SYNTHETIC, scenario='mixed')
+        record = ingest_evidence(self.source)
+
+        officer = User.objects.create_user(
+            username='po', password='x', badge_id='B-1', department='Cyber',
+        )
+        certificate = issue_certificate(record, part_a_user=officer)
+
+        text = CertificatePdfTests._text(certificate.pdf_path)
+        self.assertIn('SYNTHETIC DATA', text)
+        self.assertIn('NOT EVIDENCE', text)

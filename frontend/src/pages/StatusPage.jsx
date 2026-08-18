@@ -23,8 +23,19 @@ const STAGES = [
   { key: 'granted', num: '03', label: 'Access granted' },
 ];
 
+/**
+ * How far through the three stages an application has got.
+ *
+ * `approved` is not "in progress at stage 3" — it is stage 3 finished, which
+ * is why the page also offers a PROCEED TO TERMINAL button directly beneath.
+ * Returning the index of the last stage made the final row read IN PROGRESS
+ * next to a button saying the account was ready to use.
+ *
+ * Returning one past the end makes every stage `done` and none `current`,
+ * which is what "finished" looks like.
+ */
 function stageIndex(stage) {
-  if (stage === 'approved') return 2;
+  if (stage === 'approved') return STAGES.length;   // all stages complete
   if (stage === 'rejected') return -1;
   return 1;   // submitted; awaiting an administrator
 }

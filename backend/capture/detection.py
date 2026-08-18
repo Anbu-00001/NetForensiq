@@ -160,6 +160,17 @@ SRC_PORT_LIST = (
 )
 
 
+# How much of the observed data a finding carries with it.
+#
+# These decide what an officer is shown, not what is detected: the counts in
+# each finding are computed over everything, and only the illustrative sample
+# is trimmed. Every finding that trims says so, with the true total beside it,
+# so nobody reads five domain names as the whole set. The full data stays in
+# the flow and DNS tables the finding points at.
+EVIDENCE_SAMPLE_LIMIT = 5
+EVIDENCE_SAMPLE_VALUE_CHARS = 120
+
+
 THRESHOLDS = {
     # ── beaconing ──
     'beacon_min_connections': (23, SRC_RITA + ' — DefaultConnectionThresh, counted as '
@@ -318,6 +329,15 @@ THRESHOLDS = {
 INFORMATIONAL_THRESHOLDS = frozenset({
     'entropy_max_samples',
     'entropy_sample_bytes',
+    # Ranking and presentation, not tests. They decide how findings are
+    # ordered and how confident a finding says it is; none of them decides
+    # whether a rule fires, so listing them beside the beacon threshold as
+    # though they did would overstate how much of the engine is invented.
+    'risk_score_low',
+    'risk_score_medium',
+    'risk_score_high',
+    'risk_score_critical',
+    'confidence_scale_multiplier',
     'flow_idle_timeout_tcp',
     'flow_idle_timeout_udp',
     'flow_idle_timeout_icmp',
@@ -738,8 +758,8 @@ def rule_dns_tunnelling(session):
         entry['max_len'] = max(entry['max_len'], record.subdomain_length)
         entry['max_entropy'] = max(entry['max_entropy'], record.query_entropy)
         entry['flow'] = entry['flow'] or record.flow
-        if len(entry['samples']) < 3:
-            entry['samples'].append(record.query_name[:120])
+        if len(entry['samples']) < EVIDENCE_SAMPLE_LIMIT:
+            entry['samples'].append(record.query_name[:EVIDENCE_SAMPLE_VALUE_CHARS])
 
     for (src_ip, parent), entry in long_label.items():
         findings.append(Detection(
@@ -769,6 +789,10 @@ def rule_dns_tunnelling(session):
                 'observed_max_entropy': entry['max_entropy'],
                 'parent_domain': parent,
                 'samples': entry['samples'],
+                'samples_are_illustrative': (
+                    f'showing {len(entry["samples"])} of {entry["count"]} matching '
+                    f'queries; the full set is in this session\'s DNS records'
+                ),
                 'matched_on': 'label length AND entropy, both required',
                 **_cite('dns_label_length'),
                 'entropy_threshold': _cite('dns_label_entropy'),
@@ -806,7 +830,11 @@ def rule_dns_tunnelling(session):
             evidence={
                 'observed_unique_subdomains': len(names),
                 'parent_domain': parent,
-                'sample': sorted(names)[:5],
+                'sample': sorted(names)[:EVIDENCE_SAMPLE_LIMIT],
+                'samples_are_illustrative': (
+                    f'showing {min(len(names), EVIDENCE_SAMPLE_LIMIT)} of {len(names)} '
+                    f'observed subdomains; the full set is in this session\'s DNS records'
+                ),
                 **_cite('dns_unique_subdomains'),
             },
         ))
@@ -1032,7 +1060,9 @@ def rule_icmp_tunnel(session):
         # messages quote the offending packet's header and 8 bytes of payload
         # (RFC 792), so a busy server answering scans emits hundreds of large
         # unreachables that are not tunnels. On a real week-long server capture
-        # that single distinction removed 795 of 799 findings.
+        # this distinction alone removed 338 of 799 findings; the minimum
+        # packet count below removed a further 238, and the two together took
+        # the rule from 799 to 25. See research/96.
         icmp_type = (flow.dst_port or 0) >> 8
         if icmp_type not in (0, 8):
             continue
@@ -1079,6 +1109,28 @@ def rule_icmp_tunnel(session):
             },
         ))
     return findings
+
+
+# Every rule_id the engine can emit, declared rather than counted by hand.
+#
+# The landing page states how many rules there are, and three separate strings
+# used to carry that number as prose. A test pins this list to what the source
+# actually emits, and the public /api/engine/ endpoint serves it, so the claim
+# on screen cannot drift from the code.
+#
+# Note this is longer than RULES: rule_beaconing emits two ids, and
+# HOST_CORROBORATED comes from the post-pass rather than from a rule function.
+RULE_IDS = (
+    'C2_BEACON_KEEPALIVE',
+    'C2_BEACON_PERIODIC',
+    'COVERT_CHANNEL_UNKNOWN_PORT',
+    'DNS_TUNNEL_LONG_LABEL',
+    'DNS_TUNNEL_SUBDOMAIN_VOLUME',
+    'EXFIL_VOLUME_ASYMMETRY',
+    'HOST_CORROBORATED',
+    'ICMP_TUNNEL_OVERSIZED',
+    'RECON_PORT_SCAN',
+)
 
 
 RULES = [

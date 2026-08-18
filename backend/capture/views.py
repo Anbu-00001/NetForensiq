@@ -2,7 +2,8 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from rest_framework import status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from accounts.models import AuditLog
@@ -40,7 +41,7 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
         session = self.get_object()
         summary = analyse_session(session)
         log_action(
-            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            request, AuditLog.Action.ANALYSE_SESSION, user=request.user,
             username_attempted=request.user.username,
             detail=f'Analysed session #{session.id}: {summary["total"]} detections',
         )
@@ -61,12 +62,25 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
                       bytes=Sum('bytes_sent') + Sum('bytes_received'))
             .order_by('-count')
         )
-        applications = list(
-            flows.exclude(app_protocol='')
+        # Split by how the protocol was determined. "HTTPS" because a
+        # ClientHello was parsed and "HTTPS" because the port was 443 are
+        # different claims, and a tunnel hiding on a permitted port is exactly
+        # the case where the second one is wrong. The chart says which.
+        applications = [
+            {
+                'app_protocol': row['app_protocol'],
+                'count': row['count'],
+                'observed': row['observed'],
+                'inferred_from_port': row['count'] - row['observed'],
+            }
+            for row in flows.exclude(app_protocol='')
             .values('app_protocol')
-            .annotate(count=Count('id'))
+            .annotate(
+                count=Count('id'),
+                observed=Count('id', filter=Q(app_protocol_source='observed')),
+            )
             .order_by('-count')[:8]
-        )
+        ]
         talkers = list(
             flows.values('initiator_ip')
             .annotate(count=Count('id'), bytes=Sum('bytes_sent'))
@@ -98,6 +112,14 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             'detections_by_severity': severities,
         })
 
+    # Resolution of the activity chart. Presentation only — no rule reads it —
+    # but it decides what an officer can see: a week-long capture in 30 buckets
+    # is one point per 5.6 hours, which can hide a burst entirely. Overridable
+    # per request, and the width it produced is returned so the chart can say
+    # what each point covers instead of leaving the reader to assume.
+    DEFAULT_TIMELINE_BUCKETS = 30
+    MAX_TIMELINE_BUCKETS = 500
+
     @action(detail=True, methods=['get'])
     def timeline(self, request, pk=None):
         """Packet activity bucketed over the capture window, for the chart."""
@@ -105,8 +127,15 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
         if not (session.capture_start and session.capture_end):
             return Response([])
 
+        try:
+            buckets = int(request.query_params.get(
+                'buckets', self.DEFAULT_TIMELINE_BUCKETS,
+            ))
+        except (TypeError, ValueError):
+            buckets = self.DEFAULT_TIMELINE_BUCKETS
+        buckets = max(1, min(buckets, self.MAX_TIMELINE_BUCKETS))
+
         span = (session.capture_end - session.capture_start).total_seconds()
-        buckets = 30
         width = max(span / buckets, 1)
 
         series = [
@@ -213,7 +242,7 @@ class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
         ])
 
         log_action(
-            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            request, AuditLog.Action.TRIAGE_DETECTION, user=request.user,
             username_attempted=request.user.username,
             detail=f'Triaged detection #{detection.id} ({detection.rule_id}) as {decision}',
         )
@@ -244,3 +273,31 @@ class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
             }
             for key, (value, source) in sorted(THRESHOLDS.items())
         ])
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def engine_info(request):
+    """
+    What the engine is, for pages shown before anyone signs in.
+
+    The landing and login pages state how many detection rules exist and which
+    version this is. Those were three separate hardcoded strings that no test
+    could keep honest — add a rule and the marketing copy silently becomes
+    wrong. They are read from here instead.
+
+    Public because the pages that need it are public. It exposes counts and a
+    version, not rule logic, thresholds or any data.
+    """
+    from .detection import INFORMATIONAL_THRESHOLDS, RULE_IDS, THRESHOLDS
+    from netforensiq_backend.version import get_version
+
+    return Response({
+        'version': get_version(),
+        'rule_count': len(RULE_IDS),
+        'threshold_count': len(THRESHOLDS),
+        'heuristic_threshold_count': sum(
+            1 for _, source in THRESHOLDS.values() if 'OUR HEURISTIC' in source
+        ),
+        'informational_threshold_count': len(INFORMATIONAL_THRESHOLDS),
+    })

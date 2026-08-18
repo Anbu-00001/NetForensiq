@@ -26,6 +26,7 @@ function DashboardPage() {
   const [sessionId, setSessionId] = useState('');
   const [summary, setSummary] = useState(null);
   const [timeline, setTimeline] = useState([]);
+  const [bucketSeconds, setBucketSeconds] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState('');
@@ -56,6 +57,7 @@ function DashboardPage() {
         if (!current) return;
         setSummary(s);
         setTimeline(t.series ?? []);
+        setBucketSeconds(t.bucket_seconds ?? null);
         setError('');
       })
       .catch(() => { if (current) setError('Failed to load session data.'); })
@@ -179,6 +181,17 @@ function DashboardPage() {
                   </Typography>
                   <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.35)', mb: 1.5 }}>
                     Bucketed from packet timestamps, not from processing time
+                    {/* A week-long capture drawn in 30 points is one point per
+                        5.6 hours, which can hide a burst completely. Saying
+                        what each point covers is the difference between a
+                        chart and a shape. */}
+                    {bucketSeconds != null && ` · one point per ${
+                      bucketSeconds >= 3600
+                        ? `${(bucketSeconds / 3600).toFixed(1)} h`
+                        : bucketSeconds >= 60
+                          ? `${(bucketSeconds / 60).toFixed(1)} min`
+                          : `${bucketSeconds.toFixed(0)} s`
+                    }`}
                   </Typography>
                   <ResponsiveContainer width="100%" height={240}>
                     <AreaChart data={timeline} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>

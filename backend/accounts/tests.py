@@ -121,3 +121,74 @@ class LogoutTests(TestCase):
                                     format='json')
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data['token_blacklisted'])
+
+
+class AuditTaxonomyTests(TestCase):
+    """
+    An audit trail whose entries all say VIEW_EVIDENCE cannot answer the
+    question it exists for: which entry records the moment a finding was
+    confirmed, or a certificate signed.
+    """
+
+    def test_approving_an_account_is_recorded_wherever_it_happens(self):
+        """
+        There is no approval endpoint — approval happens in the Django admin.
+        The one administrative act that decides who may touch evidence must
+        still leave a trace.
+        """
+        user = User.objects.create_user(
+            username='pending', password='x', badge_id='B-9', department='Cyber',
+        )
+        self.assertFalse(
+            AuditLog.objects.filter(action=AuditLog.Action.APPROVE_USER).exists()
+        )
+
+        user.is_approved = True
+        user.save()
+
+        entry = AuditLog.objects.get(action=AuditLog.Action.APPROVE_USER)
+        self.assertEqual(entry.user, user)
+        self.assertIn('pending', entry.detail)
+
+    def test_approval_is_recorded_once_not_on_every_later_save(self):
+        user = User.objects.create_user(
+            username='approved-once', password='x', badge_id='B-8', department='Cyber',
+        )
+        user.is_approved = True
+        user.save()
+        user.department = 'Cyber Crime Branch'
+        user.save()
+
+        self.assertEqual(
+            AuditLog.objects.filter(action=AuditLog.Action.APPROVE_USER).count(), 1,
+        )
+
+    def test_an_account_created_already_approved_is_recorded(self):
+        User.objects.create_user(
+            username='straight-in', password='x', badge_id='B-7',
+            department='Cyber', is_approved=True,
+        )
+        self.assertEqual(
+            AuditLog.objects.filter(action=AuditLog.Action.APPROVE_USER).count(), 1,
+        )
+
+    def test_every_declared_action_is_emitted_somewhere_in_the_codebase(self):
+        """
+        A defined-but-unused action is a promise the audit trail does not keep.
+        """
+        import re
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
+        sources = '\n'.join(
+            path.read_text()
+            for path in root.rglob('*.py')
+            if '.venv' not in str(path) and 'migrations' not in str(path)
+            and path.name != 'tests.py'
+        )
+
+        for name in AuditLog.Action.names:
+            self.assertTrue(
+                re.search(rf'Action\.{name}\b', sources),
+                f'AuditLog.Action.{name} is declared but never written',
+            )

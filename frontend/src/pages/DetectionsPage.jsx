@@ -40,12 +40,32 @@ function DetectionCard({ detection, onTriaged }) {
       backgroundColor: 'rgba(255,255,255,0.02)',
       borderLeft: `3px solid ${colour}`,
     }}>
+      {/*
+        A real button, not a clickable div. An officer working three hundred
+        findings with a keyboard could not open any of them, and a screen
+        reader announced nothing about what the row was or whether it was
+        expanded. It also gives the row an accessible name — the rule that
+        fired — which is what a test can address it by.
+      */}
       <Box
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        aria-label={`${detection.rule_id}: ${detection.title}`}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
         sx={{
           p: 2, cursor: 'pointer', display: 'flex', alignItems: 'center',
           gap: 1.5, flexWrap: 'wrap',
           '&:hover': { backgroundColor: 'rgba(255,255,255,0.03)' },
+          '&:focus-visible': {
+            outline: '2px solid #00D4FF', outlineOffset: -2,
+          },
         }}
       >
         <Chip label={detection.severity} size="small" sx={{

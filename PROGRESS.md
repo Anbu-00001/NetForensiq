@@ -4,7 +4,11 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–12 complete · **74 backend tests + 19 Playwright E2E, all green, zero skips**
+## Status: Phases 0–13 complete · **100 backend tests + 19 Playwright E2E, all green, zero skips**
+
+The demonstration dataset is **real traffic**: two published captures with
+written ground truth, plus — only when asked for with `--include-synthetic` —
+one generated capture sealed and labelled `SYNTHETIC`.
 
 ```bash
 ./scripts/verify.sh      # runs everything: backend suite, seeding, API, E2E
@@ -35,9 +39,13 @@ for network evidence.
 
 ## The detection engine
 
-Seven rules. Every threshold carries its source; values we invented are tagged
-`[OUR HEURISTIC]` and that tag travels into each finding's stored evidence.
-Published at `GET /api/detections/thresholds/`.
+Nine rule IDs, from seven rule functions plus one post-pass. Every threshold
+carries its source; values we invented are tagged `[OUR HEURISTIC]` and that tag
+travels into each finding's stored evidence. Published at
+`GET /api/detections/thresholds/`.
+
+**35 thresholds: 12 externally cited, 23 ours.** The claim was never that all of
+them are sourced — it is that each one says which it is.
 
 | Rule | Detects |
 |---|---|
@@ -49,6 +57,17 @@ Published at `GET /api/detections/thresholds/`.
 | `RECON_PORT_SCAN` | One source probing many host+port combinations |
 | `EXFIL_VOLUME_ASYMMETRY` | Outbound volume past the capture's own p95 |
 | `ICMP_TUNNEL_OVERSIZED` | Sustained oversized ICMP *echo* — errors excluded |
+| `HOST_CORROBORATED` | One address that three or more independent rules keep naming |
+
+`HOST_CORROBORATED` takes no measurement. It restates what the other rules
+found, which is why it is the only thing allowed to say CRITICAL — and why the
+CRITICAL tier on the dashboard could previously never populate at all.
+
+**`$HOME_NET` is per capture, not per install.** An office capture is RFC 1918;
+a capture of a public-facing server is not. One global setting means the second
+case loaded is analysed against the wrong network and every egress rule
+inverts. `manage.py suggest_home_net` reads a proposal off the traffic and shows
+its working — it deliberately does not apply it.
 
 ---
 
@@ -79,7 +98,9 @@ defects, briefly:
 4. **No `$HOME_NET`.** All 172 "C2 beacons" on the server capture were external
    hosts probing *in*.
 5. **ICMP errors flagged as tunnels.** They quote the original header (RFC 792),
-   so they are large by design. 795 of 799 findings were the server's own replies.
+   so they are large by design. 795 of 799 findings named the monitored server
+   as their subject; filtering to echo types removed 338 and a minimum packet
+   count removed 238 more, taking the rule from 799 findings to 25.
 6. **A 5-tuple was treated as a connection.** Reused ephemeral ports merged
    conversations hours apart.
 
@@ -135,6 +156,66 @@ operations on evidence.
 
 ---
 
+## The hardcode audit
+
+A second agent swept only for hardcoded values — anything shown to a user, or
+used as a decision threshold, that does not trace to the database or to a cited
+source. **Three critical, three high, seven medium, sixteen low.** All resolved.
+Full report: [research/97](research/97_HARDCODE_AUDIT.md).
+
+The four that mattered:
+
+- **The risk-score table existed twice.** `detection.py` derived it from the
+  published thresholds and called itself "the single source of truth" while
+  `models.py` held the same four numbers as bare literals — both live, on
+  different write paths (`bulk_create` vs `save()`), agreeing only by
+  coincidence. Retuning a published threshold would have left the dashboard
+  ranking findings by a number the provenance panel no longer matched.
+
+  Fixing it uncovered a second defect: the `Meta.indexes` list had been written
+  *inside* `save()`, so none of the three indexes existed.
+
+- **An invented FIR number reached real Section 63 certificates.** The seed
+  script wrote `I-CR-2026-0042` and `Switch SPAN port` through the real ingest
+  path into the same database the dev server serves, and the certificate
+  renderer printed it — on the one document whose own rule is *"filling a
+  statutory blank with a plausible value would be forging a statutory
+  declaration."* Seeding now uses `DEMO-NOT-A-REAL-CASE`.
+
+- **The test suite failed 27 times on a reviewer's machine.** DRF's login
+  throttle stores counters in the Django cache; the test *database* is fresh
+  each run but the cache is not, so running the app and then running
+  `manage.py test` — the obvious order — exhausted the limit. `verify.sh`
+  cleared the cache first, so the harness was green while the documented command
+  was not. The suite now gets its own cache directory, still file-based so
+  throttling behaves as it does in a deployment.
+
+- **A synthetic capture sealed as evidence was indistinguishable from a seized
+  one.** Same hash, same custody chain, same certificate. Every capture now
+  carries a provenance manifest, and a generated one is stamped
+  `SYNTHETIC DATA — NOT EVIDENCE` across the top of its certificate.
+
+Also resolved: `ALLOWED_HOSTS` was the only setting not environment-driven;
+`score_beacon()` was dead code carrying two uncited thresholds and an evidence
+dict that would have misreported which RITA subscores were computed; the custody
+annexure printed `system` in the Officer column of a court exhibit; a finding's
+own prose restated a threshold as "15 minutes" instead of interpolating it;
+`AuditLog` filed triage decisions, detection runs and certificate signatures all
+as `VIEW_EVIDENCE`, and `APPROVE_USER` — the one act that decides who may touch
+evidence — was defined and never written.
+
+---
+
+## What the numbers say about themselves
+
+`scripts/check_docs.py` measures the test counts, rule count and threshold count
+and compares them against every claim in this file and in the README.
+`verify.sh` runs it on every phase. It exists because three documents once gave
+three different backend test counts, none of them right — the cheapest possible
+claim for a reviewer to check.
+
+---
+
 ## Ground rules
 
 1. **No fabricated data.** Every figure traces to the database. Guarded by E2E
@@ -154,10 +235,22 @@ operations on evidence.
 - Two of seven C2 flows were missed — 7 s and 13 s, below the sustained floor.
 - **No beacon periodicity was detected on real malware.** 3.5 minutes is not
   enough for RITA's model, and thresholds were not tuned until it passed.
-- The 307 scan findings are consistent with the capture's description but have
+- The 308 scan findings are consistent with the capture's description but have
   not been individually confirmed.
 - **Import is slow** — ~110 s for 362k packets, nearly all inside scapy.
-- `ja3_hash` is exposed on the API and never populated.
+- **No `LOW`-severity finding appears in the demonstration data.** The tier is
+  reachable — the exfiltration rule emits it for a bulk upload over HTTPS whose
+  payload entropy is unremarkable — but none of the three captures contains one.
+- **`HOST_CORROBORATED` fires only on the synthetic capture.** Neither reference
+  capture has a host implicated by three rules: one is a single-victim infection
+  and the other is a server being scanned by hundreds of distinct sources.
+- **JA4 is computed only for TLS over TCP on port 443.** QUIC and DTLS
+  ClientHellos are not parsed, and a handshake split across TCP segments is
+  skipped rather than guessed at. The fingerprint is simply absent for those.
+- **`payload_entropy` is an estimate**, taken from at most 40 samples of at most
+  512 bytes. Every finding that rests on it says how many samples backed it.
+- **`suggest_home_net` is a heuristic** with no published algorithm behind it.
+  It is a proposal an officer confirms, never applied on its own.
 - No live-capture HTTP trigger; the management command exists.
 - No Indian government system has a public API — Sanchar Saathi, CEIR, I4C,
   NCRP, CCTNS are web-form or police-network only

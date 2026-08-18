@@ -1,12 +1,30 @@
 # NetForensiq — Project Analysis and Build History
 
+> ## ⚠️ SUPERSEDED — historical record only
+>
+> **This document describes the project as it stood on 16 August 2026, at Phase 7.**
+> Do not quote figures, rule counts, test counts or "remaining work" from it: the
+> project has since been through real-traffic validation and two audits, and much
+> of what follows is no longer true.
+>
+> For the current state, read:
+>
+> | | |
+> |---|---|
+> | **[PROGRESS.md](../PROGRESS.md)** | What is built, what was found wrong, and what is still missing |
+> | **[README.md](../README.md)** | How it works and how to run it |
+> | **[research/96](../research/96_REAL_TRAFFIC_VALIDATION.md)** | The real-traffic run and the defects it exposed |
+> | **[research/97](../research/97_HARDCODE_AUDIT.md)** | The hardcoded-value audit |
+>
+> It is kept because the build history is worth having — particularly the record
+> of what the project looked like before real traffic was put through it.
+
 **Last updated:** 16 Aug 2026
-**Current HEAD:** `d92a4b6` (Phase 7) -- 14 commits
 **Target event:** KANAD S.H.I.E.L.D. 2026, ~20 Aug 2026, i-Hub Gujarat, Ahmedabad
 
 This document records the state of the project when it was inherited, every
 improvement made since, the directions those improvements took, and what
-remains to be done before the hackathon.
+remained to be done as of Phase 7.
 
 ---
 

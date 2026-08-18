@@ -11,6 +11,7 @@ from rest_framework.routers import DefaultRouter
 
 from capture.views import (
     CaptureSessionViewSet, DNSRecordViewSet, DetectionViewSet, FlowViewSet,
+    engine_info,
 )
 from evidence.views import CertificateViewSet, EvidenceViewSet
 
@@ -25,5 +26,8 @@ router.register('certificates', CertificateViewSet, basename='certificate')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
+    # Public: the landing and login pages state the rule count and version,
+    # and a number on a page nobody has signed in to see still has to be true.
+    path('api/engine/', engine_info, name='engine-info'),
     path('api/', include(router.urls)),
 ]

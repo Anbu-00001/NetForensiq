@@ -3,6 +3,11 @@ import { Box, Typography } from '@mui/material';
 /**
  * Application-protocol breakdown for the selected capture.
  * Counts come from the API; nothing is authored here.
+ *
+ * Each row says how much of it was actually read off the wire. A protocol
+ * assigned from the port number alone is a guess — "SSH because it was on 22"
+ * — and a covert channel on a permitted port is precisely the case where the
+ * guess is wrong. Presenting both kinds under one label would hide that.
  */
 function ProtocolRanking({ applications = [] }) {
   const max = Math.max(...applications.map((a) => a.count), 1);
@@ -33,6 +38,13 @@ function ProtocolRanking({ applications = [] }) {
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)' }}>
                 {row.count.toLocaleString()}
+                {row.inferred_from_port > 0 && (
+                  <Box component="span" sx={{ fontSize: 11, color: '#FFB020', ml: 0.8 }}>
+                    {row.observed > 0
+                      ? `${row.inferred_from_port.toLocaleString()} from port only`
+                      : 'from port only'}
+                  </Box>
+                )}
               </Typography>
             </Box>
             <Box sx={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.06)' }}>

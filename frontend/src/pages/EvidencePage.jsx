@@ -265,6 +265,33 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged })
           {record.case_reference ? ` · case ${record.case_reference}` : ''}
         </Typography>
 
+        {/*
+          Where the bytes came from. A generated capture and a seized one are
+          byte-identical once sealed — same hash, same custody chain, same
+          certificate — so the register has to say which it is holding or the
+          two are indistinguishable to anyone reading it.
+        */}
+        <Box sx={{
+          mb: 1.5, px: 1.2, py: 0.9, borderRadius: 1.2,
+          border: `1px solid ${record.is_demonstration_only ? '#FF3B5C55' : 'rgba(255,255,255,0.08)'}`,
+          backgroundColor: record.is_demonstration_only
+            ? 'rgba(255,59,92,0.10)' : 'rgba(255,255,255,0.02)',
+        }}>
+          <Typography sx={{
+            fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+            color: record.is_demonstration_only ? '#FF3B5C' : 'rgba(229,231,235,0.6)',
+          }}>
+            {record.is_demonstration_only
+              ? 'SYNTHETIC — GENERATED FOR DEMONSTRATION, NOT EVIDENCE'
+              : (record.provenance_label ?? 'Origin not recorded')}
+          </Typography>
+          {record.provenance_detail && (
+            <Typography sx={{ fontSize: 11, color: 'rgba(229,231,235,0.45)', mt: 0.3 }}>
+              {record.provenance_detail}
+            </Typography>
+          )}
+        </Box>
+
         <Hash label="SHA-256 (primary)" value={record.sha256_hash} />
         <Hash label="MD5 (Schedule also lists MD5; never relied on alone)" value={record.md5_hash} />
 

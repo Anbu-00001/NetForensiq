@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-// Configurable so the dev server, tests and a deployment can point at
-// different backends without editing source.
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8000/api';
+import { API_BASE } from './apiBase';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -18,7 +16,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-refresh expired access tokens
 // Auto-refresh expired access tokens
 api.interceptors.response.use(
   (response) => response,

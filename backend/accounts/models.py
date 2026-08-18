@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models.signals import post_init, post_save
+from django.dispatch import receiver
 
 
 class User(AbstractUser):
@@ -39,13 +41,23 @@ class User(AbstractUser):
     
 class AuditLog(models.Model):
     class Action(models.TextChoices):
+        # Each act gets its own name. Triage decisions, detection runs and
+        # certificate signatures were all filed as VIEW_EVIDENCE or
+        # EXPORT_EVIDENCE, which made the audit trail unreadable in exactly
+        # the situation it exists for: an officer asked in court which of
+        # these entries records the moment a finding was confirmed.
         LOGIN_SUCCESS = 'login_success', 'Login Success'
         LOGIN_FAILED = 'login_failed', 'Login Failed'
         LOGOUT = 'logout', 'Logout'
         REGISTER = 'register', 'Registration Submitted'
         APPROVE_USER = 'approve_user', 'User Approved'
         VIEW_EVIDENCE = 'view_evidence', 'Evidence Viewed'
+        VERIFY_EVIDENCE = 'verify_evidence', 'Evidence Integrity Verified'
         EXPORT_EVIDENCE = 'export_evidence', 'Evidence Exported'
+        ANALYSE_SESSION = 'analyse_session', 'Detection Run'
+        TRIAGE_DETECTION = 'triage_detection', 'Finding Triaged'
+        ISSUE_CERTIFICATE = 'issue_certificate', 'Section 63 Certificate Issued'
+        SIGN_CERTIFICATE = 'sign_certificate', 'Section 63 Part B Signed'
 
     user = models.ForeignKey(
         User, null=True, blank=True,
@@ -63,3 +75,35 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.timestamp} · {self.action} · {self.username_attempted or self.user}"
+
+
+# ── approval is an auditable act, wherever it happens ────────────────────
+#
+# AuditLog.Action.APPROVE_USER was defined and never written: there is no
+# approval endpoint, because approving an officer is done through the Django
+# admin. So the one administrative act that decides who may touch evidence was
+# the only one leaving no trace.
+#
+# The signal catches it at the model layer, which covers the admin, a shell,
+# a data migration and any endpoint added later — none of which can approve an
+# account without saving the row.
+
+@receiver(post_init, sender=User)
+def _remember_approval_state(sender, instance, **kwargs):
+    instance._was_approved = instance.is_approved
+
+
+@receiver(post_save, sender=User)
+def _record_approval_change(sender, instance, created, **kwargs):
+    was = False if created else getattr(instance, '_was_approved', False)
+    if instance.is_approved and not was:
+        AuditLog.objects.create(
+            user=instance,
+            username_attempted=instance.username,
+            action=AuditLog.Action.APPROVE_USER,
+            detail=(
+                f'Account approved: {instance.username} '
+                f'(badge {instance.badge_id or "—"}, role {instance.role})'
+            ),
+        )
+    instance._was_approved = instance.is_approved

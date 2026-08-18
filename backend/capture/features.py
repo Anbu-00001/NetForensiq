@@ -71,12 +71,21 @@ def interval_features(timestamps):
         'interval_dispersion': 0.0,
     }
 
-    if not timestamps or len(timestamps) < 3:
+    # Two timestamps give one gap, and one gap has no dispersion to measure;
+    # three is the smallest number from which "regular" or "irregular" means
+    # anything at all. This is a measurability floor, not a detection
+    # threshold — nothing is reported either way, the features are simply
+    # absent, and every rule that consumes them has its own published
+    # minimum (beacon_min_connections, keepalive_min_intervals).
+    MIN_TIMESTAMPS_FOR_INTERVALS = 3
+    if not timestamps or len(timestamps) < MIN_TIMESTAMPS_FOR_INTERVALS:
         return empty
 
     ordered = sorted(timestamps)
     gaps = [b - a for a, b in zip(ordered, ordered[1:]) if (b - a) > 0]
 
+    # Same reasoning after zero-length gaps are dropped: a single gap has a
+    # median but no deviation from it.
     if len(gaps) < 2:
         return empty
 
@@ -108,10 +117,19 @@ def compute_flow_metrics(flow_state):
 
     avg_packet_size = (total_bytes / total_packets) if total_packets else 0.0
 
-    # Below ~0.1s of observed duration the rate is not measurable; reporting
-    # the raw packet count would invent a per-second figure from a single
-    # instant, so report 0 and let consumers treat it as "unknown".
-    packets_per_second = (total_packets / duration) if duration > 0.1 else 0.0
+    # Below this much observed duration the rate is not measurable: dividing
+    # by a near-zero span turns four packets in one millisecond into "4,000
+    # packets/second", a figure that describes the clock rather than the flow.
+    # Report 0 and let consumers treat it as unknown.
+    #
+    # [OUR HEURISTIC] 0.1s is one order of magnitude above typical LAN
+    # inter-packet spacing, so a flow below it has effectively not been
+    # observed over time. No rule tests packets_per_second, so this shapes a
+    # displayed figure rather than any finding.
+    MIN_DURATION_FOR_RATE = 0.1
+    packets_per_second = (
+        (total_packets / duration) if duration > MIN_DURATION_FOR_RATE else 0.0
+    )
 
     # Share of bytes originating from the side that opened the conversation.
     # >0.5 means the initiator is pushing data outward — the exfiltration

@@ -848,3 +848,24 @@ class CorroborationTests(TestCase):
                 severity, emitted,
                 f'{severity} is published to the UI but no rule emits it',
             )
+
+
+class RuleRegistryTests(TestCase):
+    """
+    The rule count is stated on the public landing page. It has to come from
+    the engine, and the engine's own list has to match what it emits.
+    """
+
+    def test_the_declared_registry_matches_what_the_source_emits(self):
+        import re
+        from pathlib import Path
+
+        from .detection import RULE_IDS
+
+        source = Path(__file__).with_name('detection.py').read_text()
+        emitted = set(re.findall(r"rule_id='([A-Z0-9_]+)'", source))
+
+        self.assertEqual(
+            set(RULE_IDS), emitted,
+            'RULE_IDS must list exactly the rule_ids the engine emits',
+        )

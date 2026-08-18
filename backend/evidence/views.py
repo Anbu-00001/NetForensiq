@@ -63,9 +63,24 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['get'])
     def custody(self, request, pk=None):
-        """The full chain of custody, with an integrity verdict over it."""
+        """
+        The full chain of custody, with an integrity verdict over it.
+
+        Opening an exhibit's custody log is itself recorded. "Who has looked at
+        this exhibit, and when" is a question defence counsel asks, and a
+        system that cannot answer it is asking to be taken at its word.
+        """
         record = self.get_object()
         ok, problems = verify_custody_chain(record)
+        log_action(
+            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=(
+                f'Opened custody chain for {record.exhibit_number} '
+                f'({record.custody_events.count()} entries, '
+                f'{"intact" if ok else "BROKEN"})'
+            ),
+        )
         return Response({
             'chain_intact': ok,
             'problems': problems,
@@ -92,7 +107,7 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
             actor_ip=get_client_ip(request),
         )
         log_action(
-            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            request, AuditLog.Action.VERIFY_EVIDENCE, user=request.user,
             username_attempted=request.user.username,
             detail=f'Verified {record.exhibit_number}: {"pass" if ok else "FAIL"}',
         )
@@ -128,7 +143,7 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
 
         log_action(
-            request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+            request, AuditLog.Action.ISSUE_CERTIFICATE, user=request.user,
             username_attempted=request.user.username,
             detail=f'Issued certificate {certificate.reference} for {record.exhibit_number}',
         )
@@ -168,7 +183,7 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
 
         log_action(
-            request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+            request, AuditLog.Action.SIGN_CERTIFICATE, user=request.user,
             username_attempted=request.user.username,
             detail=f'Signed Part B of {certificate.reference}',
         )

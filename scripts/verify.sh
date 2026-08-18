@@ -153,6 +153,17 @@ else
   fi
 fi
 
+# ── 4b. documented figures ───────────────────────────────────────────────
+# The counts in README.md and PROGRESS.md are the cheapest claim in the
+# project for a reviewer to check, and they had drifted in three places at
+# once. They are measured here rather than remembered.
+step "Documented figures"
+if python3 "$ROOT/scripts/check_docs.py" 2>&1 | tail -12; then
+  ok "documented counts match the code"
+else
+  fail "documentation counts are out of date — run scripts/check_docs.py --fix"
+fi
+
 # ── 5. verdict ───────────────────────────────────────────────────────────
 step "Result"
 if [[ "$FAILED" == "0" ]]; then

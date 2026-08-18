@@ -9,10 +9,11 @@ import HubIcon from '@mui/icons-material/Hub';
 import GavelIcon from '@mui/icons-material/Gavel';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { ConsoleBar } from './LoginPage';
+import { getEngineInfo, spellOut } from '../services/engine';
 
 const features = [
   { icon: <RadarIcon />, title: 'Explainable Detection', tag: 'CITED THRESHOLDS',
-    desc: 'Seven deterministic rules for beaconing, DNS tunnelling, port scanning, exfiltration and covert channels. Every threshold carries its source, and values we invented say so.', color: '#00D4FF' },
+    desc: (engine) => `${spellOut(engine?.rule_count)} deterministic rules for beaconing, DNS tunnelling, port scanning, exfiltration and covert channels. Every threshold carries its source, and values we invented say so.`, color: '#00D4FF' },
   { icon: <HubIcon />, title: 'Analyst Triage', tag: 'HUMAN IN THE LOOP',
     desc: 'Nothing is auto-actioned. Each finding states the value observed, the threshold it crossed and where that threshold came from, then waits for an officer to confirm, dismiss or escalate.', color: '#00E68A' },
   { icon: <GavelIcon />, title: 'Section 63 Certificate', tag: 'BSA 2023 SCHEDULE',
@@ -23,6 +24,19 @@ const features = [
 
 function LandingPage() {
   const canvasRef = useRef(null);
+  // Counts and version come from the engine, not from prose. A failed fetch
+  // leaves them as an em dash rather than falling back to a number that was
+  // true when the copy was written.
+  const [engine, setEngine] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    getEngineInfo()
+      .then((info) => { if (live) setEngine(info); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -282,7 +296,7 @@ function LandingPage() {
             */}
             {[
               ['01', 'Seal', 'The capture is hashed with SHA-256 before any analysis reads it.'],
-              ['02', 'Analyse', 'Flows are reconstructed and seven cited rules run over them.'],
+              ['02', 'Analyse', `Flows are reconstructed and ${spellOut(engine?.rule_count)} rules run over them, each stating its threshold and where it came from.`],
               ['03', 'Triage', 'An officer confirms, dismisses or escalates each finding.'],
               ['04', 'Certify', 'A Section 63 certificate is issued with the hash report enclosed.'],
             ].map(([step, title, body], i) => (
@@ -399,7 +413,7 @@ function LandingPage() {
               </Typography>
               <Typography sx={{ fontSize: 14.5, fontWeight: 700, mb: 1 }}>{f.title}</Typography>
               <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(229,231,235,0.52)' }}>
-                {f.desc}
+                {typeof f.desc === 'function' ? f.desc(engine) : f.desc}
               </Typography>
             </Box>
           ))}
@@ -420,7 +434,7 @@ function LandingPage() {
             fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.3)',
           }}
         >
-          NETFORENSIQ v1.0
+          NETFORENSIQ v{engine?.version ?? '—'}
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
         <Typography

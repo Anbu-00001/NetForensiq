@@ -1,6 +1,12 @@
 import { test, expect, apiGet, apiPost, rows } from './fixtures';
 
 /**
+ * Any rule the engine can emit. Findings are addressed by their accessible
+ * name, which begins with the rule id — see DetectionsPage's card header.
+ */
+const RULE_ID = /^(C2_BEACON|COVERT_CHANNEL|DNS_TUNNEL|RECON_|EXFIL_|ICMP_|HOST_)/;
+
+/**
  * These tests assert the thing the code review flagged as the project's
  * biggest credibility problem: that what appears on screen is real.
  *
@@ -98,9 +104,11 @@ test.describe('findings', () => {
     test.skip(!pendingId, 'no detections seeded');
 
     await page.reload();
-    const card = page
-      .locator('text=/C2_BEACON|DNS_TUNNEL|RECON_|EXFIL_|ICMP_/')
-      .first();
+    // Addressed by role and accessible name, not by matching text anywhere on
+    // the page: a rule id also appears inside collapsed rationale text, and a
+    // plain text locator resolved to a hidden element and waited for it
+    // forever.
+    const card = page.getByRole('button', { name: RULE_ID }).first();
     await card.click();
 
     const dismiss = page.getByRole('button', { name: /Dismiss/i }).first();
@@ -265,7 +273,7 @@ test.describe('the interface claims nothing it cannot do', () => {
 
     // A filter that matches nothing would also show a chip; assert findings survived
     await expect(
-      page.locator('text=/C2_BEACON|DNS_TUNNEL|RECON_|EXFIL_|ICMP_|COVERT_/').first(),
+      page.getByRole('button', { name: RULE_ID }).first(),
     ).toBeVisible();
   });
 });

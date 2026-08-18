@@ -78,6 +78,17 @@ class Command(BaseCommand):
             help='Skip the reference captures and use generated traffic.',
         )
         parser.add_argument(
+            '--include-synthetic', action='store_true',
+            help=(
+                'Also seal the generated capture alongside the real ones. It '
+                'contains every attack class the engine detects, including the '
+                'one host implicated by several rules that the corroboration '
+                'pass exists for — none of which appears in the reference '
+                'captures. It is sealed with SYNTHETIC provenance and says so '
+                'on the register and on its certificate.'
+            ),
+        )
+        parser.add_argument(
             '--captures', type=int, default=0,
             help='Limit how many reference captures to import (0 = all).',
         )
@@ -103,6 +114,9 @@ class Command(BaseCommand):
         sources = [] if opts['synthetic_only'] else self._reference_captures()
         if opts['captures']:
             sources = sources[:opts['captures']]
+
+        if opts['include_synthetic'] and not opts['synthetic_only']:
+            sources.append(self._generate_synthetic())
 
         if sources:
             self.stdout.write(self.style.SUCCESS(

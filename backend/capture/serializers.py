@@ -44,7 +44,7 @@ class FlowSerializer(serializers.ModelSerializer):
             'interval_count', 'interval_mean', 'interval_median',
             'interval_stddev', 'interval_mad', 'interval_dispersion',
             'app_protocol', 'dns_query_count', 'longest_dns_label',
-            'max_dns_entropy', 'http_host', 'tls_sni', 'ja4_fingerprint', 'ja4_raw',
+            'max_dns_entropy', 'app_protocol_source', 'http_host', 'tls_sni', 'ja4_fingerprint', 'ja4_raw',
             'is_analyzed', 'risk_score', 'detection_count',
         ]
 

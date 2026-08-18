@@ -196,9 +196,16 @@ class FlowAggregator:
             f['tcp_flags'].update(flags)
 
         if not f['app_protocol']:
-            f['app_protocol'] = (
-                WELL_KNOWN_PORTS.get(dport) or WELL_KNOWN_PORTS.get(sport) or ''
-            )
+            # A guess from the port number, not a dissection. Recorded as such:
+            # the dashboard's protocol ranking would otherwise report "SSH"
+            # about anything on 22, which is exactly what a tunnel hiding on a
+            # permitted port relies on. Overwritten below by a real
+            # observation — an HTTP Host header, a TLS ClientHello, a DNS
+            # message — whenever one is available.
+            guessed = WELL_KNOWN_PORTS.get(dport) or WELL_KNOWN_PORTS.get(sport) or ''
+            if guessed:
+                f['app_protocol'] = guessed
+                f['app_protocol_source'] = 'port'
 
         payload = self._payload_of(transport)
         if payload and len(f['entropy_samples']) < MAX_ENTROPY_SAMPLES:
@@ -286,6 +293,7 @@ class FlowAggregator:
             'longest_dns_label': 0,
             'max_dns_entropy': 0.0,
             'app_protocol': '',
+            'app_protocol_source': '',
             'http_host': '',
             'tls_sni': '',
             'ja4_fingerprint': '',
@@ -327,6 +335,7 @@ class FlowAggregator:
         f['longest_dns_label'] = max(f['longest_dns_label'], feats['subdomain_length'])
         f['max_dns_entropy'] = max(f['max_dns_entropy'], feats['query_entropy'])
         f['app_protocol'] = 'DNS'
+        f['app_protocol_source'] = 'observed'
 
         qtype = ''
         try:
@@ -393,6 +402,7 @@ class FlowAggregator:
                     if line.lower().startswith('host:'):
                         f['http_host'] = line.split(':', 1)[1].strip()[:255]
                         f['app_protocol'] = 'HTTP'
+                        f['app_protocol_source'] = 'observed'
                         break
             except Exception:
                 pass
@@ -412,9 +422,11 @@ class FlowAggregator:
                 f['ja4_fingerprint'] = ja4
                 f['ja4_raw'] = ja4_raw
                 f['app_protocol'] = 'TLS'
+                f['app_protocol_source'] = 'observed'
             if sni and not f['tls_sni']:
                 f['tls_sni'] = sni[:255]
                 f['app_protocol'] = 'TLS'
+                f['app_protocol_source'] = 'observed'
 
     # ── output ───────────────────────────────────────────────────────────
 
@@ -442,6 +454,7 @@ class FlowAggregator:
                 'unique_dst_ports': len(f['dst_ports']),
                 'tcp_flags_seen': ''.join(sorted(f['tcp_flags'])),
                 'app_protocol': f['app_protocol'],
+                'app_protocol_source': f['app_protocol_source'],
                 'dns_query_count': f['dns_query_count'],
                 'longest_dns_label': f['longest_dns_label'],
                 'max_dns_entropy': round(f['max_dns_entropy'], 4),

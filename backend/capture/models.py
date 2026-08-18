@@ -118,6 +118,15 @@ class Flow(models.Model):
 
     # Application-layer metadata
     app_protocol = models.CharField(max_length=20, blank=True)
+    # Whether app_protocol was read off the wire or guessed from the port.
+    # "SSH because the port was 22" and "TLS because we parsed a ClientHello"
+    # are different claims, and only one of them survives a tunnel hiding on
+    # a permitted port.
+    app_protocol_source = models.CharField(
+        max_length=10, blank=True,
+        choices=[('observed', 'Observed in the payload'),
+                 ('port', 'Inferred from the port number')],
+    )
     dns_query_count = models.IntegerField(default=0)
     longest_dns_label = models.IntegerField(default=0)
     max_dns_entropy = models.FloatField(default=0.0)
