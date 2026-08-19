@@ -123,6 +123,54 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
             'status': record.status,
         })
 
+    @action(detail=True, methods=['get'])
+    def fsl_forwarding(self, request, pk=None):
+        """
+        The forwarding letter and memo of evidence for sending this exhibit to
+        an FSL.
+
+        Generated from the record rather than retyped from it. Every fact on
+        the letter — the FIR, the seal, the hash, the custody count — was
+        entered once, at seizure, and re-keying it into a letter produces
+        exactly one kind of error: a transposed hash, silently.
+
+        Query parameters: `examinations` (comma-separated keys), `sections`,
+        `addressed_to`, `remarks`.
+        """
+        from .fsl_forwarding import render_forwarding_letter
+
+        record = self.get_object()
+        requested = [
+            part.strip() for part in
+            (request.query_params.get('examinations') or '').split(',')
+            if part.strip()
+        ]
+
+        path = render_forwarding_letter(
+            record,
+            requested=requested,
+            officer=request.user,
+            addressed_to=request.query_params.get('addressed_to', ''),
+            sections=request.query_params.get('sections', ''),
+            remarks=request.query_params.get('remarks', ''),
+        )
+
+        record_custody(
+            record, CustodyEvent.Action.EXPORTED, actor=request.user,
+            detail='FSL forwarding letter generated',
+            actor_ip=get_client_ip(request),
+        )
+        log_action(
+            request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=f'Generated FSL forwarding letter for {record.exhibit_number}',
+        )
+
+        return FileResponse(
+            open(path, 'rb'), content_type='application/pdf', as_attachment=True,
+            filename=f'fsl-forwarding-{record.exhibit_number}.pdf',
+        )
+
     @action(detail=True, methods=['post'])
     def certificate(self, request, pk=None):
         """Issue a BSA s.63 certificate over this exhibit."""

@@ -1477,3 +1477,262 @@ class StatisticalAnomalyTests(TestCase):
         from capture.anomaly import RULE_ID
         from capture.detection import RULE_IDS
         self.assertIn(RULE_ID, RULE_IDS)
+
+
+class SiemExportTests(TestCase):
+    """
+    Exporting findings to a SIEM.
+
+    Two things must hold. The records have to parse in the consumer that claims
+    to read them — a malformed CEF header shifts every later field by one and
+    is read as valid, which is worse than a parse error. And the export must
+    not carry the case: a SIEM has a broad readership and the FIR number behind
+    a finding is not operational data.
+    """
+
+    def setUp(self):
+        from capture.models import CaptureSession, Flow
+        from django.utils import timezone
+
+        self.session = CaptureSession.objects.create(
+            name='siem-test', source_type=CaptureSession.Source.PCAP,
+        )
+        self.flow = Flow.objects.create(
+            session=self.session, src_ip='10.0.0.7', dst_ip='203.0.113.9',
+            initiator_ip='10.0.0.7', src_port=51000, dst_port=443,
+            protocol='TCP', app_protocol='HTTPS',
+            first_seen=timezone.now(), last_seen=timezone.now(),
+            bytes_sent=4000, bytes_received=500,
+        )
+        self.detection = Detection.objects.create(
+            session=self.session, flow=self.flow,
+            rule_id='C2_BEACON_PERIODIC',
+            title='10.0.0.7 contacted 203.0.113.9 every ~60s',
+            category='c2', severity=Detection.Severity.HIGH, severity_rank=70,
+            method=Detection.Method.RULE, subject_ip='10.0.0.7',
+            rationale='41 connections at 60s intervals.',
+        )
+
+    def test_ecs_uses_real_schema_field_names(self):
+        import json
+
+        from capture.siem import to_ecs
+        doc = to_ecs(self.detection, observer='station-1')
+
+        self.assertEqual(doc['event']['kind'], 'alert')
+        self.assertIn('intrusion_detection', doc['event']['category'])
+        self.assertEqual(doc['source']['ip'], '10.0.0.7')
+        self.assertEqual(doc['destination']['ip'], '203.0.113.9')
+        self.assertEqual(doc['destination']['port'], 443)
+        self.assertEqual(doc['network']['transport'], 'tcp')
+        self.assertEqual(doc['rule']['id'], 'C2_BEACON_PERIODIC')
+        self.assertEqual(doc['observer']['hostname'], 'station-1')
+        json.dumps(doc)  # must be serialisable as-is
+
+    def test_ecs_says_whether_a_rule_or_the_model_produced_it(self):
+        """A SOC tuning alert fatigue has to be able to separate the two."""
+        from capture.siem import to_ecs
+        self.assertEqual(to_ecs(self.detection)['event']['action'], 'rule')
+
+    def test_the_cef_header_has_exactly_seven_fields(self):
+        """
+        CEF's header is fixed-arity. One pipe too many or too few shifts every
+        later field, and the consumer reads a severity as a signature id
+        without complaining.
+        """
+        from capture.siem import to_cef
+        record = to_cef(self.detection)
+        header, _, _extensions = record.partition('|rt=')
+        self.assertTrue(record.startswith('CEF:0|'))
+        # CEF:0 + vendor, product, version, signature, name, severity
+        self.assertEqual(len(header.split('|')), 7, record)
+
+    def test_cef_escapes_a_pipe_in_a_header_field(self):
+        self.detection.title = 'a|b pipe in the name'
+        self.detection.save(update_fields=['title'])
+        from capture.siem import to_cef
+        self.assertIn(r'a\|b', to_cef(self.detection))
+
+    def test_cef_escapes_an_equals_sign_in_an_extension(self):
+        self.detection.rationale = 'ratio=4 to 1'
+        self.detection.save(update_fields=['rationale'])
+        from capture.siem import to_cef
+        self.assertIn(r'ratio\=4', to_cef(self.detection))
+
+    def test_syslog_priority_is_facility_times_eight_plus_severity(self):
+        from capture.siem import SYSLOG_FACILITY, SYSLOG_SEVERITY, to_syslog
+        expected = SYSLOG_FACILITY * 8 + SYSLOG_SEVERITY['high']
+        self.assertTrue(to_syslog(self.detection).startswith(f'<{expected}>1 '))
+
+    def test_the_export_carries_no_case_details(self):
+        """
+        The exhibit number goes, so an analyst can ask for the record. The FIR
+        number, the case reference and the seizure details do not.
+        """
+        from evidence.models import EvidenceRecord
+        from evidence.service import ingest_evidence
+        import tempfile
+        from pathlib import Path
+
+        tmp = tempfile.mkdtemp()
+        source = Path(tmp) / 'siem-sample.pcap'
+        # A real Ethernet frame: wrpcap needs a link layer to write a header.
+        from scapy.all import Ether, IP, UDP
+        wrpcap(str(source), [Ether() / IP(src='10.0.0.7', dst='203.0.113.9') / UDP()])
+        with override_settings(EVIDENCE_ROOT=Path(tmp) / 'pcaps'):
+            record = ingest_evidence(
+                source,
+                exhibit_number='EX-SIEM-1',
+                case_reference='CR/2026/CONFIDENTIAL',
+                fir_number='0456/2026',
+                seized_from='A name that must not leave the case file',
+                provenance=EvidenceRecord.Provenance.SEIZED,
+            )
+        self.session.evidence = record
+        self.session.save(update_fields=['evidence'])
+
+        from capture.siem import export
+        blob = ''.join(export(
+            Detection.objects.filter(session=self.session), 'ecs',
+        ))
+        self.assertIn('EX-SIEM-1', blob)
+        for secret in ('CR/2026/CONFIDENTIAL', '0456/2026',
+                       'A name that must not leave the case file'):
+            self.assertNotIn(secret, blob)
+
+    def test_an_unknown_format_is_refused(self):
+        from capture.siem import export
+        with self.assertRaises(ValueError):
+            list(export(Detection.objects.all(), 'not-a-format'))
+
+    def test_every_format_renders_one_line_per_finding(self):
+        from capture.siem import FORMATS, export
+        findings = Detection.objects.filter(session=self.session)
+        for fmt in FORMATS:
+            with self.subTest(fmt=fmt):
+                lines = list(export(findings, fmt))
+                self.assertEqual(len(lines), findings.count())
+                for line in lines:
+                    self.assertTrue(line.endswith('\n'))
+                    self.assertNotIn('\n', line[:-1], 'a record must be one line')
+
+
+class AttackMappingTests(TestCase):
+    """
+    MITRE ATT&CK classification.
+
+    A wrong technique id is worse than none: it is checkable in ten seconds and
+    getting it wrong discredits the findings that are right. These tests hold
+    the mapping to the two things that make it safe — nothing unverified gets
+    an id, and the context-dependent choices are made from evidence the rule
+    actually recorded.
+    """
+
+    def setUp(self):
+        from capture.models import CaptureSession
+        self.session = CaptureSession.objects.create(
+            name='attack-test', source_type=CaptureSession.Source.PCAP,
+        )
+
+    def _detection(self, rule_id, **kwargs):
+        return Detection.objects.create(
+            session=self.session, rule_id=rule_id, title=rule_id,
+            category=kwargs.pop('category', 'test'),
+            severity=Detection.Severity.HIGH, severity_rank=70,
+            method=Detection.Method.RULE, **kwargs,
+        )
+
+    def test_the_two_unmappable_rules_get_no_identifier(self):
+        """
+        HOST_CORROBORATED is a correlation over other findings and
+        ANOMALY_STATISTICAL is an isolation score. Neither is a claim about
+        adversary behaviour, and forcing an id would be inventing one.
+        """
+        from capture.attack_mapping import UNMAPPED, classify, describe
+        for rule_id in UNMAPPED:
+            with self.subTest(rule=rule_id):
+                detection = self._detection(rule_id)
+                self.assertEqual(classify(detection), [])
+                self.assertIn('Not classified', describe(detection))
+
+    def test_an_unknown_rule_gets_nothing_rather_than_a_guess(self):
+        from capture.attack_mapping import classify
+        self.assertEqual(classify(self._detection('SOME_FUTURE_RULE')), [])
+
+    def test_a_port_scan_is_classified_by_where_it_came_from(self):
+        """
+        Genuinely bimodal, and the rule already records which case it is. A
+        scan from outside is reconnaissance; a scan from inside is an intruder
+        mapping a network they are already on. Reporting one as the other
+        misleads an analyst.
+        """
+        from capture.attack_mapping import classify
+
+        outside = self._detection(
+            'RECON_PORT_SCAN', evidence={'source_is_internal': False})
+        self.assertEqual([t['id'] for t in classify(outside)], ['T1595.001'])
+
+        inside = self._detection(
+            'RECON_PORT_SCAN', evidence={'source_is_internal': True})
+        self.assertEqual([t['id'] for t in classify(inside)], ['T1046'])
+
+        unknown = self._detection('RECON_PORT_SCAN', evidence={})
+        self.assertEqual(
+            sorted(t['id'] for t in classify(unknown)), ['T1046', 'T1595.001'])
+
+    def test_exfiltration_over_a_known_c2_channel_is_t1041(self):
+        from capture.attack_mapping import classify
+        detection = self._detection(
+            'EXFIL_VOLUME_ASYMMETRY', subject_ip='10.0.0.5', evidence={})
+        self.assertEqual(
+            [t['id'] for t in classify(detection, {'10.0.0.5'})], ['T1041'])
+        self.assertEqual([t['id'] for t in classify(detection)], ['T1048'])
+
+    def test_the_exfiltration_sub_technique_is_only_claimed_when_known(self):
+        """
+        T1048 has three sub-techniques distinguished by the encryption state.
+        Only the unencrypted one is claimable from what this tool measures;
+        choosing between symmetric and asymmetric would require the cipher.
+        """
+        from capture.attack_mapping import classify
+        plain = self._detection(
+            'EXFIL_VOLUME_ASYMMETRY', evidence={'is_tls': False})
+        self.assertEqual([t['id'] for t in classify(plain)], ['T1048.003'])
+
+        tls = self._detection(
+            'EXFIL_VOLUME_ASYMMETRY', evidence={'is_tls': True})
+        self.assertEqual([t['id'] for t in classify(tls)], ['T1048'])
+
+    def test_icmp_tunnelling_maps_to_both_techniques(self):
+        """They are not alternatives, and ATT&CK does not treat them as such."""
+        from capture.attack_mapping import classify
+        ids = [t['id'] for t in classify(self._detection('ICMP_TUNNEL_OVERSIZED'))]
+        self.assertEqual(sorted(ids), ['T1095', 'T1572'])
+
+    def test_every_technique_carries_a_checkable_reference(self):
+        from capture.attack_mapping import classify
+        for rule_id in ('C2_BEACON_PERIODIC', 'DNS_TUNNEL_LONG_LABEL',
+                        'COVERT_CHANNEL_UNKNOWN_PORT', 'ICMP_TUNNEL_OVERSIZED'):
+            with self.subTest(rule=rule_id):
+                for technique in classify(self._detection(rule_id)):
+                    self.assertTrue(technique['url'].startswith(
+                        'https://attack.mitre.org/techniques/'))
+                    self.assertTrue(technique['tactic_id'].startswith('TA'))
+                    self.assertTrue(technique['name'])
+
+    def test_every_rule_the_engine_emits_has_a_decision_recorded(self):
+        """
+        Either a technique or a stated reason for having none. A rule added
+        later that quietly falls through to [] with no entry in UNMAPPED is the
+        failure this catches.
+        """
+        from capture.attack_mapping import UNMAPPED, classify
+        from capture.detection import RULE_IDS
+        for rule_id in RULE_IDS:
+            with self.subTest(rule=rule_id):
+                mapped = classify(self._detection(rule_id))
+                self.assertTrue(
+                    mapped or rule_id in UNMAPPED,
+                    f'{rule_id} maps to no technique and is not listed in '
+                    f'UNMAPPED — decide which it is, do not let it fall through',
+                )

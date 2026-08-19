@@ -62,10 +62,10 @@ function CaptureWindow() {
         backgroundColor: 'rgba(255,255,255,0.03)',
         border: '1px solid rgba(255,255,255,0.06)',
       }}>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', letterSpacing: 0.8 }}>
           CAPTURE WINDOW
         </Typography>
-        <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)' }}>
+        <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)' }}>
           No capture loaded
         </Typography>
       </Box>
@@ -97,24 +97,24 @@ function CaptureWindow() {
       border: '1px solid rgba(255,255,255,0.06)',
     }}>
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', letterSpacing: 0.8 }}>
           CAPTURE START
         </Typography>
         <Typography sx={{
-          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#E5E7EB',
+          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#E8ECF4',
         }}>
           {`${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`}
         </Typography>
         <Typography sx={{
-          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#E5E7EB', mb: 1,
+          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#E8ECF4', mb: 1,
         }}>
           {`${pad(start.getHours())}:${pad(start.getMinutes())}:${pad(start.getSeconds())}`}
         </Typography>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(229,231,235,0.55)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', letterSpacing: 0.8 }}>
           SPAN COVERED
         </Typography>
         <Typography sx={{
-          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#00E68A',
+          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#3FD873',
         }}>
           {span}
         </Typography>
@@ -122,7 +122,7 @@ function CaptureWindow() {
       <Box sx={{
         width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '1.5px solid rgba(0,212,255,0.3)', color: '#00D4FF',
+        border: '1.5px solid rgba(255,153,51,0.35)', color: '#FF9933',
       }}>
         <AccessTimeIcon sx={{ fontSize: 19 }} />
       </Box>
@@ -148,7 +148,7 @@ function Sidebar() {
         height: '100vh',
         position: 'sticky',
         top: 0,
-        backgroundColor: '#0B0F1A',
+        backgroundColor: '#0B1020',
         borderRight: '1px solid rgba(255,255,255,0.05)',
         display: 'flex',
         flexDirection: 'column',
@@ -175,8 +175,8 @@ function Sidebar() {
                 borderRadius: 1.5,
                 cursor: 'pointer',
                 position: 'relative',
-                color: isActive ? '#00D4FF' : 'rgba(229,231,235,0.65)',
-                backgroundColor: isActive ? 'rgba(0,212,255,0.07)' : 'transparent',
+                color: isActive ? '#FF9933' : 'rgba(232,236,244,0.65)',
+                backgroundColor: isActive ? 'rgba(255,153,51,0.09)' : 'transparent',
                 transition: 'all 0.22s cubic-bezier(0.4,0,0.2,1)',
                 animation: `slideIn 0.4s ease ${i * 0.05}s both`,
                 '@keyframes slideIn': {
@@ -185,7 +185,7 @@ function Sidebar() {
                 },
                 '&:hover': {
                   backgroundColor: 'rgba(255,255,255,0.04)',
-                  color: '#E5E7EB',
+                  color: '#E8ECF4',
                   transform: 'translateX(3px)',
                 },
                 '&::before': isActive
@@ -198,7 +198,7 @@ function Sidebar() {
                       width: 3,
                       height: 20,
                       borderRadius: 4,
-                      backgroundColor: '#00D4FF',
+                      backgroundColor: '#FF9933',
                       boxShadow: '0 0 10px #00D4FF',
                     }
                   : {},

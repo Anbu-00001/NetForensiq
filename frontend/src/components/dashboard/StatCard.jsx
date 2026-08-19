@@ -31,7 +31,7 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.2 }}>
-        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'rgba(229,231,235,0.85)' }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'rgba(232,236,244,0.85)' }}>
           {title}
         </Typography>
         <Box
@@ -69,7 +69,7 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
       </Box>
       )}
 
-      <Row color="rgba(229,231,235,0.3)" value={primary} />
+      <Row color="rgba(232,236,244,0.3)" value={primary} />
       <Row color={color} value={secondary} />
     </Box>
   );
@@ -83,7 +83,7 @@ function Row({ color, value }) {
         sx={{
           fontSize: 12,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.75)',
+          color: 'rgba(232,236,244,0.75)',
         }}
       >
         {value}

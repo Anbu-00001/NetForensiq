@@ -50,15 +50,15 @@ function ApprovalsPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', backgroundColor: '#080B14', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', backgroundColor: '#0B1020', minHeight: '100vh' }}>
       <Sidebar />
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
         <TopBar />
         <Box sx={{ p: 2.5 }}>
-          <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#E5E7EB' }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#E8ECF4' }}>
             Account approvals
           </Typography>
-          <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mb: 2.5 }}>
+          <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mb: 2.5 }}>
             An account holds no access until it is approved here. Every decision is
             attributed to the officer who made it and written to the audit log.
           </Typography>
@@ -74,7 +74,7 @@ function ApprovalsPage() {
 
               {queue === null ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-                  <CircularProgress sx={{ color: '#00D4FF' }} />
+                  <CircularProgress sx={{ color: '#FF9933' }} />
                 </Box>
               ) : queue.pending.length === 0 ? (
                 <Alert severity="success">
@@ -91,28 +91,28 @@ function ApprovalsPage() {
                     display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
                   }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 14, color: '#E5E7EB' }}>
+                      <Typography sx={{ fontSize: 14, color: '#E8ECF4' }}>
                         {account.username}
                       </Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
+                      <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)' }}>
                         {account.department || '—'} · badge {account.badge_id || '—'}
                       </Typography>
                     </Box>
                     <Chip label={`requested: ${account.role}`} size="small" sx={{
-                      backgroundColor: 'rgba(0,212,255,0.14)', color: '#00D4FF', fontSize: 11,
+                      backgroundColor: 'rgba(91,141,239,0.16)', color: '#5B8DEF', fontSize: 11,
                     }} />
                     <Box sx={{ flexGrow: 1 }} />
                     <Button
                       size="small" variant="outlined" disabled={busy === account.username}
                       onClick={() => decide(account.username, 'approve')}
-                      sx={{ fontSize: 11.5, borderColor: 'rgba(0,230,138,0.5)', color: '#00E68A' }}
+                      sx={{ fontSize: 11.5, borderColor: 'rgba(63,216,115,0.5)', color: '#3FD873' }}
                     >
                       Approve
                     </Button>
                     <Button
                       size="small" variant="outlined" disabled={busy === account.username}
                       onClick={() => decide(account.username, 'reject')}
-                      sx={{ fontSize: 11.5, borderColor: 'rgba(255,59,92,0.5)', color: '#FF3B5C' }}
+                      sx={{ fontSize: 11.5, borderColor: 'rgba(255,107,107,0.5)', color: '#FF6B6B' }}
                     >
                       Reject
                     </Button>

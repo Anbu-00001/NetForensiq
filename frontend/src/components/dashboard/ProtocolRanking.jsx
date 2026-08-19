@@ -26,20 +26,20 @@ function ProtocolRanking({ applications = [] }) {
       </Typography>
 
       {!applications.length ? (
-        <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
+        <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)' }}>
           No application protocols identified in this capture.
         </Typography>
       ) : (
         applications.map((row) => (
           <Box key={row.app_protocol} sx={{ mb: 1.2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
-              <Typography sx={{ fontSize: 12.5, color: '#E5E7EB' }}>
+              <Typography sx={{ fontSize: 12.5, color: '#E8ECF4' }}>
                 {row.app_protocol}
               </Typography>
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)' }}>
+              <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)' }}>
                 {row.count.toLocaleString()}
                 {row.inferred_from_port > 0 && (
-                  <Box component="span" sx={{ fontSize: 11, color: '#FFB020', ml: 0.8 }}>
+                  <Box component="span" sx={{ fontSize: 11, color: '#E8C24A', ml: 0.8 }}>
                     {row.observed > 0
                       ? `${row.inferred_from_port.toLocaleString()} from port only`
                       : 'from port only'}
@@ -53,7 +53,7 @@ function ProtocolRanking({ applications = [] }) {
                   height: '100%',
                   width: `${(row.count / max) * 100}%`,
                   borderRadius: 2,
-                  backgroundColor: '#00D4FF',
+                  backgroundColor: '#5B8DEF',
                   boxShadow: '0 0 8px rgba(0,212,255,0.4)',
                 }}
               />

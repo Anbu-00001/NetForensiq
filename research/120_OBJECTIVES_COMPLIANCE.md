@@ -100,7 +100,7 @@ survives a colour-blind reader and a dim projector.
 | Export of forensic data | ✅ | Certificate PDF, sealed capture, custody chain |
 | Tamper-**evident** storage with timestamps | ✅ | SHA-256 + MD5 + SHA-1, hash-chained custody log |
 | Chain-of-custody tracking | ✅ | `evidence/service.py`, verified on every read |
-| Automated report generation | 🟡 | BSA §63 certificate is generated; no broader investigation report |
+| Automated report generation | ✅ | **Forensic examination report** — `evidence/investigation_report.py`, `/api/sessions/{id}/report/`. Cover sheet, findings by machine with reasoning and plain-language glosses, and a limits section that is never omitted |
 
 **Note on wording**: the statement says "tamper-proof". This system is
 tamper-**evident** — the hash chain reveals alteration, it does not prevent it.
@@ -117,6 +117,7 @@ filename or the content. Seven tests.
 | Sub-item | State | Where |
 |---|---|---|
 | Integration with CCB databases | ❌ | No such integration; none is publicly documented to build against |
+| **SIEM integration** (bonus) | ✅ | `capture/siem.py`, `/api/sessions/{id}/siem/?fmt=` — ECS, CEF and RFC 5424, streamed |
 | Linking network evidence with reported cases | 🟡 | FIR number + police station recorded on the exhibit and printed on the certificate |
 | Support for digital forensic workflows | ✅ | Seize → seal → analyse → triage → certify |
 | API-based integration | ✅ | Full DRF API, JWT, documented |
@@ -157,3 +158,28 @@ number is carried end to end.
 5. **External IOC feed** (obj. 3) — abuse.ch SSLBL is offline-downloadable and
    fits the air-gapped model.
 6. **Live dashboard streaming** (obj. 9).
+
+
+---
+
+## Bonus points
+
+| Bonus item | State | Where |
+|---|---|---|
+| Real-time alerting for active threats | 🟡 | Live capture writes flows as it runs and rules can be run against a running session; no push/webhook delivery yet |
+| Integration with SIEM systems | ✅ | `capture/siem.py` — **ECS**, **CEF 0** and **RFC 5424**, streamed line-by-line so a session with thousands of findings does not have to be held in memory. Nine tests, including one asserting the CEF header keeps exactly seven fields and one asserting the FIR number never leaves the case file |
+| Encrypted traffic analysis without decryption | ✅ | **JA4** TLS client fingerprinting — `capture/tls_fingerprint.py`, verified against FoxIO's published reference values. Plus SNI, timing, volume and DNS. Nothing is decrypted and nothing claims to be |
+| Automated attack classification | 🟡 | Findings carry rule, category and severity; **MITRE ATT&CK technique mapping is the missing piece** and is being researched before any identifier goes on a slide |
+| Multi-language support for reports | 🟡 | Gujarati glossary renders in the interface. The PDF path cannot yet shape Gujarati correctly — ReportLab places glyphs in codepoint order, which mangles the script. Documented in `i18n/gujarati.js`; a real fix needs a shaping engine |
+| Cloud-based scalable deployment | ✅ | `Dockerfile` + `docker-compose.yml` — multi-stage build, non-root uid 10001, healthcheck, tini as PID 1, Postgres with a real readiness probe, named volumes, port bound to loopback. **Image builds and runs; verified healthy and serving.** Coexists with the air-gapped path via `docker save`/`docker load` |
+
+## Deliverables
+
+| Deliverable | State | Where |
+|---|---|---|
+| Working prototype/demo (live or simulated) | ✅ | Both — `capture_live.py`, `capture_phone.py`, `import_pcap`, browser upload, and two real malware captures |
+| Packet analysis and visualization dashboard | ✅ | Dashboard, findings queue, evidence register, and the network diagram |
+| Threat detection demonstration | ✅ | Ten rules on real AsyncRAT/XWorm traffic; the synthetic storyline exercises every rule including host corroboration |
+| Forensic report generation sample | ✅ | `/api/sessions/{id}/report/` — rendered and read end to end |
+| Documentation (architecture, workflows, detection methods) | ✅ | `README.md`, `PROGRESS.md`, and 20+ research documents including SPEC_01/02/03 |
+| Deployment setup (containerised/cloud-ready) | ✅ | Docker image built and smoke-tested; compose file with Postgres |

@@ -664,3 +664,232 @@ class PublicVerifyTests(TestCase):
         after = AuditLog.objects.filter(action=AuditLog.Action.VERIFY_EVIDENCE).count()
         self.assertEqual(after, before + 1,
                          'who checked an exhibit, and when, is part of the record')
+
+
+class InvestigationReportTests(TestCase):
+    """
+    The forensic report — the document that goes in the case file.
+
+    Its value is entirely in what it refuses to leave out: the reasoning behind
+    each finding, the fact that most thresholds are our own, and what the
+    examination does not establish. A report that lists only hits reads as a
+    conclusion, and these tests exist to stop it drifting into one.
+    """
+
+    def setUp(self):
+        from capture.models import CaptureSession, Detection, Flow
+        from django.utils import timezone
+
+        self.tmp = tempfile.mkdtemp()
+        self.session = CaptureSession.objects.create(
+            name='report-test', source_type=CaptureSession.Source.PCAP,
+            packet_count=1000, byte_count=500000,
+            capture_start=timezone.now(), capture_end=timezone.now(),
+        )
+        self.flow = Flow.objects.create(
+            session=self.session, src_ip='10.0.0.9', dst_ip='198.51.100.4',
+            initiator_ip='10.0.0.9', src_port=44000, dst_port=443,
+            protocol='TCP', first_seen=timezone.now(), last_seen=timezone.now(),
+            app_protocol='HTTPS', app_protocol_source='observed',
+        )
+        Detection.objects.create(
+            session=self.session, flow=self.flow,
+            rule_id='C2_BEACON_PERIODIC',
+            title='10.0.0.9 contacted 198.51.100.4 every ~60s',
+            category='c2', severity=Detection.Severity.HIGH, severity_rank=70,
+            method=Detection.Method.RULE, subject_ip='10.0.0.9',
+            rationale='41 connections at 60s intervals; RITA threshold is 23.',
+        )
+        Detection.objects.create(
+            session=self.session, flow=self.flow,
+            rule_id='ANOMALY_STATISTICAL',
+            title='10.0.0.9 → 198.51.100.4: volume sent unusually high',
+            category='anomaly', severity=Detection.Severity.MEDIUM,
+            severity_rank=40, method=Detection.Method.MODEL,
+            subject_ip='10.0.0.9',
+            rationale='Isolated as unusual against the other flows.',
+        )
+
+    def _render(self):
+        from evidence.investigation_report import render_investigation_report
+        with override_settings(CERTIFICATE_ROOT=Path(self.tmp)):
+            return render_investigation_report(self.session)
+
+    def _text(self):
+        import subprocess
+        path = self._render()
+        result = subprocess.run(
+            ['pdftotext', '-layout', str(path), '-'],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            self.skipTest('pdftotext unavailable')
+        return result.stdout
+
+    def test_it_renders(self):
+        path = self._render()
+        self.assertTrue(Path(path).exists())
+        self.assertGreater(Path(path).stat().st_size, 2000)
+
+    def test_every_finding_carries_its_reasoning(self):
+        text = self._text()
+        self.assertIn('C2_BEACON_PERIODIC', text)
+        self.assertIn('RITA threshold is 23', text)
+
+    def test_technical_terms_are_glossed_in_plain_language(self):
+        """An officer reading this may never have heard the word 'beacon'."""
+        text = self._text()
+        self.assertIn('regular rhythm', text)
+
+    def test_the_limits_section_is_never_omitted(self):
+        """
+        The part a competent defence reaches for first. A report that lists
+        only what was found reads as a conclusion.
+        """
+        text = self._text()
+        self.assertIn('LIMITS OF THIS EXAMINATION', text)
+        self.assertIn('behaviour', text)
+        self.assertIn('not identity', text)
+        self.assertIn('tamper-evident', text)
+        self.assertIn('heuristics', text)
+
+    def test_a_statistical_finding_is_marked_as_proving_nothing(self):
+        text = self._text()
+        self.assertIn('ANOMALY_STATISTICAL', text)
+        self.assertIn('nothing is proven by them', text)
+
+    def test_a_demonstration_capture_says_so_on_the_first_page(self):
+        """
+        A demonstration report that reads like a real one is the most damaging
+        artefact this system could produce.
+        """
+        with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
+            record = ingest_evidence(
+                make_capture_file(), exhibit_number='EX-REP-DEMO',
+                provenance=EvidenceRecord.Provenance.SYNTHETIC,
+            )
+        self.session.evidence = record
+        self.session.save(update_fields=['evidence'])
+
+        text = self._text()
+        self.assertIn('DEMONSTRATION DATA', text)
+        self.assertIn('NOT EVIDENCE', text)
+
+
+class FslForwardingTests(TestCase):
+    """
+    The forwarding letter sent with an exhibit to a Forensic Science Laboratory.
+
+    Its value is that nothing on it is retyped. Transcribing a SHA-256 by hand
+    produces exactly one kind of error and produces it silently, so these tests
+    hold the letter to being generated from the record.
+    """
+
+    def setUp(self):
+        from accounts.models import User
+        from capture.models import CaptureSession, Detection
+
+        self.tmp = tempfile.mkdtemp()
+        self.officer = User.objects.create_user(
+            username='fsl-officer', password='a-long-enough-password',
+            badge_id='B-311', department='Cyber Crime Branch',
+            role=User.Role.INVESTIGATOR, is_approved=True,
+        )
+        with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
+            self.record = ingest_evidence(
+                make_capture_file(),
+                exhibit_number='EX-FSL-1',
+                fir_number='0123/2026',
+                police_station='Cyber Crime Branch, Ahmedabad',
+                seized_from='Complainant device',
+                collected_by=self.officer,
+                provenance=EvidenceRecord.Provenance.SEIZED,
+            )
+        self.session = CaptureSession.objects.create(
+            name='fsl-session', source_type=CaptureSession.Source.PCAP,
+            evidence=self.record,
+        )
+        Detection.objects.create(
+            session=self.session, rule_id='C2_BEACON_PERIODIC',
+            title='beaconing', category='c2',
+            severity=Detection.Severity.HIGH, severity_rank=70,
+            method=Detection.Method.RULE, subject_ip='10.0.0.5',
+        )
+
+    def _package(self, **kwargs):
+        from evidence.fsl_forwarding import build_package
+        return build_package(self.record, officer=self.officer, **kwargs)
+
+    def _text(self, **kwargs):
+        import subprocess
+        from evidence.fsl_forwarding import render_forwarding_letter
+        with override_settings(CERTIFICATE_ROOT=Path(self.tmp)):
+            path = render_forwarding_letter(
+                self.record, officer=self.officer, **kwargs)
+        result = subprocess.run(
+            ['pdftotext', str(path), '-'], capture_output=True, text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            self.skipTest('pdftotext unavailable')
+        return result.stdout
+
+    def test_the_case_and_seal_come_from_the_record(self):
+        """Nothing on the letter is retyped — that is the entire point."""
+        package = self._package()
+        self.assertEqual(package['case']['fir_number'], '0123/2026')
+        self.assertEqual(package['exhibit']['sha256'], self.record.sha256_hash)
+        self.assertEqual(package['exhibit']['md5'], self.record.md5_hash)
+        self.assertEqual(
+            package['exhibit']['exhibit_number'], self.record.exhibit_number)
+
+    def test_preliminary_findings_are_counted_from_the_session(self):
+        """
+        The reverse accessor from an exhibit to its captures is `sessions`, and
+        asking for `session` returned None without complaining — so the letter
+        reported zero findings for an exhibit that had thirty-five.
+        """
+        package = self._package()
+        self.assertEqual(package['preliminary_findings']['total'], 1)
+        self.assertEqual(
+            package['preliminary_findings']['by_severity'], {'high': 1})
+
+    def test_the_hash_appears_on_the_letter_exactly(self):
+        text = self._text()
+        self.assertIn(self.record.sha256_hash, text.replace('\n', ''))
+
+    def test_the_receiving_officer_is_asked_to_verify_before_unsealing(self):
+        text = self._text()
+        self.assertIn('verify them before unsealing', text)
+
+    def test_examinations_can_be_narrowed(self):
+        package = self._package(requested=['integrity'])
+        self.assertEqual(len(package['examinations_requested']), 1)
+        self.assertEqual(package['examinations_requested'][0][0], 'integrity')
+
+    def test_no_examination_is_offered_that_a_capture_cannot_support(self):
+        """
+        A letter requesting analysis the exhibit cannot support wastes a
+        laboratory's time and returns a report saying so, weeks later.
+        """
+        from evidence.fsl_forwarding import EXAMINATIONS
+        offered = ' '.join(text for _key, text in EXAMINATIONS).lower()
+        for impossible in ('device', 'handset', 'imei', 'fingerprint', 'dna'):
+            self.assertNotIn(impossible, offered)
+
+    def test_preliminary_findings_are_not_offered_as_a_substitute(self):
+        text = self._text()
+        self.assertIn('not a substitute for examination', text)
+
+    def test_a_demonstration_exhibit_is_marked_do_not_forward(self):
+        """An FSL must never be asked to examine demonstration data."""
+        self.record.provenance = EvidenceRecord.Provenance.SYNTHETIC
+        self.record.save(update_fields=['provenance'])
+        text = self._text()
+        self.assertIn('DEMONSTRATION DATA', text)
+        self.assertIn('DO NOT FORWARD', text)
+
+    def test_the_forwarding_officer_is_named_with_their_badge(self):
+        text = self._text()
+        self.assertIn('fsl-officer', text)
+        self.assertIn('B-311', text)

@@ -29,6 +29,12 @@ scikit-learn==1.7.2
 # --- evidence certificate rendering ---
 reportlab==4.4.4
 
+# --- serving ---
+# WSGI server for the container image. The air-gapped single-workstation path
+# uses `manage.py runserver`, which is adequate for one analyst on loopback;
+# anything with more than one user in front of it needs a real worker model.
+gunicorn==23.0.0
+
 # --- testing ---
 pytest==8.4.2
 pytest-django==4.11.1

@@ -21,17 +21,17 @@ function SeverityBreakdown({ data = [] }) {
       <Typography sx={{ fontSize: 13.5, fontWeight: 600, mb: 0.5 }}>
         Findings by severity{' '}
         <Box component="span" lang="gu" sx={{
-          fontWeight: 400, color: 'rgba(229,231,235,0.72)',
+          fontWeight: 400, color: 'rgba(232,236,244,0.72)',
         }}>
           ({GUJARATI.severity})
         </Box>
       </Typography>
-      <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)', mb: 2 }}>
+      <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)', mb: 2 }}>
         Every finding records the rule, the observed value and the threshold it was compared against
       </Typography>
 
       {total === 0 ? (
-        <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)' }}>
+        <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)' }}>
           No detections yet — run detection on this capture.
         </Typography>
       ) : (
@@ -52,7 +52,7 @@ function SeverityBreakdown({ data = [] }) {
               </Typography>
               <Typography sx={{
                 fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.6,
-                color: 'rgba(229,231,235,0.6)',
+                color: 'rgba(232,236,244,0.6)',
               }}>
                 {sev}
               </Typography>

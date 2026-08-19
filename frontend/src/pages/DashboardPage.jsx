@@ -111,7 +111,7 @@ function DashboardPage() {
   const severities = summary?.detections_by_severity ?? [];
 
   return (
-    <Box sx={{ display: 'flex', backgroundColor: '#080B14', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', backgroundColor: '#0B1020', minHeight: '100vh' }}>
       <Sidebar />
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
         <TopBar />
@@ -119,7 +119,7 @@ function DashboardPage() {
         <Box sx={{ p: 2.5 }}>
           {/* Session selector — the dashboard always describes one capture */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.6)' }}>
+            <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.6)' }}>
               Capture session
             </Typography>
             <Select
@@ -128,10 +128,10 @@ function DashboardPage() {
               onChange={(e) => setSessionId(e.target.value)}
               sx={{
                 minWidth: { xs: 0, sm: 280 }, maxWidth: '100%',
-                color: '#E5E7EB', fontSize: 13,
+                color: '#E8ECF4', fontSize: 13,
                 backgroundColor: 'rgba(255,255,255,0.04)',
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-                '& .MuiSvgIcon-root': { color: 'rgba(229,231,235,0.55)' },
+                '& .MuiSvgIcon-root': { color: 'rgba(232,236,244,0.55)' },
               }}
             >
               {sessions.map((s) => (
@@ -145,19 +145,19 @@ function DashboardPage() {
                 size="small" variant="outlined" onClick={runAnalysis}
                 disabled={!sessionId || analysing}
                 sx={{
-                  borderColor: 'rgba(0,212,255,0.4)', color: '#00D4FF', fontSize: 12,
-                  '&:hover': { borderColor: '#00D4FF', backgroundColor: 'rgba(0,212,255,0.08)' },
+                  borderColor: 'rgba(255,153,51,0.45)', color: '#FF9933', fontSize: 12,
+                  '&:hover': { borderColor: '#FF9933', backgroundColor: 'rgba(255,153,51,0.10)' },
                 }}
               >
                 {analysing ? 'Analysing…' : 'Run detection'}
               </Button>
             ) : (
-              <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
+              <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)' }}>
                 Read-only access — detection is run by an investigating officer
               </Typography>
             )}
             {summary?.session?.capture_start && (
-              <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
+              <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)' }}>
                 traffic captured {new Date(summary.session.capture_start).toLocaleString()}
                 {' · span '}
                 {/* A missing span is not a span of zero — the same distinction
@@ -173,14 +173,14 @@ function DashboardPage() {
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-              <CircularProgress sx={{ color: '#00D4FF' }} />
+              <CircularProgress sx={{ color: '#FF9933' }} />
             </Box>
           ) : !sessions.length ? (
             <Box sx={{ ...PANEL, textAlign: 'center', py: 6 }}>
-              <Typography sx={{ color: 'rgba(229,231,235,0.7)', mb: 1 }}>
+              <Typography sx={{ color: 'rgba(232,236,244,0.7)', mb: 1 }}>
                 No capture sessions yet.
               </Typography>
-              <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.55)' }}>
+              <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.55)' }}>
                 Import one:&nbsp;
                 <code>python manage.py import_pcap &lt;file.pcap&gt;</code>
               </Typography>
@@ -193,20 +193,20 @@ function DashboardPage() {
                     forensic tool and it cannot block anything. */}
                 <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
                   <StatCard title="Packets" primary={formatCount(totals?.packets)}
-                    secondary={formatBytes(totals?.bytes)} color="#00D4FF" />
+                    secondary={formatBytes(totals?.bytes)} color="#5B8DEF" />
                   <StatCard title="Flows" primary={formatCount(totals?.flows)}
-                    secondary="conversations" color="#00E68A" />
+                    secondary="conversations" color="#3FD873" />
                   <StatCard title="DNS queries" primary={formatCount(totals?.dns_queries)}
-                    secondary="names queried" color="#A855F7" />
+                    secondary="names queried" color="#B08CE8" />
                   {/* No `?? 0` on the pending count: formatCount already
                       returns an em dash for a missing value, and coercing it to
                       zero would print "0 awaiting triage" — a measured claim —
                       when the figure simply did not arrive. */}
                   <StatCard title="Findings" primary={formatCount(totals?.detections)}
                     secondary={`${formatCount(totals?.detections_pending)} awaiting triage`}
-                    color="#FFB020" />
+                    color="#E8C24A" />
                   <StatCard title="Flagged flows" primary={formatCount(totals?.flagged_flows)}
-                    secondary="risk score > 0" color="#FF3B5C" />
+                    secondary="risk score > 0" color="#FF6B6B" />
                 </Box>
 
                 {/* The diagram sits above the counters deliberately. An
@@ -225,10 +225,10 @@ function DashboardPage() {
                 </Box>
 
                 <Box sx={{ ...PANEL, mb: 2.5 }}>
-                  <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.6)', mb: 0.5 }}>
+                  <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.6)', mb: 0.5 }}>
                     Activity across the capture window
                   </Typography>
-                  <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)', mb: 1.5 }}>
+                  <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)', mb: 1.5 }}>
                     Bucketed from packet timestamps, not from processing time
                     {/* A week-long capture drawn in 30 points is one point per
                         5.6 hours, which can hide a burst completely. Saying
@@ -245,7 +245,7 @@ function DashboardPage() {
                   <ResponsiveContainer width="100%" height={240}>
                     <AreaChart data={timeline} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
                       <defs>
-                        {[['gF', '#00D4FF'], ['gR', '#FF3B5C']].map(([id, c]) => (
+                        {[['gF', '#5B8DEF'], ['gR', '#FF6B6B']].map(([id, c]) => (
                           <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor={c} stopOpacity={0.28} />
                             <stop offset="100%" stopColor={c} stopOpacity={0} />
@@ -253,18 +253,18 @@ function DashboardPage() {
                         ))}
                       </defs>
                       <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-                      <XAxis dataKey="t" tick={{ fill: 'rgba(229,231,235,0.35)', fontSize: 10.5 }}
+                      <XAxis dataKey="t" tick={{ fill: 'rgba(232,236,244,0.35)', fontSize: 10.5 }}
                         axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: 'rgba(229,231,235,0.35)', fontSize: 10.5 }}
+                      <YAxis tick={{ fill: 'rgba(232,236,244,0.35)', fontSize: 10.5 }}
                         axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{
-                        backgroundColor: 'rgba(11,15,26,0.95)',
-                        border: '1px solid rgba(0,212,255,0.25)',
+                        backgroundColor: 'rgba(11,16,32,0.95)',
+                        border: '1px solid rgba(167,176,196,0.22)',
                         borderRadius: 8, fontSize: 12,
                       }} />
-                      <Area type="monotone" dataKey="flows" name="flows" stroke="#00D4FF"
+                      <Area type="monotone" dataKey="flows" name="flows" stroke="#5B8DEF"
                         strokeWidth={2} fill="url(#gF)" />
-                      <Area type="monotone" dataKey="flagged" name="flagged" stroke="#FF3B5C"
+                      <Area type="monotone" dataKey="flagged" name="flagged" stroke="#FF6B6B"
                         strokeWidth={2} fill="url(#gR)" />
                     </AreaChart>
                   </ResponsiveContainer>

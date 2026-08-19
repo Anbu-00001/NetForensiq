@@ -19,6 +19,21 @@ class DetectionSerializer(serializers.ModelSerializer):
         source='session.evidence.is_demonstration_only', read_only=True, default=False,
     )
     method_label = serializers.CharField(source='get_method_display', read_only=True)
+    # The MITRE ATT&CK classification, or a sentence saying why there is none.
+    #
+    # A shared vocabulary matters more than it looks: a technique id can be
+    # looked up, compared against another tool's output, and discussed with
+    # someone who has never used this platform. Two of the ten rules carry no
+    # identifier, and the field says so rather than going blank — a blank reads
+    # as an oversight, and someone would eventually "fix" it by guessing.
+    mitre_attack = serializers.SerializerMethodField()
+
+    def get_mitre_attack(self, detection):
+        from .attack_mapping import classify, describe
+        return {
+            'techniques': classify(detection),
+            'summary': describe(detection),
+        }
     reviewed_by_username = serializers.CharField(
         source='reviewed_by.username', read_only=True, default=None,
     )
@@ -35,6 +50,8 @@ class DetectionSerializer(serializers.ModelSerializer):
             'triage_status', 'reviewed_by', 'reviewed_by_username',
             'reviewed_at', 'review_note',
             'exhibit_number', 'exhibit_provenance', 'is_demonstration_only',
+        
+            'mitre_attack',
         ]
 
 

@@ -70,7 +70,7 @@ function LoginPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundColor: '#080B14',
+        backgroundColor: '#0B1020',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -128,9 +128,9 @@ function LoginPage() {
                   sx={{
                     width: 38, height: 38, borderRadius: 1.5,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: 'rgba(0,212,255,0.09)',
-                    border: '1px solid rgba(0,212,255,0.28)',
-                    color: '#00D4FF',
+                    backgroundColor: 'rgba(91,141,239,0.10)',
+                    border: '1px solid rgba(91,141,239,0.34)',
+                    color: '#5B8DEF',
                     animation: 'glowPulse 3s ease-in-out infinite',
                     '@keyframes glowPulse': {
                       '0%,100%': { boxShadow: '0 0 0 0 rgba(0,212,255,0.3)' },
@@ -148,7 +148,7 @@ function LoginPage() {
                     sx={{
                       fontSize: 10.5, letterSpacing: 0.8,
                       fontFamily: "'JetBrains Mono', monospace",
-                      color: 'rgba(229,231,235,0.55)',
+                      color: 'rgba(232,236,244,0.55)',
                     }}
                   >
                     SECURE ACCESS TERMINAL
@@ -158,7 +158,7 @@ function LoginPage() {
 
               <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', my: 2.5 }} />
 
-              <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.55)', mb: 2.5 }}>
+              <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.55)', mb: 2.5 }}>
                 Authenticate with your issued departmental credentials.
               </Typography>
 
@@ -167,9 +167,9 @@ function LoginPage() {
                   severity="error"
                   sx={{
                     mb: 2, fontSize: 12.5,
-                    backgroundColor: 'rgba(255,59,92,0.08)',
-                    border: '1px solid rgba(255,59,92,0.25)',
-                    color: '#FFB3C0',
+                    backgroundColor: 'rgba(255,107,107,0.08)',
+                    border: '1px solid rgba(255,107,107,0.25)',
+                    color: '#FFB0B0',
                   }}
                 >
                   {error}
@@ -202,7 +202,7 @@ function LoginPage() {
                           <IconButton
                             onClick={() => setShowPassword(!showPassword)}
                             edge="end" size="small"
-                            sx={{ color: 'rgba(229,231,235,0.55)' }}
+                            sx={{ color: 'rgba(232,236,244,0.55)' }}
                           >
                             {showPassword ? <VisibilityOff sx={{ fontSize: 17 }} />
                               : <Visibility sx={{ fontSize: 17 }} />}
@@ -220,7 +220,7 @@ function LoginPage() {
                   sx={{
                     mt: 3.2, py: 1.15, fontWeight: 700, fontSize: 13,
                     letterSpacing: 1.2, borderRadius: 1.5,
-                    backgroundColor: '#00D4FF', color: '#061018',
+                    backgroundColor: '#FF9933', color: '#0B1020',
                     boxShadow: '0 0 22px rgba(0,212,255,0.32)',
                     transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
                     '&:hover': {
@@ -234,21 +234,21 @@ function LoginPage() {
                 </Button>
               </form>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mt: 2.5, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mt: 2.5, textAlign: 'center' }}>
                 No credentials issued?{' '}
                 <RouterLink
                   to="/register"
-                  style={{ color: '#00D4FF', textDecoration: 'none', fontWeight: 600 }}
+                  style={{ color: '#FF9933', textDecoration: 'none', fontWeight: 600 }}
                 >
                   Request enrollment
                 </RouterLink>
               </Typography>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(229,231,235,0.55)', mt: 0.8, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mt: 0.8, textAlign: 'center' }}>
                 Awaiting authorization?{' '}
                 <RouterLink
                   to="/status"
-                  style={{ color: '#FFB020', textDecoration: 'none', fontWeight: 600 }}
+                  style={{ color: '#E8C24A', textDecoration: 'none', fontWeight: 600 }}
                 >
                   Track your request
                 </RouterLink>
@@ -257,15 +257,15 @@ function LoginPage() {
               <Box
                 sx={{
                   mt: 2.5, p: 1.4, borderRadius: 1.5,
-                  backgroundColor: 'rgba(255,59,92,0.045)',
-                  border: '1px solid rgba(255,59,92,0.16)',
+                  backgroundColor: 'rgba(255,107,107,0.045)',
+                  border: '1px solid rgba(255,107,107,0.16)',
                 }}
               >
                 <Typography
                   sx={{
                     fontSize: 10.5, lineHeight: 1.7, textAlign: 'center',
                     fontFamily: "'JetBrains Mono', monospace",
-                    color: 'rgba(229,231,235,0.55)',
+                    color: 'rgba(232,236,244,0.55)',
                   }}
                 >
                   SIGN-IN ATTEMPTS ARE RECORDED WITH TIMESTAMP,
@@ -289,7 +289,7 @@ export function FieldLabel({ text }) {
       sx={{
         fontSize: 10, letterSpacing: 1.4, mb: 0.7,
         fontFamily: "'JetBrains Mono', monospace",
-        color: 'rgba(229,231,235,0.55)',
+        color: 'rgba(232,236,244,0.55)',
       }}
     >
       {text}
@@ -303,20 +303,20 @@ export function ConsoleBar() {
       sx={{
         height: 34, display: 'flex', alignItems: 'center', gap: 2.5, px: 2.5,
         borderBottom: '1px solid rgba(255,255,255,0.05)',
-        backgroundColor: 'rgba(11,15,26,0.9)',
+        backgroundColor: 'rgba(11,16,32,0.9)',
         backdropFilter: 'blur(12px)',
         overflow: 'hidden', whiteSpace: 'nowrap',
       }}
     >
-      <Dot color="#00E68A" label="NETWORK FORENSICS" />
-      <Dot color="#00D4FF" label="CHAIN OF CUSTODY" />
-      <Dot color="#FFB020" label="COURT-READY OUTPUT" />
+      <Dot color="#3FD873" label="NETWORK FORENSICS" />
+      <Dot color="#5B8DEF" label="CHAIN OF CUSTODY" />
+      <Dot color="#E8C24A" label="COURT-READY OUTPUT" />
       <Box sx={{ flexGrow: 1 }} />
       <Typography
         sx={{
           fontSize: 10, letterSpacing: 0.8,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.55)',
+          color: 'rgba(232,236,244,0.55)',
           display: { xs: 'none', sm: 'block' },
         }}
       >
@@ -341,7 +341,7 @@ export function Dot({ color, label }) {
         sx={{
           fontSize: 10, letterSpacing: 0.7,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.55)',
+          color: 'rgba(232,236,244,0.55)',
         }}
       >
         {label}
@@ -378,7 +378,7 @@ export function TelemetryPanel() {
         sx={{
           fontSize: 10, letterSpacing: 1.6, mb: 1.4,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(229,231,235,0.55)',
+          color: 'rgba(232,236,244,0.55)',
         }}
       >
         CAPABILITIES
@@ -392,10 +392,10 @@ export function TelemetryPanel() {
         They now describe what the system does, not what it is doing.
       */}
       {[
-        ['Packet analysis', 'PCAP', '#00E68A'],
-        ['Detection', `${engine?.rule_count ?? '—'} RULES, SOURCED OR TAGGED`, '#00E68A'],
-        ['Evidence', 'SHA-256 SEALED', '#00D4FF'],
-        ['Certificate', 'BSA s.63', '#FFB020'],
+        ['Packet analysis', 'PCAP', '#3FD873'],
+        ['Detection', `${engine?.rule_count ?? '—'} RULES, SOURCED OR TAGGED`, '#3FD873'],
+        ['Evidence', 'SHA-256 SEALED', '#5B8DEF'],
+        ['Certificate', 'BSA s.63', '#E8C24A'],
       ].map(([k, v, c], i) => (
         <Box
           key={k}
@@ -405,7 +405,7 @@ export function TelemetryPanel() {
             animation: `riseIn 0.45s ease ${0.32 + i * 0.06}s both`,
           }}
         >
-          <Typography sx={{ fontSize: 11.5, color: 'rgba(229,231,235,0.55)', flexGrow: 1 }}>
+          <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)', flexGrow: 1 }}>
             {k}
           </Typography>
           <Box sx={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: c, boxShadow: `0 0 6px ${c}`, mr: 0.8 }} />

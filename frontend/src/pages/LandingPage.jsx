@@ -15,11 +15,11 @@ const features = [
   { icon: <RadarIcon />, title: 'Explainable Detection', tag: 'CITED THRESHOLDS',
     desc: (engine) => `${spellOut(engine?.rule_count)} deterministic rules for beaconing, DNS tunnelling, port scanning, exfiltration and covert channels. Every threshold carries its source, and values we invented say so.`, color: '#00D4FF' },
   { icon: <HubIcon />, title: 'Analyst Triage', tag: 'HUMAN IN THE LOOP',
-    desc: 'Nothing is auto-actioned. Each finding states the value observed, the threshold it crossed and where that threshold came from, then waits for an officer to confirm, dismiss or escalate.', color: '#00E68A' },
+    desc: 'Nothing is auto-actioned. Each finding states the value observed, the threshold it crossed and where that threshold came from, then waits for an officer to confirm, dismiss or escalate.', color: '#3FD873' },
   { icon: <GavelIcon />, title: 'Section 63 Certificate', tag: 'BSA 2023 SCHEDULE',
-    desc: 'Generates the certificate prescribed by THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023, Parts A and B, with the hash report the Schedule requires enclosed.', color: '#FFB020' },
+    desc: 'Generates the certificate prescribed by THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023, Parts A and B, with the hash report the Schedule requires enclosed.', color: '#E8C24A' },
   { icon: <VerifiedUserIcon />, title: 'Sealed Evidence', tag: 'SHA-256 CUSTODY',
-    desc: 'Each exhibit is hashed before anything reads it. The custody log is hash-chained, so an altered or removed entry breaks every later link — tamper-evident, which is what a database table can honestly claim.', color: '#A855F7' },
+    desc: 'Each exhibit is hashed before anything reads it. The custody log is hash-chained, so an altered or removed entry breaks every later link — tamper-evident, which is what a database table can honestly claim.', color: '#B08CE8' },
 ];
 
 function LandingPage() {
@@ -107,7 +107,7 @@ function LandingPage() {
   }, []);
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#080B14' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#0B1020' }}>
       <ConsoleBar />
 
       {/* nav */}
@@ -115,14 +115,14 @@ function LandingPage() {
         sx={{
           height: 58, display: 'flex', alignItems: 'center', px: { xs: 2.5, md: 5 }, gap: 1.5,
           borderBottom: '1px solid rgba(255,255,255,0.05)',
-          backgroundColor: 'rgba(11,15,26,0.75)', backdropFilter: 'blur(14px)',
+          backgroundColor: 'rgba(11,16,32,0.75)', backdropFilter: 'blur(14px)',
           position: 'sticky', top: 0, zIndex: 30,
         }}
       >
-        <ShieldOutlinedIcon sx={{ color: '#00D4FF', fontSize: 23 }} />
+        <ShieldOutlinedIcon sx={{ color: '#FF9933', fontSize: 23 }} />
         <Typography sx={{ fontWeight: 800, letterSpacing: 2.4, fontSize: 15 }}>NETFORENSIQ</Typography>
         <Box sx={{ width: '1px', height: 20, backgroundColor: 'rgba(255,255,255,0.1)', mx: 1, display: { xs: 'none', sm: 'block' } }} />
-        <Typography sx={{ fontSize: 13, color: 'rgba(229,231,235,0.55)', display: { xs: 'none', sm: 'block' } }}>
+        <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.55)', display: { xs: 'none', sm: 'block' } }}>
           Network &amp; Packet Forensics Platform
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
@@ -130,9 +130,9 @@ function LandingPage() {
           component={RouterLink} to="/login" variant="outlined" size="small"
           startIcon={<LoginIcon sx={{ fontSize: 16 }} />}
           sx={{
-            borderColor: 'rgba(0,212,255,0.32)', color: '#00D4FF',
+            borderColor: 'rgba(255,153,51,0.38)', color: '#FF9933',
             fontSize: 12.5, fontWeight: 600, borderRadius: 1.5, px: 2,
-            '&:hover': { borderColor: '#00D4FF', backgroundColor: 'rgba(0,212,255,0.07)' },
+            '&:hover': { borderColor: '#FF9933', backgroundColor: 'rgba(255,153,51,0.09)' },
           }}
         >
           Sign In
@@ -171,17 +171,17 @@ function LandingPage() {
               sx={{
                 display: 'inline-flex', alignItems: 'center', gap: 1, mb: 2.5,
                 px: 1.6, py: 0.6, borderRadius: 10,
-                border: '1px solid rgba(0,212,255,0.25)',
-                backgroundColor: 'rgba(0,212,255,0.05)',
+                border: '1px solid rgba(167,176,196,0.20)',
+                backgroundColor: 'rgba(255,255,255,0.02)',
                 opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(10px)',
                 transition: 'all 0.6s ease',
               }}
             >
-              <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#00E68A', boxShadow: '0 0 8px #00E68A' }} />
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#3FD873', boxShadow: '0 0 8px #3FD873' }} />
               <Typography
                 sx={{
                   fontSize: 10.5, letterSpacing: 0.9,
-                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.6)',
+                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.6)',
                 }}
               >
                 BUILT FOR CYBER CRIME INVESTIGATION · KANAD S.H.I.E.L.D. 2026
@@ -201,7 +201,7 @@ function LandingPage() {
               <Box
                 component="span"
                 sx={{
-                  background: 'linear-gradient(92deg,#00D4FF 0%,#A855F7 100%)',
+                  background: 'linear-gradient(92deg,#00D4FF 0%,#B08CE8 100%)',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 }}
               >
@@ -211,7 +211,7 @@ function LandingPage() {
 
             <Typography
               sx={{
-                fontSize: 14.5, lineHeight: 1.75, color: 'rgba(229,231,235,0.6)',
+                fontSize: 14.5, lineHeight: 1.75, color: 'rgba(232,236,244,0.6)',
                 maxWidth: 520, mb: 3.5,
                 opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(16px)',
                 transition: 'all 0.7s ease 0.2s',
@@ -234,11 +234,11 @@ function LandingPage() {
                 startIcon={<LoginIcon sx={{ fontSize: 17 }} />}
                 sx={{
                   px: 3, py: 1.15, fontWeight: 700, fontSize: 13, letterSpacing: 0.8,
-                  borderRadius: 1.5, backgroundColor: '#00D4FF', color: '#061018',
+                  borderRadius: 1.5, backgroundColor: '#FF9933', color: '#0B1020',
                   boxShadow: '0 0 22px rgba(0,212,255,0.32)',
                   transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
                   '&:hover': {
-                    backgroundColor: '#25DDFF', boxShadow: '0 0 34px rgba(0,212,255,0.55)',
+                    backgroundColor: '#FFAD5C', boxShadow: '0 0 34px rgba(0,212,255,0.55)',
                     transform: 'translateY(-2px)',
                   },
                 }}
@@ -251,11 +251,11 @@ function LandingPage() {
                 sx={{
                   px: 3, py: 1.15, fontWeight: 700, fontSize: 13, letterSpacing: 0.8,
                   borderRadius: 1.5, borderColor: 'rgba(255,255,255,0.14)',
-                  color: 'rgba(229,231,235,0.85)',
+                  color: 'rgba(232,236,244,0.85)',
                   transition: 'all 0.25s',
                   '&:hover': {
-                    borderColor: 'rgba(0,212,255,0.5)', backgroundColor: 'rgba(0,212,255,0.05)',
-                    color: '#00D4FF', transform: 'translateY(-2px)',
+                    borderColor: 'rgba(255,153,51,0.5)', backgroundColor: 'rgba(255,153,51,0.07)',
+                    color: '#FF9933', transform: 'translateY(-2px)',
                   },
                 }}
               >
@@ -279,7 +279,7 @@ function LandingPage() {
               <Typography
                 sx={{
                   fontSize: 10, letterSpacing: 1.5, flexGrow: 1,
-                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)',
+                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)',
                 }}
               >
                 HOW A CAPTURE BECOMES EVIDENCE
@@ -312,16 +312,16 @@ function LandingPage() {
                 <Typography
                   sx={{
                     fontSize: 11, fontWeight: 700, minWidth: 20,
-                    fontFamily: "'JetBrains Mono', monospace", color: '#00D4FF',
+                    fontFamily: "'JetBrains Mono', monospace", color: '#5B8DEF',
                   }}
                 >
                   {step}
                 </Typography>
                 <Box>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB' }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#E8ECF4' }}>
                     {title}
                   </Typography>
-                  <Typography sx={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(229,231,235,0.55)' }}>
+                  <Typography sx={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(232,236,244,0.55)' }}>
                     {body}
                   </Typography>
                 </Box>
@@ -332,7 +332,7 @@ function LandingPage() {
 
             <Typography
               sx={{
-                fontSize: 11, lineHeight: 1.6, color: 'rgba(229,231,235,0.55)',
+                fontSize: 11, lineHeight: 1.6, color: 'rgba(232,236,244,0.55)',
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
@@ -349,12 +349,12 @@ function LandingPage() {
           <Typography
             sx={{
               fontSize: 10.5, letterSpacing: 1.6, whiteSpace: 'nowrap',
-              fontFamily: "'JetBrains Mono', monospace", color: '#00D4FF',
+              fontFamily: "'JetBrains Mono', monospace", color: '#5B8DEF',
             }}
           >
             PLATFORM CAPABILITIES
           </Typography>
-          <Box sx={{ flexGrow: 1, height: '1px', background: 'linear-gradient(90deg, rgba(0,212,255,0.28), transparent)' }} />
+          <Box sx={{ flexGrow: 1, height: '1px', background: 'linear-gradient(90deg, rgba(167,176,196,0.28), transparent)' }} />
         </Box>
 
         <Box
@@ -412,7 +412,7 @@ function LandingPage() {
                 {f.tag}
               </Typography>
               <Typography sx={{ fontSize: 14.5, fontWeight: 700, mb: 1 }}>{f.title}</Typography>
-              <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(229,231,235,0.55)' }}>
+              <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(232,236,244,0.55)' }}>
                 {typeof f.desc === 'function' ? f.desc(engine) : f.desc}
               </Typography>
             </Box>
@@ -431,7 +431,7 @@ function LandingPage() {
         <Typography
           sx={{
             fontSize: 10.5, letterSpacing: 0.8,
-            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)',
+            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)',
           }}
         >
           NETFORENSIQ v{engine?.version ?? '—'}
@@ -440,7 +440,7 @@ function LandingPage() {
         <Typography
           sx={{
             fontSize: 10.5, letterSpacing: 0.8,
-            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(229,231,235,0.55)',
+            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)',
           }}
         >
           Sign-in attempts are recorded

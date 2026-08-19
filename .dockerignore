@@ -1,0 +1,23 @@
+# Keep the build context small and keep evidence out of images.
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/dist
+**/build
+**/.cache
+
+# Never copied into an image: a container image is software, not a case file.
+**/*.sqlite3
+**/*.sqlite3-*
+**/evidence_store
+**/staticfiles
+**/.env
+backend/reference_captures
+
+.git
+graphify-out
+research
+docs
+*.md

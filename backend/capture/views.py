@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from django.db.models import Count, Max, Q, Sum
+from django.http import FileResponse
 from django.utils import timezone
 
 from rest_framework import status, viewsets
@@ -56,6 +57,96 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             detail=f'Analysed session #{session.id}: {summary["total"]} detections',
         )
         return Response(summary)
+
+    @action(detail=True, methods=['get'])
+    def siem(self, request, pk=None):
+        """
+        Stream this session's findings in a format a SIEM ingests.
+
+            ?fmt=ecs      Elastic Common Schema, newline-delimited JSON
+            ?fmt=cef      Common Event Format (ArcSight lineage)
+            ?fmt=syslog   RFC 5424
+
+        The parameter is `fmt`, not `format`. `format` is reserved by DRF for
+        content negotiation: passing `?format=ecs` makes it look for a renderer
+        by that name and return 404 before this method is ever called.
+
+        Streamed rather than assembled: a session with thousands of findings
+        should not be held whole in memory on a workstation, and every log
+        shipper reads a line at a time anyway.
+
+        See capture/siem.py for what is deliberately withheld — a SIEM has a
+        broad readership and the case around a finding is not operational data.
+        """
+        from django.http import StreamingHttpResponse
+
+        from .siem import FORMATS, export
+
+        session = self.get_object()
+        fmt = (request.query_params.get('fmt') or 'ecs').lower()
+        if fmt not in FORMATS:
+            return Response(
+                {'detail': f'fmt must be one of: {", ".join(sorted(FORMATS))}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        findings = session.detections.select_related('flow', 'session__evidence')
+        content_type, _render = FORMATS[fmt]
+
+        log_action(
+            request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=(
+                f'Exported {findings.count()} findings from session '
+                f'#{session.id} as {fmt.upper()}'
+            ),
+        )
+
+        from .attack_mapping import beaconing_hosts_in
+
+        response = StreamingHttpResponse(
+            export(findings, fmt, beaconing_hosts=beaconing_hosts_in(session)),
+            content_type=content_type,
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename="netforensiq-session-{session.id}.{fmt}"'
+        )
+        return response
+
+    @action(detail=True, methods=['get'])
+    def report(self, request, pk=None):
+        """
+        Download the forensic examination report for this capture.
+
+        Distinct from the §63 certificate, which is a statutory declaration
+        about a file's hash and says nothing about what was found. This is the
+        document that goes in the case file: what was captured, what was
+        found, why, and what it does not establish.
+
+        Re-rendered on request rather than served from disk, for the same
+        reason the certificate is — the findings and their triage state must
+        reflect the case as it stands now, not as it stood when someone last
+        pressed a button. Every download is recorded.
+        """
+        from evidence.investigation_report import render_investigation_report
+
+        session = self.get_object()
+        path = render_investigation_report(session)
+
+        log_action(
+            request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=(
+                f'Downloaded forensic report for session #{session.id} '
+                f'({session.detections.count()} findings)'
+            ),
+        )
+
+        return FileResponse(
+            open(path, 'rb'), content_type='application/pdf',
+            as_attachment=True,
+            filename=f'netforensiq-report-session-{session.id}.pdf',
+        )
 
     @action(detail=True, methods=['get'])
     def summary(self, request, pk=None):

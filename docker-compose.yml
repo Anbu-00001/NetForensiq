@@ -1,0 +1,75 @@
+# NetForensiq — containerised deployment.
+#
+#     docker compose up --build
+#     docker compose exec app python manage.py createsuperuser
+#     # then open http://127.0.0.1:8000
+#
+# One service serves the API and the interface; Postgres holds the case data.
+# The evidence store is a named volume, deliberately separate from the database
+# so a database can be reset without touching sealed exhibits.
+#
+# For a machine with no Docker at all, scripts/build_offline_bundle.sh remains
+# the path. For a machine with Docker but no network, see the `docker save`
+# note at the top of the Dockerfile.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-netforensiq}
+      POSTGRES_USER: ${DB_USER:-netforensiq}
+      # No default. A database holding evidence must not be reachable with a
+      # password that was published in a compose file.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env before starting}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      # The app waits for this rather than for the port to open: Postgres
+      # accepts connections briefly during initialisation, before it will
+      # answer a query, and migrations run in that window would fail.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-netforensiq} -d ${DB_NAME:-netforensiq}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Not published. Nothing outside the compose network needs to reach the
+    # database, and exposing 5432 on a forensic workstation is a gift.
+    expose:
+      - "5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env before starting}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-127.0.0.1,localhost}
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ${DB_NAME:-netforensiq}
+      DB_USER: ${DB_USER:-netforensiq}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: "5432"
+      MEDIA_ROOT: /app/evidence_store
+      LOGIN_THROTTLE_RATE: ${LOGIN_THROTTLE_RATE:-8/hour}
+    volumes:
+      # Sealed exhibits and rendered certificates. Named rather than bind-mounted
+      # so ownership matches the non-root user in the image.
+      - evidence:/app/evidence_store
+    ports:
+      # Bound to loopback, not 0.0.0.0. A forensic tool that appears on the
+      # station LAN the moment it starts is not a decision anyone made.
+      - "127.0.0.1:8000:8000"
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn netforensiq_backend.wsgi:application
+               --bind 0.0.0.0:8000 --workers 3 --timeout 300 --access-logfile -"
+
+volumes:
+  db_data:
+  evidence:
