@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **127 backend tests + 57 Playwright E2E, all green, zero skips**
+## Status: Phases 0–13 complete · **156 backend tests + 61 Playwright E2E, all green, zero skips**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -340,6 +340,90 @@ opposed to a citizen-facing service is unresolved
 ([research/100](research/100_EXTERNAL_VERIFICATION_PROMPT.md), item 6). What can
 be said is narrower and checkable: the interface is tested against WCAG 2.1 AA
 contrast on every phase, and the test is in the repository.
+
+## Sign-in: the page's own claim, made true
+
+The sign-in screen tells the officer, on screen, that attempts are recorded
+with a timestamp, a username and a source address. Checking that sentence
+against the database found it was three-quarters true.
+
+- **Attempts refused by the rate limit left no trace.** Throttling happens in
+  DRF's `initial()`, before the view body runs, so a burst produced eight audit
+  rows and then silence — and the silence began exactly where the traffic
+  became worth looking at. `throttled()` is now overridden to record the
+  attempt before refusing it. Measured: eleven attempts against an eight-per-
+  hour limit previously left eight rows; they now leave eleven.
+- **`failed_login_attempts` could only count down.** The field was reset to
+  zero on a successful sign-in and incremented nowhere — a model field
+  implying a capability the code did not have. It now advances on each
+  rejection and clears on success, and it lives on the account rather than the
+  request so it survives an attacker changing source address.
+- **The page blamed the wrong thing.** Every failure fell back to
+  "Authentication failed. Verify your credentials." — including the API being
+  unreachable, which is not a credentials problem and sends an officer to
+  re-check something that was never wrong. Network failure, rate limiting,
+  server error and bad credentials now each say what happened.
+
+The limit itself is unchanged at eight per hour, which is our own figure rather
+than a standard. It is now settable by `LOGIN_THROTTLE_RATE` for the one
+legitimate case that trips it: signing in as investigator, expert, commander
+and viewer in turn during a demonstration exhausts eight in a few minutes, and
+being locked out in front of an audience is not a security outcome anybody
+wanted. Raising it is a deliberate act with a value written down; every refused
+attempt is recorded either way.
+
+## Running with the network unplugged
+
+The problem statement asks for a tool that works in police rooms with no
+connectivity. Until now that was an assertion. It is now a deployment path with
+a test behind it.
+
+**The application never needed the network to run.** No outbound request is made
+by either half of it — no threat feed, no geolocation, no telemetry, no CDN.
+Fonts ship as npm packages compiled into the bundle rather than linked from
+Google, which is the usual way a "works offline" claim quietly fails. A
+Playwright spec aborts every off-origin request the browser attempts and asserts
+the list is empty, so this is enforced rather than remembered.
+
+**What needed the network was installing it.** `pip` reaches PyPI, `npm` reaches
+the registry. That is the whole air-gap problem and it is solved by moving both
+to the connected side: `scripts/build_offline_bundle.sh` produces a tarball
+carrying every dependency as a pre-built wheel plus the already-compiled
+frontend, and `scripts/install_offline.sh` installs it with `--no-index`, so a
+missing package fails loudly instead of hanging on a socket. **The evidence
+machine needs Python 3 and ordinary POSIX utilities** — no Node, no compiler,
+no database server, no package index. Node exists only on the build machine.
+
+**It now runs as one process.** Django serves the API and the built interface
+from one port, so starting the platform is one command rather than two servers
+in the right order. The catch-all is deliberately narrow: paths the API owns
+still return real 404s, because a route that answers `/api/typo` with HTML and
+status 200 converts a typo into a `JSON.parse` failure far from its cause.
+
+**The honest caveat is the clock.** An air-gapped machine has no NTP, and an
+undisciplined real-time clock drifts seconds to minutes a month — and every
+timestamp on a §63 certificate comes from that clock. The forensic literature is
+consistent that an unverified timestamp is an assertion rather than a fact, and
+that the answer is disclosure, not a claim of accuracy. So the certificate now
+prints the clock's state beside the timestamps it qualifies, in words a court
+can read, including whether the hardware clock is kept in local time rather than
+UTC. It is explicitly not a security control: it distinguishes an honestly-run
+offline workstation from a connected one, not an honest operator from a
+dishonest one.
+
+**Still open**: the clock state is recorded on the certificate but not yet shown
+in the interface, and an officer-entered "clock checked against reference X,
+offset N seconds" field would match documented forensic practice more closely
+than the automatic reading alone.
+
+The air-gap work was audited the same day it was written
+([research/101](research/101_AIRGAP_AUDIT.md)): eleven findings, all resolved.
+Two were real defects and neither was visible on inspection — the installer was
+shipping the developer's live case database including password hashes and
+sealed exhibits, found by an agent that actually installed the bundle; and the
+route serving the interface returned HTML for a missing script, found by the
+browser suite. The module docstring had specifically claimed the second could
+not happen.
 
 ## Saying it accurately on the day
 

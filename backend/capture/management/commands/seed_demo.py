@@ -47,13 +47,13 @@ DEMO_POLICE_STATION = ''
 # layer refuses a certificate signed twice by one account.
 DEMO_ACCOUNTS = [
     {
-        'username': 'analyst',
+        'username': 'investigator',
         'badge_id': 'DEMO-INV-001',
         'department': 'Demonstration — Cyber Crime Branch',
         'role': 'investigator',
     },
     {
-        'username': 'fsl-expert',
+        'username': 'expert',
         'badge_id': 'DEMO-FSL-001',
         'department': 'Demonstration — Forensic Science Laboratory',
         'role': 'investigator',
@@ -72,7 +72,11 @@ DEMO_ACCOUNTS = [
     },
 ]
 
-DEMO_PASSWORD = 'demo-pass-1234'
+# One password for every demo account, chosen to be typed correctly at a
+# keyboard in front of an audience: no hyphens to lose, no ambiguity between
+# l/1 or O/0, and long enough to satisfy Django's validators so the same value
+# works if an account is ever created through the registration form.
+DEMO_PASSWORD = 'Netforensiq@2026'
 
 
 class Command(BaseCommand):
@@ -162,7 +166,7 @@ class Command(BaseCommand):
         ))
 
         self._seed_accounts(opts['password'])
-        officer = get_user_model().objects.get(username='analyst')
+        officer = get_user_model().objects.get(username='investigator')
 
         sources = [] if opts['synthetic_only'] else self._reference_captures()
         if opts['captures']:
@@ -307,7 +311,7 @@ class Command(BaseCommand):
             self._certify_one(record, officer)
 
     def _certify_one(self, record, officer):
-        expert = get_user_model().objects.get(username='fsl-expert')
+        expert = get_user_model().objects.get(username='expert')
         # The foreign key, not a filename match — the session records which
         # exhibit it analysed.
         session = record.sessions.first()

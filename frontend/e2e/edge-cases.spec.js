@@ -35,11 +35,11 @@ test.describe('sessions end when they should', () => {
   test('signing out invalidates the refresh token on the server', async ({ request }) => {
     // Logout used to be client-side only: the browser dropped its storage and
     // the refresh token stayed valid for a full day.
-    const { refresh } = tokensFor('analyst');
+    const { refresh } = tokensFor('investigator');
 
     // A throwaway session, so the suite's own cached token survives.
     const fresh = await (await request.post(`${API_BASE}/auth/login/`, {
-      data: { username: 'analyst', password: process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'demo-pass-1234' },
+      data: { username: 'investigator', password: process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'Netforensiq@2026' },
       failOnStatusCode: false,
     })).json().catch(() => ({}));
 
@@ -176,7 +176,7 @@ test.describe('the findings list is the whole findings list', () => {
 
   test('every published threshold is listed, not a sample of them', async ({ page, request }) => {
     const published = await (await request.get(`${API_BASE}/detections/thresholds/`, {
-      headers: { Authorization: `Bearer ${tokensFor('analyst').access}` },
+      headers: { Authorization: `Bearer ${tokensFor('investigator').access}` },
     })).json();
 
     await page.goto('/detections');
@@ -225,19 +225,19 @@ test.describe('certificates refuse what section 63 refuses', () => {
     // version of this test issued a fresh one on every run, which left seven
     // orphan DRAFT certificates in the demonstration database — a test writing
     // statutory documents into the data a judge is shown.
-    const { access } = tokensFor('analyst');
+    const { access } = tokensFor('investigator');
     const certificates = await (await request.get(`${API_BASE}/certificates/`, {
       headers: { Authorization: `Bearer ${access}` },
     })).json();
     const list = Array.isArray(certificates) ? certificates : certificates.results ?? [];
-    const signedByAnalyst = list.find((c) => c.part_a_name === 'analyst');
+    const signedByAnalyst = list.find((c) => c.part_a_name === 'investigator');
     test.skip(!signedByAnalyst, 'no certificate whose Part A was signed by this account');
 
     const refused = await request.post(
       `${API_BASE}/certificates/${signedByAnalyst.id}/sign/`,
       {
         headers: { Authorization: `Bearer ${access}` },
-        data: { part_b_name: 'analyst', part_b_qualification: 'expert' },
+        data: { part_b_name: 'investigator', part_b_qualification: 'expert' },
         failOnStatusCode: false,
       },
     );

@@ -45,7 +45,7 @@ async function signedIn(page, role) {
 
 export const test = base.extend({
   page: async ({ page }, use) => {
-    await use(await signedIn(page, 'analyst'));
+    await use(await signedIn(page, 'investigator'));
   },
 
   /** A signed-in administrator — the only role that may approve accounts. */

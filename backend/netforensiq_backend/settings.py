@@ -199,6 +199,15 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Where `collectstatic` gathers the admin's own CSS and JavaScript.
+#
+# Django serves those files itself only while DEBUG is on. A real deployment
+# runs with DEBUG off, and on a connected server a reverse proxy would serve
+# STATIC_ROOT — but an air-gapped workstation has no reverse proxy, so the
+# admin would render as unstyled HTML with no indication why. urls.py mounts a
+# route over this directory so the one-process deployment is complete.
+STATIC_ROOT = Path(os.getenv('STATIC_ROOT', BASE_DIR / 'staticfiles'))
+
 # The built React app. Serving it from Django is what lets an air-gapped
 # forensic workstation run the whole platform as one process on one port, with
 # no Node installed on the evidence machine — see netforensiq_backend/spa.py.
@@ -262,7 +271,18 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '30/hour',
         'user': '1000/hour',
-        'login': '8/hour',
+        # Eight attempts an hour per source address is a reasonable guess at
+        # the line between an officer who has mistyped and a script working
+        # through a list — it is our own figure, not a standard.
+        #
+        # It is settable because a demonstration is the one legitimate case
+        # that trips it: signing in as investigator, expert, commander and
+        # viewer in turn, with a retype or two, exhausts eight in a few
+        # minutes, and the officer at the keyboard is then locked out in front
+        # of an audience. Raising it for a demo is a deliberate act with a
+        # value written down, not an edit to source. The shipped default is
+        # unchanged; every refused attempt is recorded either way.
+        'login': os.getenv('LOGIN_THROTTLE_RATE', '8/hour'),
         # Enrolment writes rows to the user table from unauthenticated input.
         # A flooded approval queue is a denial of service against the
         # administrator who has to work through it, not just against the server.

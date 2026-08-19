@@ -59,11 +59,60 @@ class SpaRoutingTests(SimpleTestCase):
                 self.assertNotIn(b'id="root"', response.content)
 
     def test_missing_asset_404s_rather_than_returning_html(self):
-        """A browser fetching a script does not send Accept: text/html."""
-        response = self.client.get(
-            '/assets/does-not-exist.js', HTTP_ACCEPT='*/*;q=0.8',
-        )
-        self.assertEqual(response.status_code, 404)
+        """
+        The header a browser actually sends for a script, a stylesheet or a
+        font — not the one it is convenient to assume.
+
+        The first version of this route decided the question from the Accept
+        header and treated a bare `*/*` as "wants HTML". Chrome sends exactly
+        that for `<script src>` and for `@font-face`, and `fetch()` sends it by
+        default, so a missing bundle came back as index.html with status 200
+        and the browser reported a syntax error in a file it had never asked
+        for. The rule is now taken from the path instead.
+        """
+        headers = {
+            'script or fetch': '*/*',
+            'stylesheet': 'text/css,*/*;q=0.1',
+            'image': 'image/avif,image/webp,*/*',
+            'font': '*/*',
+        }
+        for label, accept in headers.items():
+            for path in ('/assets/does-not-exist.js',
+                         '/assets/missing.woff2',
+                         '/assets/missing.css'):
+                with self.subTest(sent_by=label, path=path):
+                    response = self.client.get(path, HTTP_ACCEPT=accept)
+                    self.assertEqual(
+                        response.status_code, 404,
+                        f'{path} requested with Accept: {accept} must 404',
+                    )
+
+    def test_a_navigation_to_a_screen_reaches_the_app(self):
+        """The other half of the same rule: a browser arriving at a deep link."""
+        for path in ('/evidence', '/dashboard', '/detections'):
+            with self.subTest(path=path):
+                response = self.client.get(path, HTTP_ACCEPT=HTML)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(b'id="root"', b''.join(response.streaming_content))
+
+    def test_the_root_answers_however_it_is_asked(self):
+        """`curl http://host/` is how a person checks the server is up."""
+        for accept in ('*/*', HTML, ''):
+            with self.subTest(accept=accept or '(none)'):
+                response = self.client.get('/', HTTP_ACCEPT=accept)
+                self.assertEqual(response.status_code, 200)
+
+    def test_a_data_request_to_an_unknown_path_404s(self):
+        """
+        The failure this prevents: a frontend built with a mistyped API base —
+        `/apiv2` rather than `/api` — receiving the app shell with status 200
+        for every call it makes, and reporting a JSON parse error that names
+        neither the wrong path nor the reason.
+        """
+        for path in ('/apiv2/sessions/', '/api-v2/flows', '/graphql'):
+            with self.subTest(path=path):
+                response = self.client.get(path, HTTP_ACCEPT='*/*')
+                self.assertEqual(response.status_code, 404)
 
     def test_traversal_out_of_the_dist_directory_is_refused(self):
         for path in ('/../settings.py', '/assets/../../settings.py',
@@ -86,6 +135,26 @@ class SpaRoutingTests(SimpleTestCase):
 
         shell = self.client.get('/', HTTP_ACCEPT=HTML)
         self.assertIn('no-store', shell.headers['Cache-Control'])
+
+    def test_collected_static_is_served(self):
+        """
+        The admin's own CSS. Django serves this itself only while DEBUG is on,
+        and a deployment runs with DEBUG off — without the route this covers,
+        the admin renders as unstyled HTML with nothing to say why.
+        """
+        static_root = DIST / 'collected'
+        (static_root / 'admin' / 'css').mkdir(parents=True, exist_ok=True)
+        (static_root / 'admin' / 'css' / 'base.css').write_text('body{color:#000}')
+
+        with override_settings(STATIC_ROOT=str(static_root)):
+            response = self.client.get('/static/admin/css/base.css')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b''.join(response.streaming_content), b'body{color:#000}')
+
+    def test_a_missing_static_file_404s(self):
+        with override_settings(STATIC_ROOT=str(DIST / 'collected')):
+            response = self.client.get('/static/admin/css/nope.css')
+        self.assertEqual(response.status_code, 404)
 
     def test_reserved_prefixes_cover_the_urlconf(self):
         """

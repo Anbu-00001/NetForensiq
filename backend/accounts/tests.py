@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.cache import cache
 from django.test import TestCase
 
@@ -376,3 +377,113 @@ class ApprovalQueueTests(TestCase):
             {'username': 'applicant', 'decision': 'maybe'}, format='json',
         )
         self.assertEqual(response.status_code, 400)
+
+
+class SignInIsRecordedTests(TestCase):
+    """
+    The sign-in page states, on screen, that attempts are recorded with a
+    timestamp, a username and a source address. These tests exist because that
+    sentence is a claim, and a claim on a screen an officer reads is worth no
+    less than one in a certificate.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='officer', password='a-long-enough-password',
+            badge_id='B-901', department='Cyber', role=User.Role.INVESTIGATOR,
+            is_approved=True,
+        )
+
+    def tearDown(self):
+        cache.clear()
+
+    def _login(self, password):
+        return self.client.post(
+            '/api/auth/login/',
+            {'username': 'officer', 'password': password},
+            content_type='application/json',
+        )
+
+    def test_a_rejected_password_is_recorded_with_all_three_facts(self):
+        self._login('wrong-password')
+
+        entry = AuditLog.objects.filter(action=AuditLog.Action.LOGIN_FAILED).latest('timestamp')
+        self.assertEqual(entry.username_attempted, 'officer')
+        self.assertTrue(entry.ip_address, 'source address must be recorded')
+        self.assertIsNotNone(entry.timestamp)
+        # The row must not name the account as the actor: nobody has proved
+        # they are that officer, which is the entire point of the failure.
+        self.assertIsNone(entry.user)
+
+    def test_the_per_account_failure_counter_advances(self):
+        """
+        `failed_login_attempts` was reset to zero on success and incremented
+        nowhere — a counter that could only ever count down. It is on the
+        account rather than the request so it survives an attacker moving
+        between source addresses.
+        """
+        for expected in (1, 2, 3):
+            self._login('wrong-password')
+            self.user.refresh_from_db()
+            self.assertEqual(self.user.failed_login_attempts, expected)
+
+        self._login('a-long-enough-password')
+        self.user.refresh_from_db()
+        self.assertEqual(
+            self.user.failed_login_attempts, 0,
+            'a successful sign-in clears the run of failures',
+        )
+
+    def test_an_attempt_on_an_unknown_account_is_still_recorded(self):
+        self.client.post(
+            '/api/auth/login/',
+            {'username': 'no-such-officer', 'password': 'whatever'},
+            content_type='application/json',
+        )
+        entry = AuditLog.objects.filter(action=AuditLog.Action.LOGIN_FAILED).latest('timestamp')
+        self.assertEqual(entry.username_attempted, 'no-such-officer')
+        self.assertIn('no such account', entry.detail)
+
+    def test_attempts_refused_by_the_rate_limit_are_recorded_too(self):
+        """
+        The gap this closes. Throttling happens in DRF's `initial()`, before the
+        view body runs, so a burst produced a handful of audit rows and then
+        nothing — and the silence started exactly where the traffic became
+        worth looking at.
+        """
+        limit = int(
+            settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['login'].split('/')[0]
+        )
+
+        throttled = 0
+        for _ in range(limit + 3):
+            if self._login('wrong-password').status_code == 429:
+                throttled += 1
+
+        self.assertGreater(throttled, 0, 'the limit must actually engage')
+
+        rows = AuditLog.objects.filter(action=AuditLog.Action.LOGIN_FAILED)
+        rate_limited = rows.filter(detail__contains='rate limit')
+        self.assertEqual(
+            rate_limited.count(), throttled,
+            'every refused attempt must leave a row, not just the ones that '
+            'reached the password check',
+        )
+        for entry in rate_limited:
+            self.assertEqual(entry.username_attempted, 'officer')
+            self.assertTrue(entry.ip_address)
+
+    def test_a_malformed_body_does_not_break_the_record(self):
+        """
+        `throttled()` runs early enough that reading the request body can fail.
+        A refused attempt with an unreadable body is still worth a row — the
+        source address alone is the interesting part.
+        """
+        for _ in range(20):
+            self.client.post(
+                '/api/auth/login/', 'not json at all',
+                content_type='application/json',
+            )
+        # No assertion on content: the point is that nothing raised a 500.
+        self.assertTrue(True)

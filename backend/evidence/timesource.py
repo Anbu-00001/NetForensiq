@@ -67,6 +67,12 @@ NOTES = {
 # present on every current Linux distribution, needs no privileges, reads
 # purely local state, and its field names are stable and documented.
 TIMEDATECTL = 'timedatectl'
+
+# `timedatectl show` reads cached state over the system bus and returns in
+# milliseconds. The timeout exists only so that a wedged or unresponsive bus
+# cannot hang certificate rendering — five seconds is far longer than the call
+# can legitimately need, and the timeout path resolves to UNKNOWN, which is the
+# truthful answer when the machine will not say.
 _QUERY_TIMEOUT_SECONDS = 5
 
 

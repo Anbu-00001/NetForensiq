@@ -6,9 +6,9 @@ const API = process.env.VITE_API_BASE ?? 'http://127.0.0.1:8011/api';
 // Both roles, because the clearance model is enforced on the server and was
 // never exercised through the browser. A viewer who can still click Confirm is
 // a defect no backend test can see.
-const PASSWORD = process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'demo-pass-1234';
+const PASSWORD = process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'Netforensiq@2026';
 const ACCOUNTS = {
-  analyst: { username: 'analyst', password: PASSWORD },
+  investigator: { username: 'investigator', password: PASSWORD },
   viewer: { username: 'viewer', password: PASSWORD },
   commander: { username: 'commander', password: PASSWORD },
 };

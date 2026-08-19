@@ -29,7 +29,11 @@ die()  { printf '\033[31m✘ %s\033[0m\n' "$1" >&2; exit 1; }
 [[ -f "$BUNDLE/BUNDLE.json" ]] || die "no BUNDLE.json — run this from inside an extracted bundle"
 
 read_manifest() {
-  python3 -c "import json,sys; print(json.load(open('$BUNDLE/BUNDLE.json')).get('$1',''))"
+  # The path and key go in as arguments rather than being interpolated into the
+  # program text: a bundle unpacked into a directory whose name contains a
+  # quote would otherwise produce a syntax error instead of an answer.
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2], ""))' \
+    "$BUNDLE/BUNDLE.json" "$1"
 }
 
 # --- 1. Refuse a mismatch rather than fail halfway --------------------------
@@ -71,8 +75,31 @@ fi
 # --- 3. Python environment, from the bundled wheels only --------------------
 step "Creating the virtual environment"
 VENV="$TARGET/backend/.venv"
-python3 -m venv "$VENV" || die "venv creation failed"
-ok "$VENV"
+
+# On Debian and Ubuntu, `python3 -m venv` lives in a separate `python3-venv`
+# package, and a machine with no network cannot apt-get it. Rather than fail
+# with pip's own message — which advises installing a package that cannot be
+# installed — fall back to a venv without pip and bootstrap pip out of the
+# bundle. A pip wheel is a zip that can be executed directly by putting it on
+# sys.path, which is exactly how pip installs itself.
+if python3 -m venv "$VENV" 2>/dev/null; then
+  ok "$VENV"
+else
+  warn "python3 -m venv could not provision pip (on Debian/Ubuntu this means"
+  warn "the python3-venv package is absent). Bootstrapping pip from the bundle."
+  rm -rf "$VENV"
+  python3 -m venv --without-pip "$VENV" \
+    || die "python3 -m venv is unavailable entirely.
+Install the python3-venv package for Python $HAVE_PY on this machine, or
+rebuild the bundle against a Python that ships venv."
+
+  PIP_WHEEL="$(find "$BUNDLE/wheelhouse" -maxdepth 1 -name 'pip-*.whl' | head -1)"
+  [[ -n "$PIP_WHEEL" ]] || die "no pip wheel in the bundle to bootstrap from"
+  PYTHONPATH="$PIP_WHEEL" "$VENV/bin/python" -m pip install \
+    --no-index --find-links "$BUNDLE/wheelhouse" pip setuptools wheel >/dev/null \
+    || die "could not bootstrap pip from $PIP_WHEEL"
+  ok "$VENV (pip bootstrapped from the bundle)"
+fi
 
 step "Installing dependencies — no index, bundled wheels only"
 "$VENV/bin/python" -m pip install --no-index --find-links "$BUNDLE/wheelhouse" \
@@ -111,6 +138,15 @@ step "Preparing the database"
 ( cd "$TARGET/backend" && "$VENV/bin/python" manage.py migrate --noinput ) \
   || die "migrations failed"
 ok "schema applied"
+
+step "Collecting Django's own static files"
+# Django serves the admin's CSS itself only while DEBUG is on. A deployment
+# runs with DEBUG off and there is no reverse proxy here, so without this step
+# the admin renders as unstyled HTML with nothing to say why. Purely a local
+# file copy — no network.
+( cd "$TARGET/backend" && "$VENV/bin/python" manage.py collectstatic --noinput ) >/dev/null \
+  || die "collectstatic failed"
+ok "admin assets collected"
 
 # --- 5. Tell the operator what to do next -----------------------------------
 DIST="$TARGET/frontend/dist"

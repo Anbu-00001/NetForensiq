@@ -44,6 +44,21 @@ class RegisterView(generics.CreateAPIView):
         )
 
 
+def _attempted_username(request):
+    """
+    The username from a request that may never have been parsed.
+
+    `throttled()` runs early enough that reading request.data can itself raise
+    on a malformed body. A missing username must not turn a refused sign-in
+    into a 500 — the row is worth writing even when the only thing known about
+    the attempt is where it came from.
+    """
+    try:
+        return (request.data.get('username') or '')[:150]
+    except Exception:
+        return ''
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
@@ -56,18 +71,56 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Sign in, and record the attempt either way.
+
+    The sign-in page tells the officer that attempts are recorded with a
+    timestamp, a username and a source address. That sentence is the reason
+    every path out of this view writes an AuditLog row before it returns.
+    """
+
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'login'
+
+    def throttled(self, request, wait):
+        """
+        Record an attempt that was refused before it reached the password check.
+
+        Throttling happens in DRF's `initial()`, before `post()` runs, so the
+        try/except below never sees it — which meant a burst of attempts
+        produced eight audit rows and then silence, and the silence began
+        exactly at the point the traffic became worth looking at. A rate-limited
+        attempt is still an attempt, and the page promises it is recorded.
+        """
+        log_action(
+            request, AuditLog.Action.LOGIN_FAILED,
+            username_attempted=_attempted_username(request),
+            detail=f'Refused by rate limit; retry permitted in {int(wait)}s',
+        )
+        super().throttled(request, wait)
 
     def post(self, request, *args, **kwargs):
         username = request.data.get('username', '')
         try:
             response = super().post(request, *args, **kwargs)
         except Exception:
+            # The counter is on the account, not on the request, so it survives
+            # an attacker changing source address. It was previously reset to
+            # zero on success and never incremented anywhere — a field that
+            # could only ever count down, and a capability the model implied
+            # but the code did not have.
+            attempted = User.objects.filter(username=username).first()
+            if attempted:
+                attempted.failed_login_attempts += 1
+                attempted.save(update_fields=['failed_login_attempts'])
             log_action(
                 request, AuditLog.Action.LOGIN_FAILED,
                 username_attempted=username,
+                detail=(
+                    f'Credentials rejected; {attempted.failed_login_attempts} '
+                    f'consecutive failures for this account'
+                ) if attempted else 'Credentials rejected; no such account',
             )
             raise
 

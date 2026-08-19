@@ -228,11 +228,11 @@ test.describe('the platform works with no route off this machine', () => {
     const problems = watchConsole(anonymousPage);
 
     await anonymousPage.goto('/login');
-    await anonymousPage.getByPlaceholder('username').fill('analyst');
+    await anonymousPage.getByPlaceholder('username').fill('investigator');
     // Addressed by autocomplete rather than by placeholder: the placeholder is
     // a run of bullet characters, which is a brittle thing to match on.
     await anonymousPage.locator('input[autocomplete="current-password"]')
-      .fill(process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'demo-pass-1234');
+      .fill(process.env.NETFORENSIQ_DEMO_PASSWORD ?? 'Netforensiq@2026');
 
     const answered = anonymousPage.waitForResponse(
       (r) => r.url().includes('/auth/login/') && r.request().method() === 'POST',

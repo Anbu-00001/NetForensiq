@@ -15,7 +15,7 @@ from capture.views import (
 )
 from evidence.views import CertificateViewSet, EvidenceViewSet
 
-from .spa import serve_frontend
+from .spa import serve_collected_static, serve_frontend
 
 router = DefaultRouter()
 router.register('sessions', CaptureSessionViewSet, basename='session')
@@ -32,6 +32,10 @@ urlpatterns = [
     # and a number on a page nobody has signed in to see still has to be true.
     path('api/engine/', engine_info, name='engine-info'),
     path('api/', include(router.urls)),
+
+    # Django's own static files (the admin's CSS). Needed only once DEBUG is
+    # off, which is exactly the configuration an air-gapped deployment runs.
+    re_path(r'^static/(?P<path>.*)$', serve_collected_static, name='collected-static'),
 
     # The built interface, last so every Django route above wins. This is what
     # makes the platform one process on one port: an air-gapped machine needs

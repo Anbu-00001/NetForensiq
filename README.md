@@ -160,6 +160,68 @@ npm install
 npm run dev
 ```
 
+### Running Air-Gapped
+
+The platform is built for a forensic workstation with no internet. That claim is
+worth checking rather than believing, so here is exactly what is and is not true.
+
+**Nothing needs a network at runtime.** No outbound request is made from either
+half of the application: there is no threat-intelligence feed to refresh, no
+geolocation lookup, no telemetry, and no CDN. Fonts are bundled into the build
+as npm packages rather than linked from Google Fonts, so the interface renders
+identically with the interface down. `frontend/e2e/airgap.spec.js` enforces
+this by aborting every off-origin request the browser attempts and asserting
+that the list of them is empty.
+
+**What does need a network is installing it.** `pip install` reaches PyPI and
+`npm install` reaches the npm registry. That is the entire air-gap problem, and
+it is solved by doing both on the other side of the wall:
+
+```bash
+# On a machine WITH internet
+./scripts/build_offline_bundle.sh
+# → build/netforensiq-offline-<version>.tar.gz
+```
+
+The bundle carries every Python dependency as a pre-built wheel, the frontend
+already compiled to static files, the source, and a SHA-256 for every file.
+Carry it across on removable media, then:
+
+```bash
+# On the air-gapped machine
+tar -xzf netforensiq-offline-<version>.tar.gz
+cd netforensiq-offline-<version>
+./scripts/install_offline.sh
+```
+
+`pip` runs with `--no-index`, so if anything were missing from the bundle the
+install fails immediately and names it rather than hanging on a socket that will
+never connect. The target machine needs **Python 3 and the POSIX utilities any
+Linux install already has** (`tar`, `sha256sum`, `grep`) — no Node, no
+compiler, no database server, and no package index. Wheels are specific to the OS, CPU
+architecture and Python minor version; the bundle records what it was built for
+and the installer refuses a mismatch instead of failing later at import time.
+
+**One process, one port.** Django serves the API *and* the built interface
+(`backend/netforensiq_backend/spa.py`), so an officer starts one thing:
+
+```bash
+cd backend
+FRONTEND_DIST=../frontend/dist .venv/bin/python manage.py runserver 127.0.0.1:8000
+```
+
+Paths the API owns still return real 404s rather than the app shell — a
+catch-all that answers `/api/typo` with HTML and status 200 turns a typo into a
+`JSON.parse` error a long way from its cause.
+
+**The clock is the honest caveat.** An air-gapped machine has no NTP, and an
+undisciplined real-time clock drifts by seconds to minutes a month. Every
+timestamp this platform records comes from that clock. Rather than assert an
+accuracy the hardware cannot deliver, the §63 certificate prints the clock's
+state beside the timestamps it qualifies — synchronised, not synchronised, or
+unknown — and says what that means for the reader. See
+[`backend/evidence/timesource.py`](backend/evidence/timesource.py).
+
 ### Run Tests
 
 ```bash
@@ -170,10 +232,10 @@ npm run dev
 Or piecemeal:
 
 ```bash
-# Backend: 127 tests
+# Backend: 156 tests
 cd backend && ./.venv/bin/python manage.py test
 
-# Frontend: 57 Playwright E2E tests
+# Frontend: 61 Playwright E2E tests
 cd frontend && npx playwright test
 
 # The counts above are measured, not remembered
@@ -534,10 +596,10 @@ individually confirmed.
 
 ## Test Coverage
 
-- **127 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **156 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
-- **57 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
+- **61 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of
   placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate
   download
 

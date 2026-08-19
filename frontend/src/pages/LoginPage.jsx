@@ -34,10 +34,33 @@ function LoginPage() {
     await login(username, password);
     navigate('/dashboard');
   } catch (err) {
+    // Say what actually went wrong.
+    //
+    // Every failure used to fall back to "Authentication failed. Verify your
+    // credentials." — including the API being unreachable, which is not a
+    // credentials problem and sends the officer to re-check something that was
+    // never wrong. A tool that reports the wrong cause costs more time than one
+    // that reports nothing.
+    const status = err.response?.status;
     const detail = err.response?.data?.detail
-      || err.response?.data?.non_field_errors?.[0]
-      || 'Authentication failed. Verify your credentials.';
-    setError(detail);
+      || err.response?.data?.non_field_errors?.[0];
+
+    let message;
+    if (!err.response) {
+      // No response at all: the request never reached a server.
+      message = 'Could not reach the server. Check that the platform is running,'
+        + ' then try again.';
+    } else if (status === 429) {
+      // DRF's own message names the wait, so prefer it when present.
+      message = detail
+        || 'Too many sign-in attempts from this address. Wait, then try again.';
+    } else if (status >= 500) {
+      message = 'The server failed while handling the sign-in. This is not a'
+        + ' problem with your credentials.';
+    } else {
+      message = detail || 'Authentication failed. Verify your credentials.';
+    }
+    setError(message);
   } finally {
     setLoading(false);
   }
