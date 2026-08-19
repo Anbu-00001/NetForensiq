@@ -26,6 +26,7 @@ is stated here rather than left to be inferred.
 | 9 | Persistent-session beaconing | **Implemented** — `C2_BEACON_KEEPALIVE` |
 | 10 | Unidentified sustained channel | **Implemented** — `COVERT_CHANNEL_UNKNOWN_PORT` |
 | 11 | Host corroboration | **Implemented** — `HOST_CORROBORATED` |
+| 12 | Threat Intelligence Feed Matching | **Implemented** — `IOC_FEED_MATCH` (§12) |
 
 `scripts/check_docs.py` fails the build if the engine emits a `rule_id` that
 this document does not mention. A specification the code has drifted away from
@@ -977,6 +978,19 @@ workstation does, and what the rest of the corpus was quietly failing to model.
 **ICMP Tunneling**
 - ptunnel-ng source (magic-number evasion admission, primary): https://github.com/utoni/ptunnel-ng/blob/master/src/options.c
 - Windows/Linux default ping payload behavior: widely-replicated, independently cross-checked technical write-ups (Medium/Gursimar Singh; ittavern.com)
+
+---
+
+## 12. Threat Intelligence Feed Matching (`IOC_FEED_MATCH`)
+
+### Signal
+A flow or host conversation matches an IP, domain, or hash listed in an imported threat intelligence feed (e.g., abuse.ch, CERT-In advisories, or FSL IoC lists).
+
+### Rules & Constraints
+- **Capped at HIGH severity**: Borrowed evidence from third-party lists must not outrank locally measured statutory evidence; a feed hit never reaches `CRITICAL` on its own.
+- **Feed Freshness & Distance**: The finding explicitly records the time gap between feed compilation and capture timestamp, preventing stale IP reassignments from creating false positives.
+
+---
 
 **JA3/JA3S/JA4**
 - Salesforce JA3 (primary): https://github.com/salesforce/ja3 ; blog: https://engineering.salesforce.com/tls-fingerprinting-with-ja3-and-ja3s-247362855967/

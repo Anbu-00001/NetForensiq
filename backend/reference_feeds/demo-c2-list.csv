@@ -1,0 +1,25 @@
+# NetForensiq demonstration indicator list — NOT A REAL THREAT FEED
+#
+# This file was written by this project to exercise the feed-matching code
+# against its own synthetic capture. It is not derived from abuse.ch or from
+# any other source, and nothing in it is a real-world indicator. The addresses
+# below are from RFC 5737 / RFC 3849 documentation ranges, which by definition
+# never appear on the public internet.
+#
+# It is shipped so the feature can be demonstrated without carrying a
+# third-party feed into the repository, whose licence terms we would then be
+# redistributing under. To use a real feed, download one on a networked machine
+# and import it with:
+#
+#   manage.py import_ioc_feed <file> --name "Feodo Tracker IP Blocklist" \
+#       --format feodo_ip --retrieved-on YYYY-MM-DD \
+#       --source https://feodotracker.abuse.ch/downloads/ipblocklist.csv
+#
+# Format: feodo_ip
+# first_seen_utc,dst_ip,dst_port,c2_status,last_online,malware
+# Last updated: 2026-08-17 00:00:00 UTC
+2026-08-10 08:15:00,203.0.113.77,443,online,2026-08-18,DemoExfilHost
+2026-08-09 22:40:00,198.51.100.77,3232,online,2026-08-18,DemoBeaconController
+2026-08-11 06:05:00,198.51.100.99,443,online,2026-08-18,DemoBeaconController
+2026-08-12 11:30:00,198.51.100.23,80,offline,2026-08-16,DemoStagingHost
+2026-08-12 11:31:00,198.51.100.24,80,offline,2026-08-16,DemoStagingHost

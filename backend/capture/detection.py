@@ -1132,6 +1132,144 @@ def rule_icmp_tunnel(session):
     return findings
 
 
+
+def rule_ioc_feed_match(session):
+    """
+    A conversation with something a loaded threat-intelligence feed names.
+
+    This is the only rule in the engine whose evidence is somebody else's.
+    Everything about how it reports is shaped by that:
+
+    **It never exceeds HIGH.** Our other rules cite a measured value against a
+    published threshold and can reach CRITICAL. This cites a list. Borrowed
+    evidence must not outrank measured evidence, so a feed hit is HIGH at most
+    and MEDIUM when the feed is materially newer than the traffic.
+
+    **It states the feed's distance from the traffic.** Addresses get
+    reassigned; a list compiled two years after a capture may name an address
+    that belonged to somebody else when the packets were sent. A match on a
+    feed published *before* the traffic is a much stronger fact than a match on
+    one published long after, and the finding says which it is rather than
+    presenting both as "known malicious".
+
+    **It quotes the line.** The evidence carries the feed name, the file's
+    SHA-256, the date the officer stated they obtained it, and the row itself,
+    so "where does this claim come from" is answerable without leaving the
+    finding.
+
+    Silent when no feed is loaded, which is the normal state of an air-gapped
+    workstation nobody has carried a feed to.
+    """
+    from .ioc import match_session
+
+    # One finding per claim, not per packet capture of it.
+    #
+    # A host beaconing to a listed address every forty-five seconds produces
+    # hundreds of flows and hundreds of raw matches, all asserting the same
+    # thing: this machine talked to that address, which is on this list. Emitted
+    # one-per-flow they would bury every other finding in the queue, and the
+    # triage count would measure how chatty the malware was rather than how much
+    # there is to review. The earliest occurrence is kept as the exemplar and
+    # the rest are counted.
+    grouped = {}
+    for hit in match_session(session):
+        key = (hit['subject_ip'], hit['indicator'].id, hit['where'])
+        existing = grouped.get(key)
+        if existing is None:
+            grouped[key] = {**hit, 'occurrences': 1}
+            continue
+        existing['occurrences'] += 1
+        earlier = hit['seen_at'] is not None and (
+            existing['seen_at'] is None or hit['seen_at'] < existing['seen_at'])
+        if earlier:
+            existing['seen_at'] = hit['seen_at']
+            existing['flow'] = hit['flow']
+            existing['staleness_days'] = hit['staleness_days']
+
+    findings = []
+    for hit in sorted(grouped.values(),
+                      key=lambda h: (h['subject_ip'] or '', h['observed'])):
+        indicator = hit['indicator']
+        feed = hit['feed']
+        stale = hit['staleness_days']
+
+        # Newer than the traffic by more than a quarter is the case where
+        # reassignment is a live possibility, so the finding steps down.
+        far_ahead = stale is not None and stale > 90
+        severity = (Detection.Severity.MEDIUM if far_ahead
+                    else Detection.Severity.HIGH)
+
+        if stale is None:
+            timing = ('The capture carries no timestamp for this observation, '
+                      'so the feed cannot be dated against it.')
+        elif stale < 0:
+            timing = (
+                f'The feed already listed this {abs(stale):.0f} day(s) before '
+                f'the traffic was recorded, so the listing is not explained by '
+                f'a later reassignment of the address.'
+            )
+        else:
+            timing = (
+                f'The feed was compiled {stale:.0f} day(s) after this traffic. '
+                f'Addresses are reassigned, so a gap this size is a reason to '
+                f'confirm the listing covered the period of the capture.'
+            )
+
+        findings.append(Detection(
+            session=session, flow=hit['flow'],
+            rule_id='IOC_FEED_MATCH',
+            title=(
+                f"{hit['subject_ip']} contacted {hit['observed']}, listed by "
+                f"{feed.name}"
+            ),
+            category='threat_intel',
+            severity=severity,
+            method=Detection.Method.RULE,
+            # Not a computed score. A feed either lists something or it does
+            # not, so confidence here would be a decoration.
+            confidence=1.0,
+            subject_ip=hit['subject_ip'],
+            rationale=(
+                f"{hit['subject_ip']} was recorded in "
+                f"{hit['occurrences']} conversation"
+                f"{'s' if hit['occurrences'] != 1 else ''} whose "
+                f"{hit['where']} was {hit['observed']}, which appears in "
+                f"{feed.name}"
+                + (f" ({indicator.context})" if indicator.context else '')
+                + f'. This is an assertion by a third party, not a measurement '
+                  f'made by this tool. {timing}'
+            ),
+            evidence={
+                'indicator': indicator.value,
+                'indicator_kind': indicator.kind,
+                'observed_as': hit['where'],
+                'observed_value': hit['observed'],
+                'conversations_matching': hit['occurrences'],
+                'earliest_seen': (
+                    hit['seen_at'].isoformat() if hit['seen_at'] else None),
+                'feed_name': feed.name,
+                'feed_source_stated_by_importer': feed.source,
+                'feed_file_sha256': feed.file_sha256,
+                'feed_retrieved_on': feed.retrieved_on.isoformat(),
+                'feed_published_on': (
+                    feed.published_on.isoformat() if feed.published_on else None),
+                'feed_entry_count': feed.entry_count,
+                'feed_licence': feed.licence,
+                'listed_on': (
+                    indicator.listed_on.isoformat() if indicator.listed_on else None),
+                'feed_line': indicator.source_line,
+                'feed_days_after_traffic': stale,
+                'evidence_class': 'third-party assertion, not measured here',
+                'severity_cap': (
+                    'Capped at HIGH. A feed match is borrowed evidence and must '
+                    'not outrank a rule citing a measured value against a '
+                    'published threshold.'
+                ),
+            },
+        ))
+    return findings
+
+
 # Every rule_id the engine can emit, declared rather than counted by hand.
 #
 # The landing page states how many rules there are, and three separate strings
@@ -1233,6 +1371,10 @@ RULE_IDS = (
     'EXFIL_VOLUME_ASYMMETRY',
     'HOST_CORROBORATED',
     'ICMP_TUNNEL_OVERSIZED',
+    # Fires only where a threat-intelligence feed has been imported. The rule
+    # is always present; on a workstation nobody has carried a feed to it emits
+    # nothing, which is correct rather than a misconfiguration.
+    'IOC_FEED_MATCH',
     'RECON_PORT_SCAN',
     # Not a rule — the unsupervised signal. Listed here so the published rule
     # inventory matches what the engine can actually emit.
@@ -1248,6 +1390,8 @@ RULES = [
     rule_port_scan,
     rule_exfiltration,
     rule_icmp_tunnel,
+    # Last, and silent unless somebody has carried a feed to this machine.
+    rule_ioc_feed_match,
 ]
 
 # Single source of truth, shared with Detection.Meta ordering. Published in

@@ -95,6 +95,13 @@ T1041 = _technique(
 # Rules with no honest mapping. Listed rather than omitted, so the absence is a
 # recorded decision and not an oversight someone later "fixes" by guessing.
 UNMAPPED = {
+    'IOC_FEED_MATCH': (
+        'A match against a third-party blocklist. ATT&CK classifies adversary '
+        'behaviour; "this address appears on a list" is a claim about the '
+        'address, not about a technique. The feed entry often names a malware '
+        'family, which is carried in the finding, but a family is not a '
+        'technique and mapping one to the other would be invention.'
+    ),
     'HOST_CORROBORATED': (
         'A correlation over other findings, not a detector. ATT&CK describes '
         'adversary behaviour, not an analytic agreeing with itself.'

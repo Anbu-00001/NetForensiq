@@ -188,7 +188,10 @@ function Fold({ label, children, defaultOpen = false }) {
 function AttackScenario({ data }) {
   const [selected, setSelected] = useState(null);
 
-  const hosts = data?.hosts ?? [];
+  // Memoised rather than written inline: `data?.hosts ?? []` builds a fresh
+  // array on every render when the field is absent, which would make the two
+  // memos below recompute every time regardless of whether anything changed.
+  const hosts = useMemo(() => data?.hosts ?? [], [data]);
   const host = useMemo(
     () => hosts.find((h) => h.host === selected) ?? hosts[0] ?? null,
     [hosts, selected],

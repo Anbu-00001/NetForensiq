@@ -338,3 +338,115 @@ class Detection(models.Model):
 
     def __str__(self):
         return f"[{self.severity}] {self.rule_id} · {self.subject_ip or '-'}"
+
+class IOCFeed(models.Model):
+    """
+    A threat-intelligence feed, as imported from a file.
+
+    Why a file and never a fetch
+    ---------------------------
+    The obvious design is for the analysis node to download the feed. It is
+    also wrong twice over. The examination workstation is air-gapped, so it
+    cannot; and if it could, it should not — an evidence machine that opens
+    outbound connections while a capture is loaded has just introduced traffic
+    of its own into an environment whose whole purpose is establishing what
+    traffic existed. The feed is downloaded elsewhere, carried in, and imported
+    with its provenance recorded.
+
+    What provenance means here
+    --------------------------
+    A blocklist match is an assertion by a third party, and its worth depends
+    entirely on facts about the file: which list, obtained from where, when,
+    and hashing to what. `retrieved_on` is **stated by the importing officer**
+    rather than inferred from a file timestamp, because a copied file's mtime
+    says when it was copied.
+
+    The reason this matters is staleness. Addresses are reassigned. A blocklist
+    downloaded a year after a capture may name an address that belonged to
+    somebody else entirely at the time the packets were recorded, and a finding
+    that does not disclose the gap between the two dates is an accusation with
+    a hole in it. `capture/ioc.py` computes and reports that gap on every
+    match.
+    """
+
+    class Format(models.TextChoices):
+        FEODO_IP = 'feodo_ip', 'abuse.ch Feodo Tracker — IP blocklist CSV'
+        URLHAUS = 'urlhaus', 'abuse.ch URLhaus — URL CSV'
+        PLAIN_IP = 'plain_ip', 'Plain list — one address per line'
+        PLAIN_DOMAIN = 'plain_domain', 'Plain list — one domain per line'
+
+    name = models.CharField(max_length=160)
+    # Where the officer says it came from. Recorded verbatim; never fetched.
+    source = models.CharField(max_length=500, blank=True)
+    fmt = models.CharField(max_length=20, choices=Format.choices)
+
+    file_name = models.CharField(max_length=255, blank=True)
+    file_sha256 = models.CharField(max_length=64)
+    file_bytes = models.BigIntegerField(default=0)
+
+    # Stated at import, not read off the filesystem.
+    retrieved_on = models.DateField()
+    # Some feeds carry their own generation timestamp in a header comment. Null
+    # when the file does not say, rather than filled in with the import date.
+    published_on = models.DateTimeField(null=True, blank=True)
+
+    licence = models.CharField(max_length=200, blank=True)
+    notes = models.TextField(blank=True)
+
+    entry_count = models.IntegerField(default=0)
+    imported_at = models.DateTimeField(auto_now_add=True)
+    imported_by = models.ForeignKey(
+        'accounts.User', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='ioc_feeds',
+    )
+
+    class Meta:
+        ordering = ['-retrieved_on', '-imported_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.retrieved_on})'
+
+
+class IOCIndicator(models.Model):
+    """
+    One entry from a feed.
+
+    `source_line` keeps the row exactly as the file had it. A finding quotes it
+    rather than paraphrasing, so an officer asked "where does this claim come
+    from" can answer with the line and the file's digest instead of with the
+    name of a website.
+    """
+
+    class Kind(models.TextChoices):
+        IPV4 = 'ipv4', 'IPv4 address'
+        IPV6 = 'ipv6', 'IPv6 address'
+        DOMAIN = 'domain', 'Domain name'
+        URL = 'url', 'URL'
+
+        # There is deliberately no JA3 kind. abuse.ch's SSL blocklist publishes
+        # JA3 MD5s; this tool computes JA4, and the two are different
+        # constructions over different inputs — a JA3 hash cannot be compared
+        # against a JA4 string, and no arrangement of them makes it possible.
+        # Importing JA3 indicators would produce a feed that loads cleanly,
+        # reports a healthy entry count and can never match anything, which is
+        # worse than not supporting the format at all.
+
+    feed = models.ForeignKey(
+        IOCFeed, on_delete=models.CASCADE, related_name='indicators',
+    )
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    value = models.CharField(max_length=512)
+    # Whatever the feed said about it — malware family, port, confidence.
+    context = models.CharField(max_length=300, blank=True)
+    # The date the feed itself attributes to the entry, where it carries one.
+    listed_on = models.DateTimeField(null=True, blank=True)
+    source_line = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = [('feed', 'kind', 'value')]
+        indexes = [
+            models.Index(fields=['kind', 'value']),
+        ]
+
+    def __str__(self):
+        return f'{self.kind}:{self.value}'
