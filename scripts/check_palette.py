@@ -67,7 +67,12 @@ def read_tokens():
 
 
 def check_contrast(tokens):
+    # Three grounds, not two. The original pair missed PANEL_ALT — the table
+    # stripe and chip ground — where GREY_MUTED measured 4.24:1 and failed,
+    # while passing on both grounds this function was checking. The browser
+    # suite caught it; this now catches it first.
     paper, panel, ink = tokens['PAPER'], tokens['PANEL'], tokens['INK']
+    panel_alt = tokens['PANEL_ALT']
     problems = []
     for name, value in sorted(tokens.items()):
         if name in INK_GROUND_TOKENS:
@@ -77,7 +82,8 @@ def check_contrast(tokens):
             continue
         if name not in TEXT_TOKENS:
             continue
-        for ground_name, ground in (('PAPER', paper), ('PANEL', panel)):
+        for ground_name, ground in (('PAPER', paper), ('PANEL', panel),
+                                    ('PANEL_ALT', panel_alt)):
             ratio = contrast(value, ground)
             if ratio < AA_NORMAL:
                 problems.append(
@@ -135,7 +141,8 @@ def main():
     for name in sorted(TEXT_TOKENS):
         value = tokens[name]
         print(f'  {name:<11} {value}  paper {contrast(value, tokens["PAPER"]):5.2f}:1'
-              f'  panel {contrast(value, tokens["PANEL"]):5.2f}:1')
+              f'  panel {contrast(value, tokens["PANEL"]):5.2f}:1'
+              f'  alt {contrast(value, tokens["PANEL_ALT"]):5.2f}:1')
     bright = tokens.get('CYAN_BRIGHT')
     if bright:
         print(f'  {"CYAN_BRIGHT":<11} {bright}  ink   '

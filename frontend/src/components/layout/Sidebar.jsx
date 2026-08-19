@@ -8,7 +8,9 @@ import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 
+import EvidencePosture from './EvidencePosture';
 import { listSessions, unwrap } from '../../services/forensics';
+import { PANEL, RULE, RULE_STRONG, CYAN, INK, GREY, PAPER } from '../../theme/tokens';
 import { useCurrentUser } from '../../services/session';
 
 // Only routes that exist. Navigation that leads nowhere reads as a mock-up,
@@ -149,11 +151,17 @@ function Sidebar() {
         height: `calc(100vh - ${BANNER_HEIGHT}px)`,
         position: 'sticky',
         top: `${BANNER_HEIGHT}px`,
-        backgroundColor: '#FFFFFF',
-        borderRight: '1px solid #ECEEF1',
+        // Chrome, not content. The navigation used to be the same white as
+        // the page it framed, separated only by a hairline the eye reads as an
+        // accident — so the whole left edge floated. A tinted ground and a
+        // definite border make the boundary deliberate, which is what every
+        // government form does with its margin rule.
+        backgroundColor: PANEL,
+        borderRight: `1px solid ${RULE_STRONG}`,
         display: 'flex',
         flexDirection: 'column',
         py: 2,
+        overflowY: 'auto',
       }}
     >
       <Box sx={{ px: { xs: 0.75, md: 2 }, flexGrow: 1 }}>
@@ -176,8 +184,11 @@ function Sidebar() {
                 borderRadius: 1.5,
                 cursor: 'pointer',
                 position: 'relative',
-                color: isActive ? '#076E7C' : '#5A6068',
-                backgroundColor: isActive ? 'rgba(7,110,124,0.09)' : 'transparent',
+                color: isActive ? CYAN : GREY,
+                // Lifted to paper rather than tinted further: on a tinted rail
+                // the selected item reads as the one closest to the reader.
+                backgroundColor: isActive ? PAPER : 'transparent',
+                border: `1px solid ${isActive ? RULE : 'transparent'}`,
                 transition: 'all 0.22s cubic-bezier(0.4,0,0.2,1)',
                 animation: `slideIn 0.4s ease ${i * 0.05}s both`,
                 '@keyframes slideIn': {
@@ -185,9 +196,8 @@ function Sidebar() {
                   to: { opacity: 1, transform: 'translateX(0)' },
                 },
                 '&:hover': {
-                  backgroundColor: '#F4F5F7',
-                  color: '#111315',
-                  transform: 'translateX(3px)',
+                  backgroundColor: PAPER,
+                  color: INK,
                 },
                 '&::before': isActive
                   ? {
@@ -198,7 +208,7 @@ function Sidebar() {
                       width: 3,
                       height: 20,
                       borderRadius: 4,
-                      backgroundColor: '#076E7C',
+                      backgroundColor: CYAN,
                     }
                   : {},
               }}
@@ -218,8 +228,19 @@ function Sidebar() {
       {/* The capture window needs room for two timestamps; on a rail it
           would truncate into something unreadable, so it is hidden rather
           than shown badly. */}
+      {/*
+        What is being held and whether it can be relied on. Below the
+        navigation because it is context rather than a destination, and above
+        the capture window because a broken seal outranks a timestamp.
+      */}
       <Box sx={{ px: 2, display: { xs: 'none', md: 'block' } }}>
+        <EvidencePosture />
         <CaptureWindow />
+      </Box>
+
+      {/* On the icon rail the same four states survive as dots. */}
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        <EvidencePosture compact />
       </Box>
     </Box>
   );

@@ -33,8 +33,9 @@ const initials = user?.first_name
         position: 'sticky',
         top: `${BANNER_HEIGHT}px`,
         zIndex: 20,
-        borderBottom: '1px solid #ECEEF1',
-        backgroundColor: '#FFFFFF',
+        // Matches the sidebar: chrome is tinted and bounded, content is paper.
+        borderBottom: '1px solid #C7CCD2',
+        backgroundColor: '#F4F5F7',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>

@@ -213,7 +213,7 @@ function StatusPage() {
                     STAGES.map((s, i) => {
                       const done = i < activeIdx;
                       const current = i === activeIdx;
-                      const color = done ? '#1B6E3C' : current ? '#8A6100' : '#6B7178';
+                      const color = done ? '#1B6E3C' : current ? '#8A6100' : '#5F656D';
 
                       return (
                         <Box
@@ -238,7 +238,7 @@ function StatusPage() {
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               fontSize: 11, fontWeight: 700,
                               fontFamily: "'JetBrains Mono', monospace",
-                              color: done || current ? '#FFFFFF' : '#6B7178',
+                              color: done || current ? '#FFFFFF' : '#5F656D',
                               backgroundColor: done ? '#1B6E3C' : current ? '#8A6100' : '#ECEEF1',
                               border: done || current ? 'none' : '1px solid #E2E5E9',
                               boxShadow: current ? '0 0 16px rgba(138,97,0,0.45)' : 'none',
@@ -255,7 +255,7 @@ function StatusPage() {
                             <Typography
                               sx={{
                                 fontSize: 13.5, fontWeight: 500,
-                                color: done || current ? '#111315' : '#6B7178',
+                                color: done || current ? '#111315' : '#5F656D',
                               }}
                             >
                               {s.label}

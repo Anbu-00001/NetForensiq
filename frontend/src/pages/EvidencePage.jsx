@@ -16,7 +16,7 @@ import { GUJARATI } from '../i18n/gujarati';
 const STATUS_STYLE = {
   sealed: { color: '#1B6E3C', label: 'Sealed — hash verified' },
   tampered: { color: '#B3261E', label: 'INTEGRITY FAILED' },
-  archived: { color: '#6B7178', label: 'Archived' },
+  archived: { color: '#5F656D', label: 'Archived' },
 };
 
 function Hash({ label, value }) {

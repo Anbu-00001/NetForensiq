@@ -19,6 +19,15 @@ import {
   unwrap, formatBytes, formatCount,
 } from '../services/forensics';
 
+// Worst first, so a truncated list keeps what matters.
+const SEVERITY_ORDER = ['low', 'medium', 'high', 'critical'];
+
+// How often the dashboard re-reads a capture that is still running. Slow
+// enough that it is not hammering an evidence machine, fast enough that an
+// operator watching the screen sees a finding arrive rather than discovers
+// it on a reload.
+const LIVE_REFRESH_MS = 10_000;
+
 const PANEL = {
   p: 2.5,
   borderRadius: 2,
@@ -32,6 +41,19 @@ function DashboardPage() {
   const [summary, setSummary] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [graph, setGraph] = useState(null);
+  // Who the diagram draws. Kept here rather than inside the graph so a
+  // re-fetch is a normal data load and not a component reaching for the API.
+  const [graphFocus, setGraphFocus] = useState('flagged');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // A capture that is still being taken. The dashboard refreshes itself while
+  // one is running — the difference between a report on a file and a console
+  // watching a wire — and stops the moment the capture does, so a finished
+  // session is not polled forever. Declared here rather than beside the other
+  // derived values because the polling effect below closes over it.
+  const liveSession = summary?.session;
+  const isLive = liveSession?.source_type === 'live'
+    && liveSession?.state === 'running';
   const [bucketSeconds, setBucketSeconds] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analysing, setAnalysing] = useState(false);
@@ -66,7 +88,7 @@ function DashboardPage() {
       getSessionTimeline(sessionId),
       // The diagram is fetched alongside rather than after, so the page does
       // not render its most useful panel last.
-      getSessionGraph(sessionId).catch(() => null),
+      getSessionGraph(sessionId, { focus: graphFocus }).catch(() => null),
     ])
       .then(([s, t, g]) => {
         if (!current) return;
@@ -82,7 +104,16 @@ function DashboardPage() {
     // Switching sessions while a request is in flight would otherwise let the
     // slower response overwrite the newer one.
     return () => { current = false; };
-  }, [sessionId]);
+  }, [sessionId, graphFocus, refreshKey]);
+
+  // Poll only while a live capture is running. `refreshKey` re-enters the
+  // effect above rather than duplicating its fetching here, so the two paths
+  // cannot drift.
+  useEffect(() => {
+    if (!isLive) return undefined;
+    const timer = setInterval(() => setRefreshKey((n) => n + 1), LIVE_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [isLive]);
 
   const runAnalysis = async () => {
     setAnalysing(true);
@@ -90,7 +121,7 @@ function DashboardPage() {
       await analyseSession(sessionId);
       const [s, t, g] = await Promise.all([
         getSessionSummary(sessionId), getSessionTimeline(sessionId),
-        getSessionGraph(sessionId).catch(() => null),
+        getSessionGraph(sessionId, { focus: graphFocus }).catch(() => null),
       ]);
       setSummary(s);
       setTimeline(t.series ?? []);
@@ -110,6 +141,29 @@ function DashboardPage() {
 
   const totals = summary?.totals;
   const severities = summary?.detections_by_severity ?? [];
+
+
+  // Derived from the timeline and summary that are already on screen — no
+  // extra request, and nothing here is synthesised.
+  const SEVERITY_HUE = {
+    critical: '#B3261E', high: '#A84D08', medium: '#8A6100', low: '#1F3A5F',
+  };
+  const bucketLabel = (i) => `bucket ${i + 1}`;
+  const bytesSeries = timeline.map((b, i) => ({ label: bucketLabel(i), value: b.bytes ?? 0 }));
+  const flowSeries = timeline.map((b, i) => ({ label: bucketLabel(i), value: b.flows ?? 0 }));
+  const flaggedSeries = timeline.map((b, i) => ({ label: bucketLabel(i), value: b.flagged ?? 0 }));
+  const dnsSeries = (summary?.dns_top ?? []).map((d) => ({
+    label: d.query_name, value: d.count,
+  }));
+  const severitySeries = [...severities]
+    .sort((a, b) => (SEVERITY_ORDER.indexOf(b.severity) - SEVERITY_ORDER.indexOf(a.severity)))
+    .map((s) => ({ label: s.severity, value: s.count, colour: SEVERITY_HUE[s.severity] }));
+
+  // A count of flagged flows means little without the denominator: twenty-two
+  // out of eight hundred is a different screen from twenty-two out of thirty.
+  const flaggedShare = (totals?.flagged_flows != null && totals?.flows)
+    ? `${((totals.flagged_flows / totals.flows) * 100).toFixed(1)}% of all conversations`
+    : null;
 
   return (
     <Box sx={{ display: 'flex', backgroundColor: '#FFFFFF', minHeight: '100vh',
@@ -195,21 +249,41 @@ function DashboardPage() {
                     is deliberately no "Blocked" card — this is a passive
                     forensic tool and it cannot block anything. */}
                 <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
+                  {/*
+                    Every card carries the distribution behind its figure, and
+                    every series below is measured. Where the data for one is
+                    not present the card renders the number alone rather than a
+                    line that looks like history the capture does not contain.
+                  */}
                   <StatCard title="Packets" primary={formatCount(totals?.packets)}
-                    secondary={formatBytes(totals?.bytes)} color="#1F3A5F" />
+                    secondary={formatBytes(totals?.bytes)} color="#1F3A5F"
+                    chart={{ kind: 'spark', series: bytesSeries }}
+                    caption={bytesSeries.length ? 'Bytes across the capture window' : null} />
+
                   <StatCard title="Flows" primary={formatCount(totals?.flows)}
-                    secondary="conversations" color="#1B6E3C" />
+                    secondary="conversations" color="#1B6E3C"
+                    chart={{ kind: 'spark', series: flowSeries }}
+                    caption={flowSeries.length ? 'Conversations opened over time' : null} />
+
                   <StatCard title="DNS queries" primary={formatCount(totals?.dns_queries)}
-                    secondary="names queried" color="#6B4FA8" />
+                    secondary="names queried" color="#6B4FA8"
+                    chart={{ kind: 'bars', series: dnsSeries }}
+                    caption={dnsSeries.length ? 'Most-queried names' : null} />
+
                   {/* No `?? 0` on the pending count: formatCount already
                       returns an em dash for a missing value, and coercing it to
                       zero would print "0 awaiting triage" — a measured claim —
-                      when the figure simply did not arrive. */}
+                      when the truth is that the figure never arrived. */}
                   <StatCard title="Findings" primary={formatCount(totals?.detections)}
                     secondary={`${formatCount(totals?.detections_pending)} awaiting triage`}
-                    color="#8A6100" />
+                    color="#8A6100"
+                    chart={{ kind: 'bars', series: severitySeries }}
+                    caption={severitySeries.length ? 'By severity' : null} />
+
                   <StatCard title="Flagged flows" primary={formatCount(totals?.flagged_flows)}
-                    secondary="risk score > 0" color="#B3261E" />
+                    secondary="risk score > 0" color="#B3261E"
+                    chart={{ kind: 'spark', series: flaggedSeries }}
+                    caption={flaggedShare} />
                 </Box>
 
                 {/* The diagram sits above the counters deliberately. An
@@ -224,7 +298,11 @@ function DashboardPage() {
                     Each circle is a machine. Lines are conversations between
                     them; red lines carry something a rule flagged.
                   </Typography>
-                  <NetworkGraph data={graph} />
+                  <NetworkGraph
+                    data={graph}
+                    focus={graphFocus}
+                    onFocusChange={setGraphFocus}
+                  />
                 </Box>
 
                 <Box sx={{ ...PANEL, mb: 2.5 }}>
@@ -256,9 +334,9 @@ function DashboardPage() {
                         ))}
                       </defs>
                       <CartesianGrid stroke="#F4F5F7" vertical={false} />
-                      <XAxis dataKey="t" tick={{ fill: '#6B7178', fontSize: 10.5 }}
+                      <XAxis dataKey="t" tick={{ fill: '#5F656D', fontSize: 10.5 }}
                         axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: '#6B7178', fontSize: 10.5 }}
+                      <YAxis tick={{ fill: '#5F656D', fontSize: 10.5 }}
                         axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{
                         backgroundColor: '#FFFFFF',

@@ -39,21 +39,42 @@ docker volume create netforensiq_db
 docker volume create netforensiq_evidence
 ```
 
-## 3. Generate a key, once
+## 3. Generate two keys, once
 
-Reuse the same value every run. A new key invalidates every existing session
-and every issued token.
+Reuse the same values every run.
 
 ```bash
+# Signs sessions and tokens. A new one invalidates every existing login.
 export NF_SECRET_KEY="$(openssl rand -base64 48)"
-echo "$NF_SECRET_KEY" > ~/.netforensiq-secret && chmod 600 ~/.netforensiq-secret
+
+# Encrypts the evidence store. A new one makes every sealed exhibit
+# permanently unreadable. There is no recovery path and there is not meant
+# to be one.
+export NF_EVIDENCE_KEY="$(openssl rand -base64 32)"
+
+umask 077
+printf '%s\n%s\n' "$NF_SECRET_KEY" "$NF_EVIDENCE_KEY" > ~/.netforensiq-keys
 ```
+
+> **Copy `~/.netforensiq-keys` somewhere that is not this machine, now.**
+>
+> This is not boilerplate caution. Passing `EVIDENCE_ENCRYPTION_KEY`
+> explicitly is what stops the key from being generated *inside* the
+> container, where recreating that container — a rebuild, an image bump, a
+> `docker rm` — takes the key with it. The sealed files survive on their
+> volume and become unreadable. That happened here during development, and the
+> operator strip caught it: `SEAL DOES NOT VERIFY`, in red, in the sidebar.
+>
+> The image now defaults the key onto the persisted volume so a naive run
+> survives. Supplying it explicitly is still better, because the key then
+> never sits on the same disk as the evidence.
 
 ## 4. Seed the demonstration dataset
 
 ```bash
 docker run --rm --network none \
   -e SECRET_KEY="$NF_SECRET_KEY" \
+  -e EVIDENCE_ENCRYPTION_KEY="$NF_EVIDENCE_KEY" \
   -e SQLITE_NAME=/app/data/netforensiq.sqlite3 \
   -v netforensiq_db:/app/data \
   -v netforensiq_evidence:/app/evidence_store \
@@ -71,6 +92,7 @@ possibility of reaching anything.
 docker run -d --name netforensiq \
   -p 127.0.0.1:8000:8000 \
   -e SECRET_KEY="$NF_SECRET_KEY" \
+  -e EVIDENCE_ENCRYPTION_KEY="$NF_EVIDENCE_KEY" \
   -e DEBUG=False \
   -e ALLOWED_HOSTS=127.0.0.1,localhost \
   -e SQLITE_NAME=/app/data/netforensiq.sqlite3 \

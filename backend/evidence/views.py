@@ -215,6 +215,73 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
             ).data,
         })
 
+    @action(detail=False, methods=['get'])
+    def posture(self, request):
+        """
+        The state of the evidence holding, for the operator strip.
+
+        One call, because these four facts are read together or not at all, and
+        four requests to draw a sidebar is four chances for a partial answer.
+
+        Every field here is measured, not configured. The clock is read from
+        the system; the seal is re-derived; the encryption count walks the store
+        rather than trusting a flag on a row. An operator strip that reported a
+        setting instead of a state would be exactly the wrong thing to put in
+        an officer's eyeline all day.
+        """
+        from . import timesource
+        from .crypto import describe as describe_encryption, is_encrypted
+
+        records = list(EvidenceRecord.objects.select_related('case')
+                       .order_by('-id'))
+        latest = records[0] if records else None
+
+        clock = timesource.describe()
+        clock['summary'] = timesource.summary_line(clock)
+
+        encryption = describe_encryption()
+        encrypted_on_disk = sum(1 for r in records if is_encrypted(r.stored_path))
+
+        exhibit = None
+        if latest is not None:
+            ok, _ = latest.verify()
+            case = latest.case
+            exhibit = {
+                'exhibit_number': latest.exhibit_number,
+                'status': latest.status,
+                'status_label': latest.get_status_display(),
+                'seal_intact': ok,
+                'provenance': latest.provenance,
+                'provenance_label': latest.get_provenance_display(),
+                'is_demonstration_only': latest.is_demonstration_only,
+                'custody_entries': latest.custody_events.count(),
+                'case_number': case.case_number if case else '',
+                'fir_number': (case.fir_number if case else '') or latest.fir_number,
+                'police_station': ((case.police_station if case else '')
+                                   or latest.police_station),
+                # What the exhibit was sealed bearing, when no Case record
+                # exists. Printed so the strip is never blank where a real
+                # deployment would show an FIR.
+                'reference_on_exhibit': latest.case_reference,
+            }
+
+        return Response({
+            'clock': clock,
+            'encryption': {
+                **encryption,
+                'exhibits_encrypted': encrypted_on_disk,
+                'exhibits_total': len(records),
+            },
+            'exhibits': {
+                'total': len(records),
+                'sealed': sum(1 for r in records
+                              if r.status == EvidenceRecord.Status.SEALED),
+                'tampered': sum(1 for r in records
+                                if r.status == EvidenceRecord.Status.TAMPERED),
+            },
+            'latest_exhibit': exhibit,
+        })
+
     @action(detail=False, methods=['get'], url_path='store-status')
     def store_status(self, request):
         """

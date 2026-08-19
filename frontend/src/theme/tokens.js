@@ -44,7 +44,7 @@ export const RULE_STRONG = '#C7CCD2';
 export const INK = '#111315';        // 18.62:1 on paper
 export const INK_SOFT = '#2B3138';   // 13.13:1 — secondary headings
 export const GREY = '#5A6068';       //  6.35:1 — secondary text
-export const GREY_MUTED = '#6B7178'; //  4.93:1 — the floor; nothing dimmer exists
+export const GREY_MUTED = '#5F656D'; //  5.88:1 — the floor; nothing dimmer exists
 
 // ── the accent ─────────────────────────────────────────────────────────────
 export const CYAN = '#076E7C';        // 5.95:1 on paper — links, focus, active nav
@@ -58,7 +58,7 @@ export const AMBER_BRIGHT = '#F0C24A';
 
 // ── meaning ────────────────────────────────────────────────────────────────
 export const CRITICAL = '#B3261E';
-export const HIGH = '#B45309';
+export const HIGH = '#A84D08';
 export const MEDIUM = '#8A6100';
 export const LOW = '#1F3A5F';
 export const INFO = GREY;
@@ -78,7 +78,7 @@ export const VIOLET = '#6B4FA8';
 // Pressed and hover states. Each is its own colour darkened, never a shadow
 // or a lift, so a button under the cursor still looks like the same button.
 export const CRITICAL_DEEP = '#8F1E17';
-export const HIGH_DEEP = '#8F4207';
+export const HIGH_DEEP = '#7E3A05';
 export const MEDIUM_DEEP = '#6F4E00';
 export const INTACT_DEEP = '#155B31';
 export const LOW_DEEP = '#16406B';

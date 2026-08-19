@@ -55,8 +55,8 @@ function strokeFor(bytes, heaviest) {
 const COLOURS = {
   flagged: '#B3261E',
   internal: '#1F3A5F',
-  external: '#B45309',
-  quiet: '#6B7178',
+  external: '#A84D08',
+  quiet: '#5F656D',
 };
 
 function colourFor(host) {

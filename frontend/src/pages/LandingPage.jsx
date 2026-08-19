@@ -86,6 +86,21 @@ function LandingPage() {
         sx={{
           position: 'relative', overflow: 'hidden',
           borderBottom: '1px solid #ECEEF1',
+          // Something for the glass to refract.
+          //
+          // Two very low washes in the palette's own blues, over the ruling of
+          // a ledger page. It is the texture of security print — the reason a
+          // stamp paper looks like a stamp paper — and unlike an animated
+          // shader it costs nothing, survives being projected in a lit room,
+          // and is still there when the page is printed to a case file.
+          backgroundColor: '#FFFFFF',
+          backgroundImage: `
+            radial-gradient(1100px 480px at 80% -12%, rgba(7,110,124,0.07), transparent 62%),
+            radial-gradient(880px 420px at 10% 108%, rgba(31,58,95,0.055), transparent 62%),
+            linear-gradient(rgba(17,19,21,0.028) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(17,19,21,0.028) 1px, transparent 1px)
+          `,
+          backgroundSize: '100% 100%, 100% 100%, 30px 30px, 30px 30px',
         }}
       >
 
@@ -196,9 +211,32 @@ function LandingPage() {
           <Box
             sx={{
               width: { xs: '100%', md: 320 }, flexShrink: 0, p: 2.5,
-              borderRadius: 2, backgroundColor: '#F4F5F7',
-              border: '1px solid #E2E5E9',
-              opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(24px)',
+              borderRadius: 2,
+              // Frosted, not flat.
+              //
+              // Glassmorphism used everywhere is the signature of a template.
+              // Used once, on the one panel that explains what the product
+              // does, it is a technique: the panel sits visibly *above* the
+              // ruled ground instead of being pasted onto it, which is the
+              // whole reason to spend depth on something.
+              //
+              // Three shadows, doing three jobs: an inset highlight for the
+              // lit top edge, a long soft cast for elevation, and a short tight
+              // one for contact. A single shadow reads as a sticker.
+              position: 'relative',
+              backgroundColor: 'rgba(255,255,255,0.62)',
+              backdropFilter: 'blur(18px) saturate(1.2)',
+              WebkitBackdropFilter: 'blur(18px) saturate(1.2)',
+              border: '1px solid rgba(255,255,255,0.9)',
+              outline: '1px solid rgba(17,19,21,0.06)',
+              outlineOffset: '-1px',
+              boxShadow: `
+                0 1px 0 rgba(255,255,255,0.95) inset,
+                0 24px 48px -28px rgba(17,19,21,0.32),
+                0 3px 8px -4px rgba(17,19,21,0.10)
+              `,
+              opacity: mounted ? 1 : 0,
+              transform: mounted ? 'none' : 'translateY(24px)',
               transition: 'all 0.8s ease 0.35s',
             }}
           >

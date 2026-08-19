@@ -201,6 +201,15 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             session.detections.values('severity')
             .annotate(count=Count('id')).order_by()
         )
+        # The names asked for most often. A DNS count on its own says a number
+        # of lookups happened; the names say what the machine was looking for,
+        # which is the part an officer can act on.
+        dns_top = list(
+            session.dns_records.exclude(query_name='')
+            .values('query_name')
+            .annotate(count=Count('id'))
+            .order_by('-count')[:5]
+        )
 
         return Response({
             'session': CaptureSessionSerializer(session).data,
@@ -221,6 +230,7 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             'applications': applications,
             'top_talkers': talkers,
             'detections_by_severity': severities,
+            'dns_top': dns_top,
         })
 
     # How many machines the host view returns by default. A capture of a
@@ -264,6 +274,16 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
     # what it left out instead of pretending to be the whole network.
     MAX_GRAPH_NODES = 60
     MAX_GRAPH_EDGES = 150
+
+    # Every host keeps its strongest links even when they are unremarkable, so
+    # no circle is left floating with nothing attached. Two is enough to show a
+    # host's place in the picture; drawing all of them is what turns fifty
+    # hosts into a ball of wool.
+    EDGES_PER_NODE = 2
+
+    # Not an address, and deliberately not shaped like one, so nothing
+    # downstream mistakes the aggregate circle for a host.
+    COLLAPSED_ID = 'other-hosts'
 
     @action(detail=True, methods=['get'])
     def graph(self, request, pk=None):
@@ -335,12 +355,36 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             edges[key]['risk'] = max(edges[key]['risk'], flow.risk_score or 0)
             edges[key]['protocols'].add(flow.app_protocol or flow.protocol)
 
+        # What the diagram is *for* decides who is in it.
+        #
+        # Drawing every host produces a picture whose subject is "there was a
+        # network". The subject an officer needs is "these machines are in
+        # trouble and here is who they spoke to" — so by default the diagram
+        # holds the implicated hosts and the peers they actually talked to, and
+        # says out loud how many quiet hosts it folded away. `?focus=all`
+        # restores the full picture for anyone who wants to audit that choice.
+        focus = request.query_params.get('focus', 'flagged')
+        collapsed = set()
+
+        if focus == 'flagged' and any(finding_counts.get(ip) for ip in traffic):
+            implicated = {ip for ip in traffic if finding_counts.get(ip)}
+            relevant = set(implicated)
+            for ip in implicated:
+                relevant.update(traffic[ip]['peers'])
+            relevant &= set(traffic)
+            collapsed = set(traffic) - relevant
+            candidates_for_ranking = {ip: traffic[ip] for ip in relevant}
+        else:
+            candidates_for_ranking = traffic
+
         ranked = sorted(
-            traffic.items(),
+            candidates_for_ranking.items(),
             key=lambda item: (worst.get(item[0], 0), item[1]['bytes']),
             reverse=True,
         )
         kept = dict(ranked[:limit])
+        # Anything ranked out is folded away with the rest rather than vanishing.
+        collapsed |= set(candidates_for_ranking) - set(kept)
 
         nodes = []
         for ip, stats in kept.items():
@@ -362,47 +406,188 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             })
 
         drawn = set(kept)
-        visible_edges = sorted(
-            (
-                {
+
+        # One circle standing for every host that was folded away, so the
+        # diagram never implies the network was smaller than it was. It carries
+        # the merged traffic to and from all of them.
+        if collapsed:
+            folded = {'bytes': 0, 'flows': 0, 'peers': set()}
+            for ip in collapsed:
+                folded['bytes'] += traffic[ip]['bytes']
+                folded['flows'] += traffic[ip]['flows']
+                folded['peers'].update(traffic[ip]['peers'])
+            nodes.append({
+                'id': self.COLLAPSED_ID,
+                'label': f'{len(collapsed)} other hosts',
+                'aggregate': True,
+                'collapsed_count': len(collapsed),
+                'internal': False,
+                'bytes': folded['bytes'],
+                'flows': folded['flows'],
+                'peers': len(folded['peers']),
+                'severity_rank': 0,
+                'finding_count': 0,
+                'caption': (
+                    f'{len(collapsed)} hosts folded into one circle. None has a '
+                    f'finding against it and none was a peer of a machine that '
+                    f'does. Together they moved '
+                    f'{self._human_bytes(folded["bytes"])} across '
+                    f'{folded["flows"]} conversations. Switch to every host to '
+                    f'draw them separately.'
+                ),
+            })
+
+        candidates = []
+        merged_to_aggregate = defaultdict(
+            lambda: {'bytes': 0, 'flows': 0, 'risk': 0, 'protocols': set()})
+
+        for (a, b), e in edges.items():
+            if a in drawn and b in drawn:
+                candidates.append({
                     'source': a, 'target': b,
                     'bytes': e['bytes'], 'flows': e['flows'], 'risk': e['risk'],
                     'protocols': sorted(p for p in e['protocols'] if p)[:3],
-                }
-                for (a, b), e in edges.items() if a in drawn and b in drawn
-            ),
-            key=lambda e: (e['risk'], e['bytes']), reverse=True,
-        )[:self.MAX_GRAPH_EDGES]
+                })
+            elif collapsed and (a in drawn) != (b in drawn):
+                # One end was folded away. The line still gets drawn, to the
+                # aggregate circle, because a host's conversations with the
+                # rest of the network are part of what it did.
+                visible_end = a if a in drawn else b
+                merged = merged_to_aggregate[visible_end]
+                merged['bytes'] += e['bytes']
+                merged['flows'] += e['flows']
+                merged['risk'] = max(merged['risk'], e['risk'])
+                merged['protocols'].update(e['protocols'])
 
+        for host, merged in merged_to_aggregate.items():
+            candidates.append({
+                'source': host, 'target': self.COLLAPSED_ID,
+                'bytes': merged['bytes'], 'flows': merged['flows'],
+                'risk': merged['risk'],
+                'protocols': sorted(p for p in merged['protocols'] if p)[:3],
+                'to_aggregate': True,
+            })
+
+        visible_edges, edges_withheld = self._select_edges(candidates)
+
+        implicated = [n for n in nodes if n['finding_count']]
+        real_nodes = [n for n in nodes if not n.get('aggregate')]
         return Response({
             'nodes': nodes,
             'edges': visible_edges,
             'hosts_total': len(traffic),
-            'hosts_drawn': len(nodes),
+            'hosts_drawn': len(real_nodes),
+            'hosts_folded': len(collapsed),
+            'focus': focus,
+            'edges_total': len(candidates),
+            'edges_withheld': edges_withheld,
             'home_networks': describe_home_net(networks),
+            # The sentence the picture is making. A diagram that leaves the
+            # reader to work out its own point is a diagram most readers walk
+            # past, and the officers this is for are not going to count circles.
+            'headline': self._headline(real_nodes, implicated, len(traffic)),
             # Said plainly, because a picture that hides most of the network
             # while looking complete is a misleading picture.
             'caption': (
-                f'{len(nodes)} of {len(traffic)} hosts shown — the ones with '
-                f'findings against them first, then the busiest.'
-                if len(nodes) < len(traffic)
-                else f'All {len(nodes)} hosts in this capture.'
+                (f'{len(real_nodes)} of {len(traffic)} hosts drawn — those with '
+                 f'findings against them and the machines they talked to. '
+                 f'{len(collapsed)} quiet hosts folded into one circle.'
+                 if collapsed
+                 else f'All {len(real_nodes)} hosts in this capture.')
+                + (f' {edges_withheld} further conversation'
+                   f'{"s" if edges_withheld != 1 else ""} not drawn: every '
+                   f'flagged one is shown, plus each host\'s busiest links.'
+                   if edges_withheld else '')
             ),
         })
 
+    @classmethod
+    def _select_edges(cls, candidates):
+        """
+        Which conversations to draw, and how many were left out.
+
+        A capture of fifty hosts has hundreds of conversations and almost all of
+        them are a machine fetching one thing once. Drawing every line produces
+        a picture whose only content is "there was a lot of traffic", which the
+        packet count already said.
+
+        Two rules, in this order:
+
+          Every conversation a rule flagged is drawn. Those are the point of
+          the diagram and they are never dropped to make room.
+
+          Every host keeps its busiest few links. That is what stops the
+          filtered picture from becoming a handful of red lines floating in
+          space with no context around them.
+
+        Returns (edges, withheld). The count is returned rather than discarded
+        because a picture that hides most of the network while looking complete
+        is a misleading picture.
+        """
+        keep = {}
+        by_host = defaultdict(list)
+
+        for edge in candidates:
+            key = (edge['source'], edge['target'])
+            if edge['risk'] > 0:
+                keep[key] = edge
+            by_host[edge['source']].append(edge)
+            by_host[edge['target']].append(edge)
+
+        for host_edges in by_host.values():
+            host_edges.sort(key=lambda e: e['bytes'], reverse=True)
+            for edge in host_edges[:cls.EDGES_PER_NODE]:
+                keep[(edge['source'], edge['target'])] = edge
+
+        selected = sorted(keep.values(), key=lambda e: (e['risk'], e['bytes']),
+                          reverse=True)[:cls.MAX_GRAPH_EDGES]
+        return selected, len(candidates) - len(selected)
+
     @staticmethod
-    def _describe_node(ip, internal, stats, severity_rank, findings):
+    def _headline(nodes, implicated, hosts_total):
+        """One sentence stating what the diagram shows, for a reader in a hurry."""
+        if not nodes:
+            return 'No conversations were recorded in this capture.'
+        if not implicated:
+            return (
+                f'No host in this capture has a finding against it. '
+                f'{hosts_total} machines talked to each other and nothing '
+                f'crossed a threshold.'
+            )
+
+        worst = max(implicated, key=lambda n: (n['severity_rank'], n['finding_count']))
+        inside = sum(1 for n in implicated if n['internal'])
+        if len(implicated) == 1:
+            who = '1 machine is implicated'
+            where = ', inside the monitored network' if inside else ''
+        else:
+            who = f'{len(implicated)} machines are implicated'
+            where = (f' — all of them inside the monitored network'
+                     if inside == len(implicated)
+                     else f' — {inside} of them inside the monitored network'
+                     if inside else '')
+        return (
+            f'{who}{where}. The worst is {worst["id"]}, with '
+            f'{worst["finding_count"]} finding'
+            f'{"s" if worst["finding_count"] != 1 else ""} against it across '
+            f'{worst["peers"]} peer{"s" if worst["peers"] != 1 else ""}.'
+        )
+
+    @staticmethod
+    def _human_bytes(volume):
+        if volume >= 1_000_000_000:
+            return f'{volume / 1_000_000_000:.1f} GB'
+        if volume >= 1_000_000:
+            return f'{volume / 1_000_000:.1f} MB'
+        if volume >= 1000:
+            return f'{volume / 1000:.0f} KB'
+        return f'{volume} bytes'
+
+    @classmethod
+    def _describe_node(cls, ip, internal, stats, severity_rank, findings):
         """One sentence an officer can read without knowing what a flow is."""
         side = 'Inside the monitored network' if internal else 'Outside address'
-        volume = stats['bytes']
-        if volume >= 1_000_000_000:
-            size = f'{volume / 1_000_000_000:.1f} GB'
-        elif volume >= 1_000_000:
-            size = f'{volume / 1_000_000:.1f} MB'
-        elif volume >= 1000:
-            size = f'{volume / 1000:.0f} KB'
-        else:
-            size = f'{volume} bytes'
+        size = cls._human_bytes(stats['bytes'])
 
         sentence = (
             f'{side}. Exchanged {size} across {stats["flows"]} '

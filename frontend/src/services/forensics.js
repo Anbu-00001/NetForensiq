@@ -20,9 +20,14 @@ export const getSessionTimeline = (id) =>
 // The capture drawn as a diagram rather than counted. See
 // components/graph/NetworkGraph.jsx for why a picture answers a question the
 // figures cannot.
-export const getSessionGraph = (id, nodes) =>
-  api.get(`/sessions/${id}/graph/`, { params: nodes ? { nodes } : {} })
-    .then((r) => r.data);
+//
+// `focus` decides who is in the picture: 'flagged' (the default) draws the
+// implicated hosts and the machines they talked to, folding the quiet
+// remainder into one circle; 'all' draws everything.
+export const getSessionGraph = (id, { nodes, focus } = {}) =>
+  api.get(`/sessions/${id}/graph/`, {
+    params: { ...(nodes ? { nodes } : {}), ...(focus ? { focus } : {}) },
+  }).then((r) => r.data);
 
 export const analyseSession = (id) =>
   api.post(`/sessions/${id}/analyse/`).then((r) => r.data);
@@ -140,7 +145,7 @@ export const formatCount = (n) => {
 
 export const SEVERITY_COLOR = {
   critical: '#B3261E',
-  high: '#B45309',
+  high: '#A84D08',
   medium: '#8A6100',
   low: '#1F3A5F',
 };
@@ -157,3 +162,13 @@ export const listPendingAccounts = () =>
 
 export const decideAccount = (username, decision) =>
   api.post('/auth/accounts/pending/', { username, decision }).then((r) => r.data);
+
+/**
+ * The state of the evidence holding: clock, seal, encryption, case.
+ *
+ * One call because these are read together — a strip that draws three of the
+ * four while the fourth is still in flight is a strip that flickers, and this
+ * one sits in an officer's eyeline all day.
+ */
+export const getEvidencePosture = () =>
+  api.get('/evidence/posture/').then((r) => r.data);

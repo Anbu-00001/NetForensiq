@@ -19,8 +19,8 @@ import { useCurrentUser, canActOnEvidence } from '../services/session';
 const RENDER_BATCH = 100;
 
 const TRIAGE_ACTIONS = [
-  { key: 'confirmed', label: 'Confirm', color: '#B45309' },
-  { key: 'dismissed', label: 'Dismiss (false positive)', color: '#6B7178' },
+  { key: 'confirmed', label: 'Confirm', color: '#A84D08' },
+  { key: 'dismissed', label: 'Dismiss (false positive)', color: '#5F656D' },
   { key: 'escalated', label: 'Escalate', color: '#B3261E' },
 ];
 
@@ -28,7 +28,7 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const colour = SEVERITY_COLOR[detection.severity] ?? '#6B7178';
+  const colour = SEVERITY_COLOR[detection.severity] ?? '#5F656D';
 
   const decide = async (statusKey) => {
     setBusy(true);

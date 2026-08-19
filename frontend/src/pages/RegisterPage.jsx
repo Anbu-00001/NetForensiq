@@ -21,8 +21,8 @@ const roles = [
 // on the status page; nothing in the system performs it.
 const pipeline = [
   ['01', 'Submit credentials', '#076E7C', 'YOU ARE HERE'],
-  ['02', 'Administrator review', '#6B7178', 'PENDING'],
-  ['03', 'Access granted', '#6B7178', 'LOCKED'],
+  ['02', 'Administrator review', '#5F656D', 'PENDING'],
+  ['03', 'Access granted', '#5F656D', 'LOCKED'],
 ];
 
 function RegisterPage() {
@@ -151,7 +151,7 @@ function RegisterPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 10.5, fontWeight: 700,
                       fontFamily: "'JetBrains Mono', monospace",
-                      color: i === 0 ? '#FFFFFF' : '#6B7178',
+                      color: i === 0 ? '#FFFFFF' : '#5F656D',
                       backgroundColor: i === 0 ? '#076E7C' : '#ECEEF1',
                       border: i === 0 ? 'none' : '1px solid #E2E5E9',
                       boxShadow: i === 0 ? '0 0 16px rgba(0,212,255,0.45)' : 'none',

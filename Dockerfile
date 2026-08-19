@@ -79,7 +79,21 @@ COPY VERSION ./
 COPY --from=frontend /build/dist /app/frontend_dist
 
 ENV FRONTEND_DIST=/app/frontend_dist \
-    STATIC_ROOT=/app/staticfiles
+    STATIC_ROOT=/app/staticfiles \
+    # On a persisted volume, not the container filesystem.
+    #
+    # The default is BASE_DIR/.evidence.key, which inside a container is
+    # /app/.evidence.key — a path that exists only for the life of that
+    # container. Recreating it (a rebuild, an image bump, `docker rm`)
+    # silently destroyed the key, and with it every encrypted exhibit: the
+    # files survived on their volume and became permanently unreadable.
+    #
+    # /app/data is the volume the database already lives on, so the key
+    # survives. That does put the key beside the data it protects, which is
+    # weaker than it should be — a real deployment supplies
+    # EVIDENCE_ENCRYPTION_KEY from a secrets manager instead and never writes
+    # it to this disk. See RUN_OFFLINE.md.
+    EVIDENCE_KEY_FILE=/app/data/.evidence.key
 
 RUN python manage.py collectstatic --noinput
 
