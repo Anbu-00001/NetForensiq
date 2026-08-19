@@ -22,7 +22,7 @@ is stated here rather than left to be inferred.
 | 4 | Data exfiltration | **Implemented** — `EXFIL_VOLUME_ASYMMETRY` |
 | 5 | ICMP tunnelling | **Implemented** — `ICMP_TUNNEL_OVERSIZED` |
 | 6 | TLS fingerprinting | **Implemented as JA4 only.** JA3 is described here for completeness and is *not* computed — see the section's own conclusion |
-| 7 | IsolationForest anomaly detection | **NOT IMPLEMENTED — research only.** See the note in that section |
+| 7 | IsolationForest anomaly detection | **Implemented** — `ANOMALY_STATISTICAL`, capped at MEDIUM and always explained; see that section's conditions |
 | 9 | Persistent-session beaconing | **Implemented** — `C2_BEACON_KEEPALIVE` |
 | 10 | Unidentified sustained channel | **Implemented** — `COVERT_CHANNEL_UNKNOWN_PORT` |
 | 11 | Host corroboration | **Implemented** — `HOST_CORROBORATED` |
@@ -686,27 +686,47 @@ Primary source: FoxIO, https://github.com/FoxIO-LLC/ja4 (technical spec:
 
 ## 7. Unsupervised Anomaly Detection on Flow Features (IsolationForest)
 
-> ### ⚠️ NOT IMPLEMENTED — research only
+> ### ✅ IMPLEMENTED as `ANOMALY_STATISTICAL` — a secondary signal, on terms
 >
-> No unsupervised model exists in the codebase. This section records what was
-> investigated and why it was not built; the parameters below are correct for
-> anyone who does build it.
+> Built in `capture/anomaly.py`, emitted by `detection.statistical_anomalies`.
+> The problem statement requires AI-driven anomaly detection; the objection
+> recorded here previously was not to the method but to the black box, and the
+> implementation is bound by the conditions that objection implies.
 >
-> **Why it was not built.** The product's central claim is that an officer
-> asked "why was this flagged?" can read the answer off the record. An
-> isolation score cannot be read that way: it is a number a model produced,
-> defensible in a paper and not in cross-examination. A finding that says
-> *"this host contacted the same peer 41 times at 45-second intervals; RITA's
-> threshold is 23 connections"* survives a question that *"anomaly score
-> −0.62"* does not.
+> **The original objection, which still stands.** An officer asked "why was
+> this flagged?" must be able to read the answer off the record. *"Anomaly
+> score −0.62"* does not survive that question. So the module never reports a
+> score alone: every finding names the features that made the flow stand out
+> and by how many robust standard deviations, and a flow the model isolates
+> but cannot explain is **dropped rather than reported**. That is enforced by
+> `test_nothing_is_reported_without_a_reason`.
 >
-> The `Flow.anomaly_score` column that once existed for this was **removed**
-> rather than left null, and the landing page's "ISOLATION FOREST" feature card
-> was deleted, because publishing a field for a model that does not exist is
-> the same kind of claim this project refuses to make elsewhere.
+> **The three conditions.**
+> 1. **Capped at MEDIUM.** An anomaly is a reason to look, never a conclusion.
+>    Only a rule that cited a threshold speaks at HIGH or CRITICAL.
+> 2. **Always explained.** Findings carry `unusual_features` with a signed
+>    z-score per feature, computed from the median and MAD rather than the mean
+>    — the mean is dragged by the very outliers being sought.
+> 3. **Labelled as statistical.** `method = model`, never `rule`. The §63
+>    certificate does not rest on it.
 >
-> If it is ever built, it belongs beside the rules and clearly labelled as a
-> model's opinion — never merged into the same severity scale.
+> **Fitted per capture, unsupervised.** There is no labelled corpus of Indian
+> police packet captures, and a model trained on another network encodes
+> another network's normal. The model learns what is ordinary in the capture
+> being analysed. The honest limitation — stated on every finding it emits —
+> is that *if the whole capture is malicious, nothing in it looks unusual*.
+>
+> **`random_state` is pinned.** An analysis that answers differently on Tuesday
+> than on Monday cannot be put before a court.
+>
+> **Shortlist capped at 50.** Contamination is a proportion: 2% of the 166,093
+> flows in the server capture is 3,278 findings, which is not a shortlist but a
+> second haystack. The strongest by isolation score are reported and the number
+> held back is stated, never silently dropped.
+>
+> Measured on the reference captures: 50 reported of 3,278 isolated on the
+> server capture; 17 on the synthetic storyline, where it independently
+> flagged `10.45.57.44` — the same host the deterministic rules corroborate.
 
 
 ### Parameters, verified against sklearn's own docs

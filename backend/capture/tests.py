@@ -858,13 +858,40 @@ class RuleRegistryTests(TestCase):
     """
 
     def test_the_declared_registry_matches_what_the_source_emits(self):
+        """
+        Scans for both spellings a rule_id can take.
+
+        Most are written as a literal at the point of use. The unsupervised
+        signal names its id once, as a constant in capture/anomaly.py, and
+        passes it by name — so a literal-only scan silently stopped covering
+        it. A registry check that misses the newest entrant is worse than none.
+        """
         import re
         from pathlib import Path
 
+        from . import detection
         from .detection import RULE_IDS
 
-        source = Path(__file__).with_name('detection.py').read_text()
+        # Comments are stripped before scanning: a comment in detection.py that
+        # *describes* this check contains the very pattern being searched for,
+        # and matched itself.
+        source = '\n'.join(
+            re.sub(r'#.*$', '', line)
+            for line in Path(__file__).with_name('detection.py').read_text().splitlines()
+        )
+
         emitted = set(re.findall(r"rule_id='([A-Z0-9_]+)'", source))
+
+        # rule_id=SOME_NAME — resolve the name against the module, so a
+        # constant defined elsewhere and imported here still counts.
+        for name in re.findall(r'rule_id=([A-Z][A-Z0-9_]*)\b', source):
+            value = getattr(detection, name, None)
+            self.assertIsInstance(
+                value, str,
+                f'rule_id={name} is used but {name} does not resolve to a '
+                f'string in capture.detection',
+            )
+            emitted.add(value)
 
         self.assertEqual(
             set(RULE_IDS), emitted,
@@ -1182,3 +1209,271 @@ class CaptureUploadTests(TestCase):
             glob.glob('/tmp/netforensiq-upload-*'), [],
             'the temporary upload copy must be removed',
         )
+
+
+class HostProfileTests(TestCase):
+    """
+    Grouping a capture by machine.
+
+    The thing being tested is not arithmetic — it is that the page answers the
+    question an officer actually asks. A capture with thirteen thousand hosts
+    must surface the four that matter, and every inference it makes about a
+    machine must carry the observation that produced it.
+    """
+
+    def setUp(self):
+        from capture.models import CaptureSession, Flow
+        from django.utils import timezone
+        self.session = CaptureSession.objects.create(
+            name='hosts', source_type=CaptureSession.Source.PCAP,
+            home_net='10.0.0.0/24',
+        )
+        self.now = timezone.now()
+        self.Flow = Flow
+
+    def _flow(self, src, dst, dport=443, **kwargs):
+        return self.Flow.objects.create(
+            session=self.session, src_ip=src, dst_ip=dst,
+            src_port=kwargs.pop('sport', 51000), dst_port=dport,
+            protocol=kwargs.pop('protocol', 'TCP'), initiator_ip=src,
+            first_seen=self.now, last_seen=self.now,
+            bytes_sent=kwargs.pop('bytes_sent', 1000),
+            bytes_received=kwargs.pop('bytes_received', 2000),
+            **kwargs,
+        )
+
+    def test_a_machine_answering_dns_for_others_is_proposed_as_the_resolver(self):
+        for i in range(4):
+            self._flow(f'10.0.0.{10 + i}', '10.0.0.2', dport=53, protocol='UDP')
+
+        from capture.hosts import profile_hosts
+        hosts = {h['ip']: h for h in profile_hosts(self.session)['hosts']}
+        self.assertEqual(hosts['10.0.0.2']['role'], 'resolver')
+        # The observation must travel with the claim, so it can be disputed.
+        self.assertIn('answered DNS', hosts['10.0.0.2']['role_evidence'])
+        self.assertIn('4 other machines', hosts['10.0.0.2']['role_evidence'])
+
+    def test_a_scanner_is_named_against_the_published_threshold(self):
+        from capture.detection import THRESHOLDS
+        limit = THRESHOLDS['scan_unique_ports'][0]
+        for port in range(1, limit + 5):
+            self._flow('203.0.113.9', '10.0.0.5', dport=port)
+
+        from capture.hosts import profile_hosts
+        hosts = {h['ip']: h for h in profile_hosts(self.session)['hosts']}
+        self.assertEqual(hosts['203.0.113.9']['role'], 'scanner')
+        self.assertIn(str(limit), hosts['203.0.113.9']['role_evidence'])
+
+    def test_internal_and_external_are_decided_by_the_session_home_net(self):
+        self._flow('10.0.0.5', '203.0.113.7')
+
+        from capture.hosts import profile_hosts
+        result = profile_hosts(self.session)
+        hosts = {h['ip']: h for h in result['hosts']}
+        self.assertTrue(hosts['10.0.0.5']['is_internal'])
+        self.assertFalse(hosts['203.0.113.7']['is_internal'])
+        self.assertEqual(result['home_networks'], ['10.0.0.0/24'])
+
+    def test_implicated_machines_come_first(self):
+        from capture.models import Detection
+        self._flow('10.0.0.5', '203.0.113.7')
+        for i in range(20):
+            self._flow('10.0.0.6', f'203.0.113.{20 + i}')
+
+        # 10.0.0.5 is quieter but is the one a rule named.
+        Detection.objects.create(
+            session=self.session, rule_id='C2_BEACON_PERIODIC',
+            title='Periodic callback', category='c2', severity='critical',
+            method='rule', subject_ip='10.0.0.5',
+        )
+
+        from capture.hosts import profile_hosts
+        hosts = profile_hosts(self.session)['hosts']
+        self.assertEqual(
+            hosts[0]['ip'], '10.0.0.5',
+            'a machine a rule implicated outranks a machine that merely talked a lot',
+        )
+
+    def test_a_clean_machine_says_so_plainly(self):
+        self._flow('10.0.0.5', '203.0.113.7')
+
+        from capture.hosts import profile_hosts
+        hosts = {h['ip']: h for h in profile_hosts(self.session)['hosts']}
+        verdict = hosts['10.0.0.5']['verdict']
+        self.assertIn('Nothing was flagged', verdict)
+        self.assertIsNone(hosts['10.0.0.5']['worst_severity'])
+
+    def test_agreement_between_rules_is_stated_as_the_stronger_signal(self):
+        from capture.models import Detection
+        self._flow('10.0.0.5', '203.0.113.7')
+        for rule in ('C2_BEACON_PERIODIC', 'DNS_TUNNEL_LONG_LABEL',
+                     'EXFIL_VOLUME_ASYMMETRY'):
+            Detection.objects.create(
+                session=self.session, rule_id=rule, title=f'{rule} fired',
+                category='c2', severity='high', method='rule',
+                subject_ip='10.0.0.5',
+            )
+
+        from capture.hosts import profile_hosts
+        hosts = {h['ip']: h for h in profile_hosts(self.session)['hosts']}
+        host = hosts['10.0.0.5']
+        self.assertEqual(len(host['distinct_rules']), 3)
+        self.assertIn('3 independent rules', host['verdict'])
+
+    def test_the_total_is_reported_even_when_the_list_is_capped(self):
+        """A truncated list that does not say it is truncated is a lie."""
+        for i in range(30):
+            self._flow('10.0.0.5', f'203.0.113.{i + 1}')
+
+        from capture.hosts import profile_hosts
+        result = profile_hosts(self.session, limit=5)
+        self.assertEqual(result['shown'], 5)
+        self.assertGreater(result['total_hosts'], 5)
+
+    def test_the_endpoint_requires_authentication(self):
+        response = self.client.get(f'/api/sessions/{self.session.id}/hosts/')
+        self.assertIn(response.status_code, (401, 403))
+
+
+class StatisticalAnomalyTests(TestCase):
+    """
+    The unsupervised signal.
+
+    The problem statement asks for AI-driven anomaly detection. The risk of
+    granting that is a black box: a score with no reasoning, which an officer
+    cannot testify to and the Gujarat High Court's own AI policy is wary of.
+    These tests hold the module to being a *lead generator* that always shows
+    its working, never an authority.
+    """
+
+    def setUp(self):
+        from capture.models import CaptureSession
+        self.session = CaptureSession.objects.create(
+            name='anomaly-test', source_type=CaptureSession.Source.PCAP,
+        )
+
+    def _flows(self, count, **overrides):
+        """A block of unremarkable, near-identical conversations."""
+        from capture.models import Flow
+        from django.utils import timezone
+        made = []
+        for i in range(count):
+            made.append(Flow.objects.create(
+                session=self.session,
+                src_ip=f'10.0.0.{i % 200 + 1}', dst_ip='10.0.1.5',
+                initiator_ip=f'10.0.0.{i % 200 + 1}',
+                src_port=40000 + i, dst_port=443, protocol='TCP',
+                first_seen=timezone.now(), last_seen=timezone.now(),
+                packets_sent=10, packets_received=10,
+                bytes_sent=1000, bytes_received=1000,
+                duration_seconds=5.0, avg_packet_size=100.0,
+                packets_per_second=4.0, bytes_ratio=1.0,
+                payload_entropy=4.0, unique_dst_ports=1,
+                interval_dispersion=0.5, dns_query_count=0, longest_dns_label=0,
+                **overrides,
+            ))
+        return made
+
+    def test_it_declines_on_too_few_flows(self):
+        """
+        "Unusual for this capture" has no content with a handful of
+        conversations, and inventing an answer would be worse than declining.
+        """
+        from capture.anomaly import MIN_FLOWS, score_session
+        self._flows(MIN_FLOWS - 1)
+        results, explanation = score_session(self.session)
+        self.assertEqual(results, [])
+        self.assertIn('below the minimum', explanation)
+
+    def test_an_obvious_outlier_is_found_and_explained(self):
+        from capture.anomaly import score_session
+        self._flows(120)
+        # One conversation that moved four orders of magnitude more data.
+        odd = self._flows(1)[0]
+        odd.bytes_sent = 900_000_000
+        odd.packets_sent = 600_000
+        odd.bytes_ratio = 9000.0
+        odd.save()
+
+        results, _ = score_session(self.session)
+        flagged = {r['flow'].id for r in results}
+        self.assertIn(odd.id, flagged, 'the outlier must be isolated')
+
+        reasons = next(r for r in results if r['flow'].id == odd.id)['reasons']
+        self.assertTrue(reasons, 'a finding with no reasons must never be emitted')
+        self.assertIn('volume sent', [r['feature'] for r in reasons])
+
+    def test_nothing_is_reported_without_a_reason(self):
+        """
+        The contract that separates this from a black box: if the model
+        isolates a flow but no feature is far enough from the middle to name,
+        the finding is dropped rather than reported unexplained.
+        """
+        from capture.anomaly import score_session
+        self._flows(120)
+        odd = self._flows(1)[0]
+        odd.bytes_sent = 900_000_000
+        odd.save()
+        results, _ = score_session(self.session)
+        for result in results:
+            self.assertTrue(
+                result['reasons'],
+                'every reported anomaly must name the features behind it',
+            )
+
+    def test_the_same_capture_gives_the_same_answer(self):
+        """
+        An analysis that answers differently on Tuesday than on Monday cannot
+        be put before a court, so the model's randomness is pinned.
+        """
+        from capture.anomaly import score_session
+        self._flows(120)
+        odd = self._flows(1)[0]
+        odd.bytes_sent = 900_000_000
+        odd.save()
+
+        first = [r['flow'].id for r in score_session(self.session)[0]]
+        second = [r['flow'].id for r in score_session(self.session)[0]]
+        self.assertEqual(first, second)
+
+    def test_findings_never_exceed_medium(self):
+        """
+        An anomaly is a reason to look, not a conclusion. Only a rule that
+        cited a threshold may speak at HIGH or CRITICAL.
+        """
+        from capture.detection import statistical_anomalies
+        self._flows(120)
+        odd = self._flows(1)[0]
+        odd.bytes_sent = 900_000_000
+        odd.save()
+
+        findings = statistical_anomalies(self.session)
+        self.assertTrue(findings)
+        for finding in findings:
+            self.assertEqual(finding.severity, Detection.Severity.MEDIUM)
+            self.assertEqual(finding.method, Detection.Method.MODEL)
+            self.assertIn('statistical signal, not a rule', finding.rationale)
+            self.assertIn('unusual_features', finding.evidence)
+            self.assertIn('limitation', finding.evidence)
+
+    def test_the_shortlist_is_capped_and_says_what_it_held_back(self):
+        """
+        Contamination is a proportion, so on a large capture 2% is thousands of
+        leads. A list nobody can work through is not a shortlist — but the
+        count held back must be stated, not silently dropped.
+        """
+        from capture.anomaly import MAX_FINDINGS, score_session
+        self._flows(4000)
+        for flow in self._flows(200):
+            flow.bytes_sent = 500_000_000 + flow.id
+            flow.save()
+
+        results, explanation = score_session(self.session)
+        self.assertLessEqual(len(results), MAX_FINDINGS)
+        if len(results) == MAX_FINDINGS:
+            self.assertIn('held back', explanation)
+
+    def test_it_is_registered_as_something_the_engine_can_emit(self):
+        from capture.anomaly import RULE_ID
+        from capture.detection import RULE_IDS
+        self.assertIn(RULE_ID, RULE_IDS)

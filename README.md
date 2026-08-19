@@ -56,7 +56,7 @@ graph TB
         subgraph Capture ["capture app"]
             PR[Packet Processor]
             FX[Feature Extractor]
-            DE[Detection Engine<br/>9 rules]
+            DE[Detection Engine<br/>10 rules]
             SY[Synthetic Generator]
         end
         subgraph Evidence ["evidence app"]
@@ -232,7 +232,7 @@ unknown — and says what that means for the reader. See
 Or piecemeal:
 
 ```bash
-# Backend: 156 tests
+# Backend: 187 tests
 cd backend && ./.venv/bin/python manage.py test
 
 # Frontend: 61 Playwright E2E tests
@@ -596,7 +596,7 @@ individually confirmed.
 
 ## Test Coverage
 
-- **156 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **187 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
 - **61 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of

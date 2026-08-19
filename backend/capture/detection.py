@@ -1120,6 +1120,89 @@ def rule_icmp_tunnel(session):
 #
 # Note this is longer than RULES: rule_beaconing emits two ids, and
 # HOST_CORROBORATED comes from the post-pass rather than from a rule function.
+# The unsupervised signal's id, imported at module scope rather than inside the
+# function: it belongs to the engine's published vocabulary, and RuleRegistryTests
+# resolves `rule_id=NAME` against this module to confirm RULE_IDS is complete.
+from .anomaly import RULE_ID as ANOMALY_RULE_ID
+
+
+def statistical_anomalies(session):
+    """
+    Turn the unsupervised model's outliers into findings.
+
+    Kept out of RULES because it is not a rule: it cites no threshold and
+    proves nothing on its own. It is capped at MEDIUM and always carries the
+    features that made the flow stand out, so an officer reading it can see
+    the reasoning rather than a bare score.
+
+    See capture/anomaly.py for why the model is fitted per capture and what
+    that cannot do.
+    """
+    from .anomaly import score_session
+
+    results, explanation = score_session(session)
+    findings = []
+
+    for result in results:
+        flow = result['flow']
+        reasons = result['reasons']
+        top = reasons[0]
+
+        # The title is the plain-language claim. It names the strongest reason
+        # rather than the score, because "unusually high payload randomness"
+        # is something an officer can act on and "-0.68" is not.
+        summary = ', '.join(
+            f"{r['feature']} {r['direction']}" for r in reasons[:3]
+        )
+
+        # The other end of the conversation, not simply dst_ip: when the flow
+        # was initiated from what the capture records as the destination, both
+        # fields hold the same address and the title read "X → X".
+        peer = flow.dst_ip if flow.initiator_ip == flow.src_ip else flow.src_ip
+
+        findings.append(Detection(
+            session=session,
+            flow=flow,
+            rule_id=ANOMALY_RULE_ID,
+            title=(
+                f'{flow.initiator_ip} → {peer}: {top["feature"]} '
+                f'{top["direction"]} for this capture'
+            ),
+            category='anomaly',
+            severity=Detection.Severity.MEDIUM,
+            method=Detection.Method.MODEL,
+            # Reported, not asserted. The isolation score is bounded roughly
+            # in [-1, 0]; mapping it to a 0-1 confidence would invent a
+            # precision the method does not have, so the raw score is carried
+            # in evidence and confidence stays at the floor for a signal that
+            # is a lead rather than a conclusion.
+            confidence=0.5,
+            subject_ip=flow.initiator_ip,
+            rationale=(
+                f'This conversation was isolated as unusual against the other '
+                f'flows in this same capture: {summary}. '
+                f'This is a statistical signal, not a rule — no threshold was '
+                f'compared and nothing is proven by it. It marks traffic worth '
+                f'an officer looking at, and it is capped at MEDIUM for that '
+                f'reason. {explanation}'
+            ),
+            evidence={
+                'method': 'IsolationForest, fitted on this capture only',
+                'isolation_score': result['score'],
+                'unusual_features': reasons,
+                'model_note': explanation,
+                # Stated on every finding because it is the honest limit of
+                # the technique and an officer should not have to know it.
+                'limitation': (
+                    'Learns what is ordinary in this capture. If the whole '
+                    'capture is malicious, nothing in it will look unusual.'
+                ),
+            },
+        ))
+
+    return findings
+
+
 RULE_IDS = (
     'C2_BEACON_KEEPALIVE',
     'C2_BEACON_PERIODIC',
@@ -1130,6 +1213,9 @@ RULE_IDS = (
     'HOST_CORROBORATED',
     'ICMP_TUNNEL_OVERSIZED',
     'RECON_PORT_SCAN',
+    # Not a rule — the unsupervised signal. Listed here so the published rule
+    # inventory matches what the engine can actually emit.
+    'ANOMALY_STATISTICAL',
 )
 
 
@@ -1239,7 +1325,10 @@ def analyse_session(session, clear_existing=True):
     """
     carried = {}
     if clear_existing:
-        previous = session.detections.filter(method=Detection.Method.RULE)
+        # Both methods are cleared, not just the rules: leaving the model's
+        # previous findings behind would accumulate a duplicate set on every
+        # re-run, and their triage decisions are carried forward the same way.
+        previous = session.detections.all()
         for old_finding in previous:
             if old_finding.triage_status != Detection.Triage.NEW:
                 carried[(old_finding.rule_id, old_finding.subject_ip, old_finding.title)] = {
@@ -1256,6 +1345,10 @@ def analyse_session(session, clear_existing=True):
 
     # Runs on the rules' output, so it comes after them and not in RULES.
     findings.extend(synthesise_corroboration(session, findings))
+
+    # The unsupervised signal, last: it is a lead rather than a conclusion and
+    # is capped at MEDIUM, so it never outranks a rule that cited a threshold.
+    findings.extend(statistical_anomalies(session))
 
     # Restore analyst decisions before the rows are written.
     restored = 0

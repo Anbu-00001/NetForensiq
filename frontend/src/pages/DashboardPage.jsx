@@ -8,11 +8,13 @@ import { useCurrentUser, canActOnEvidence } from '../services/session';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import StatCard from '../components/dashboard/StatCard';
+import NetworkGraph from '../components/graph/NetworkGraph';
 import ProtocolBubbles from '../components/dashboard/ProtocolBubbles';
 import ProtocolRanking from '../components/dashboard/ProtocolRanking';
 import SeverityBreakdown from '../components/dashboard/SeverityBreakdown';
 import {
-  listSessions, getSessionSummary, getSessionTimeline, analyseSession,
+  listSessions, getSessionSummary, getSessionTimeline, getSessionGraph,
+  analyseSession,
   unwrap, formatBytes, formatCount,
 } from '../services/forensics';
 
@@ -28,6 +30,7 @@ function DashboardPage() {
   const [sessionId, setSessionId] = useState('');
   const [summary, setSummary] = useState(null);
   const [timeline, setTimeline] = useState([]);
+  const [graph, setGraph] = useState(null);
   const [bucketSeconds, setBucketSeconds] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analysing, setAnalysing] = useState(false);
@@ -57,12 +60,19 @@ function DashboardPage() {
     // the top of the effect: a synchronous setState here schedules a second
     // render before the request has even been issued.
     let current = true;
-    Promise.all([getSessionSummary(sessionId), getSessionTimeline(sessionId)])
-      .then(([s, t]) => {
+    Promise.all([
+      getSessionSummary(sessionId),
+      getSessionTimeline(sessionId),
+      // The diagram is fetched alongside rather than after, so the page does
+      // not render its most useful panel last.
+      getSessionGraph(sessionId).catch(() => null),
+    ])
+      .then(([s, t, g]) => {
         if (!current) return;
         setSummary(s);
         setTimeline(t.series ?? []);
         setBucketSeconds(t.bucket_seconds ?? null);
+        setGraph(g);
         setError('');
       })
       .catch((err) => { if (current) setError(describeError(err, 'Failed to load session data.')); })
@@ -77,11 +87,13 @@ function DashboardPage() {
     setAnalysing(true);
     try {
       await analyseSession(sessionId);
-      const [s, t] = await Promise.all([
+      const [s, t, g] = await Promise.all([
         getSessionSummary(sessionId), getSessionTimeline(sessionId),
+        getSessionGraph(sessionId).catch(() => null),
       ]);
       setSummary(s);
       setTimeline(t.series ?? []);
+      setGraph(g);
     } catch {
       setError('Analysis failed.');
     } finally {
@@ -195,6 +207,21 @@ function DashboardPage() {
                     color="#FFB020" />
                   <StatCard title="Flagged flows" primary={formatCount(totals?.flagged_flows)}
                     secondary="risk score > 0" color="#FF3B5C" />
+                </Box>
+
+                {/* The diagram sits above the counters deliberately. An
+                    officer's first question is "which machine is in trouble",
+                    which is a shape; "how many packets" is a detail that
+                    follows. */}
+                <Box sx={{ ...PANEL, mb: 2.5 }}>
+                  <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.85)', mb: 0.3, fontWeight: 600 }}>
+                    Who talked to whom
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.6)', mb: 1 }}>
+                    Each circle is a machine. Lines are conversations between
+                    them; red lines carry something a rule flagged.
+                  </Typography>
+                  <NetworkGraph data={graph} />
                 </Box>
 
                 <Box sx={{ ...PANEL, mb: 2.5 }}>

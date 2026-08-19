@@ -1,4 +1,6 @@
-from django.db.models import Count, Q, Sum
+from collections import defaultdict
+
+from django.db.models import Count, Max, Q, Sum
 from django.utils import timezone
 
 from rest_framework import status, viewsets
@@ -14,7 +16,11 @@ from accounts.models import AuditLog
 from accounts.permissions import IsInvestigatorOrReadOnly
 from accounts.utils import log_action
 
-from .detection import INFORMATIONAL_THRESHOLDS, THRESHOLDS, analyse_session
+from .detection import (
+    INFORMATIONAL_THRESHOLDS, THRESHOLDS, analyse_session, describe_home_net,
+    is_internal, session_home_networks,
+)
+from .hosts import profile_hosts
 from .models import CaptureSession, DNSRecord, Detection, Flow
 from .serializers import (
     CaptureSessionSerializer, DNSRecordSerializer, DetectionSerializer,
@@ -116,6 +122,30 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             'detections_by_severity': severities,
         })
 
+    # How many machines the host view returns by default. A capture of a
+    # university network can contain thousands of hosts, and rendering all of
+    # them serves nobody; the total is always reported alongside so the page
+    # says what it left out rather than quietly truncating.
+    DEFAULT_HOST_LIMIT = 50
+    MAX_HOST_LIMIT = 1000
+
+    @action(detail=True, methods=['get'])
+    def hosts(self, request, pk=None):
+        """
+        The capture grouped by machine, worst first.
+
+        "Which computer?" is the question an investigation actually turns on.
+        A flow count does not answer it; this does.
+        """
+        session = self.get_object()
+        try:
+            limit = int(request.query_params.get('limit', self.DEFAULT_HOST_LIMIT))
+        except (TypeError, ValueError):
+            limit = self.DEFAULT_HOST_LIMIT
+        limit = max(1, min(limit, self.MAX_HOST_LIMIT))
+
+        return Response(profile_hosts(session, limit=limit))
+
     # Resolution of the activity chart. Presentation only — no rule reads it —
     # but it decides what an officer can see: a week-long capture in 30 buckets
     # is one point per 5.6 hours, which can hide a burst entirely. Overridable
@@ -123,6 +153,170 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
     # what each point covers instead of leaving the reader to assume.
     DEFAULT_TIMELINE_BUCKETS = 30
     MAX_TIMELINE_BUCKETS = 500
+
+    # How many hosts the graph will draw before it starts summarising.
+    #
+    # A week-long server capture touches thousands of addresses. Drawing them
+    # all produces a hairball that is technically complete and tells an officer
+    # nothing — the visualisation equivalent of handing someone the raw pcap.
+    # The busiest are drawn and the remainder are counted, so the picture says
+    # what it left out instead of pretending to be the whole network.
+    MAX_GRAPH_NODES = 60
+    MAX_GRAPH_EDGES = 150
+
+    @action(detail=True, methods=['get'])
+    def graph(self, request, pk=None):
+        """
+        The capture as a picture: who talked to whom, and which of it matters.
+
+        The dashboard's numbers answer "how much traffic was there". An officer
+        asks a different question — "which machine is in trouble, and who was
+        it talking to" — and that is a shape, not a figure. This returns the
+        nodes and edges to draw it.
+
+        Every node carries the plain-language reason it is drawn the way it is,
+        so the picture can be read without a legend and without knowing what a
+        flow is.
+        """
+        session = self.get_object()
+        networks = session_home_networks(session)
+
+        try:
+            limit = int(request.query_params.get('nodes', self.MAX_GRAPH_NODES))
+        except (TypeError, ValueError):
+            limit = self.MAX_GRAPH_NODES
+        limit = max(5, min(limit, 300))
+
+        # Rank hosts by the worst finding against them, then by how much they
+        # moved. Risk first, because a quiet host running a C2 beacon matters
+        # more than a noisy one downloading updates — and volume alone would
+        # bury it.
+        # `__isnull=False`, not `exclude(subject_ip='')`.
+        #
+        # subject_ip is a nullable GenericIPAddressField, so an absent value is
+        # stored as NULL and never as the empty string. `NOT (subject_ip = '')`
+        # is NULL-unsafe in SQL: every row compares as unknown and is excluded,
+        # so the exclusion quietly matched everything and no host ever showed a
+        # finding. The graph looked correct and was empty of the one thing it
+        # exists to show.
+        subjects = session.detections.filter(subject_ip__isnull=False)
+        worst = dict(
+            subjects.values('subject_ip')
+            .annotate(rank=Max('severity_rank'))
+            .values_list('subject_ip', 'rank')
+        )
+        finding_counts = dict(
+            subjects.values('subject_ip').annotate(n=Count('id'))
+            .values_list('subject_ip', 'n')
+        )
+
+        traffic = defaultdict(lambda: {'bytes': 0, 'flows': 0, 'peers': set()})
+        edges = defaultdict(lambda: {'bytes': 0, 'flows': 0, 'risk': 0, 'protocols': set()})
+
+        for flow in session.flows.all().only(
+            'src_ip', 'dst_ip', 'initiator_ip', 'bytes_sent', 'bytes_received',
+            'risk_score', 'protocol', 'app_protocol',
+        ):
+            moved = (flow.bytes_sent or 0) + (flow.bytes_received or 0)
+            a = flow.initiator_ip or flow.src_ip
+            b = flow.dst_ip if a == flow.src_ip else flow.src_ip
+            if not a or not b or a == b:
+                continue
+
+            for host, peer in ((a, b), (b, a)):
+                traffic[host]['bytes'] += moved
+                traffic[host]['flows'] += 1
+                traffic[host]['peers'].add(peer)
+
+            key = (a, b)
+            edges[key]['bytes'] += moved
+            edges[key]['flows'] += 1
+            edges[key]['risk'] = max(edges[key]['risk'], flow.risk_score or 0)
+            edges[key]['protocols'].add(flow.app_protocol or flow.protocol)
+
+        ranked = sorted(
+            traffic.items(),
+            key=lambda item: (worst.get(item[0], 0), item[1]['bytes']),
+            reverse=True,
+        )
+        kept = dict(ranked[:limit])
+
+        nodes = []
+        for ip, stats in kept.items():
+            rank = worst.get(ip, 0)
+            internal = is_internal(ip, networks)
+            nodes.append({
+                'id': ip,
+                'internal': internal,
+                'bytes': stats['bytes'],
+                'flows': stats['flows'],
+                'peers': len(stats['peers']),
+                'severity_rank': rank,
+                'finding_count': finding_counts.get(ip, 0),
+                # Why this circle looks the way it does, in words. A legend
+                # explains a colour; this explains the machine.
+                'caption': self._describe_node(
+                    ip, internal, stats, rank, finding_counts.get(ip, 0),
+                ),
+            })
+
+        drawn = set(kept)
+        visible_edges = sorted(
+            (
+                {
+                    'source': a, 'target': b,
+                    'bytes': e['bytes'], 'flows': e['flows'], 'risk': e['risk'],
+                    'protocols': sorted(p for p in e['protocols'] if p)[:3],
+                }
+                for (a, b), e in edges.items() if a in drawn and b in drawn
+            ),
+            key=lambda e: (e['risk'], e['bytes']), reverse=True,
+        )[:self.MAX_GRAPH_EDGES]
+
+        return Response({
+            'nodes': nodes,
+            'edges': visible_edges,
+            'hosts_total': len(traffic),
+            'hosts_drawn': len(nodes),
+            'home_networks': describe_home_net(networks),
+            # Said plainly, because a picture that hides most of the network
+            # while looking complete is a misleading picture.
+            'caption': (
+                f'{len(nodes)} of {len(traffic)} hosts shown — the ones with '
+                f'findings against them first, then the busiest.'
+                if len(nodes) < len(traffic)
+                else f'All {len(nodes)} hosts in this capture.'
+            ),
+        })
+
+    @staticmethod
+    def _describe_node(ip, internal, stats, severity_rank, findings):
+        """One sentence an officer can read without knowing what a flow is."""
+        side = 'Inside the monitored network' if internal else 'Outside address'
+        volume = stats['bytes']
+        if volume >= 1_000_000_000:
+            size = f'{volume / 1_000_000_000:.1f} GB'
+        elif volume >= 1_000_000:
+            size = f'{volume / 1_000_000:.1f} MB'
+        elif volume >= 1000:
+            size = f'{volume / 1000:.0f} KB'
+        else:
+            size = f'{volume} bytes'
+
+        sentence = (
+            f'{side}. Exchanged {size} across {stats["flows"]} '
+            f'{"conversation" if stats["flows"] == 1 else "conversations"} '
+            f'with {len(stats["peers"])} '
+            f'{"machine" if len(stats["peers"]) == 1 else "machines"}.'
+        )
+        if findings:
+            sentence += (
+                f' {findings} finding{"s" if findings != 1 else ""} '
+                f'recorded against it.'
+            )
+        else:
+            sentence += ' Nothing flagged against it.'
+        return sentence
 
     @action(detail=True, methods=['get'])
     def timeline(self, request, pk=None):

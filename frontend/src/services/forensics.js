@@ -17,6 +17,13 @@ export const getSessionSummary = (id) =>
 export const getSessionTimeline = (id) =>
   api.get(`/sessions/${id}/timeline/`).then((r) => r.data);
 
+// The capture drawn as a diagram rather than counted. See
+// components/graph/NetworkGraph.jsx for why a picture answers a question the
+// figures cannot.
+export const getSessionGraph = (id, nodes) =>
+  api.get(`/sessions/${id}/graph/`, { params: nodes ? { nodes } : {} })
+    .then((r) => r.data);
+
 export const analyseSession = (id) =>
   api.post(`/sessions/${id}/analyse/`).then((r) => r.data);
 
