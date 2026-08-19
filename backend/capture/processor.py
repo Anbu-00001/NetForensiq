@@ -1,3 +1,4 @@
+import threading
 import time
 from datetime import datetime, timezone as dt_timezone
 
@@ -100,6 +101,17 @@ def flow_key(src_ip, dst_ip, src_port, dst_port, protocol):
     return (b[0], b[1], a[0], a[1], protocol)
 
 
+
+class _NoLock:
+    """A lock-shaped object that does nothing, for the single-threaded path."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
 class FlowAggregator:
     """
     Accumulates packets into flow records in memory, then hands them to the
@@ -110,7 +122,18 @@ class FlowAggregator:
     very large PCAPs should stream packets in (see service.iter_pcap).
     """
 
-    def __init__(self):
+    def __init__(self, thread_safe=False):
+        # Live capture reads this aggregator from one thread while scapy's
+        # sniffer writes to it from another, and iterating a dict that another
+        # thread is inserting into raises RuntimeError partway through — which
+        # would surface as an intermittently failing live capture rather than
+        # as anything obviously threading-related.
+        #
+        # Off by default: reading a PCAP is single-threaded, and paying for a
+        # lock on every packet of a multi-gigabyte file to protect against a
+        # thread that does not exist is not free.
+        self._lock = threading.Lock() if thread_safe else _NoLock()
+
         # Active flows, keyed by 5-tuple. A flow leaves here and joins
         # `completed` when the connection ends or goes idle, so a reused
         # ephemeral port starts a fresh record rather than extending an old one.
@@ -130,6 +153,10 @@ class FlowAggregator:
     # ── ingestion ────────────────────────────────────────────────────────
 
     def process(self, pkt):
+        with self._lock:
+            self._process(pkt)
+
+    def _process(self, pkt):
         # Each `X in pkt` / `pkt[X]` pair walks the layer chain, and this
         # method used to do six such walks per packet (IP, IPv6, TCP, UDP,
         # ICMP, DNS) plus more inside the helpers. getlayer() returns the layer
@@ -431,7 +458,16 @@ class FlowAggregator:
     # ── output ───────────────────────────────────────────────────────────
 
     def finalize(self):
-        """Convert in-memory state into database-ready dicts."""
+        """
+        Convert in-memory state into database-ready dicts.
+
+        Read-only with respect to the aggregator, which is what lets live
+        capture call it repeatedly on a session that is still growing.
+        """
+        with self._lock:
+            return self._finalize()
+
+    def _finalize(self):
         results = []
         # Flows retired mid-capture plus those still open at the end.
         for f in [*self.completed, *self.flows.values()]:

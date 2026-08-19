@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone as dt_timezone
 
 from django.utils import timezone
@@ -71,9 +72,34 @@ def _fail(session, exc):
     session.save()
 
 
-def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='', name=None, user=None):
-    """Sniff live traffic and persist the resulting flows."""
+def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='',
+                     name=None, user=None, window_seconds=0, home_net='',
+                     on_window=None):
+    """
+    Sniff live traffic and persist the resulting flows.
 
+    With `window_seconds` set, this becomes a monitoring loop rather than a
+    recording: every window the accumulated traffic is re-derived, every rule
+    is run over it, and findings that were not present last time are pushed to
+    the configured alert sinks. Latency to an alert is one window, not the
+    length of the capture.
+
+    Why detection runs over the whole session and not over the window
+    ----------------------------------------------------------------
+    Because the interesting findings are not visible in a window. A beacon
+    calling home every 45 seconds is a claim about a time series; a 30-second
+    slice of it is two packets and no periodicity. Re-deriving the full session
+    each pass is more work than analysing a slice and it is the only thing that
+    can find what these rules look for. It also means a finding never appears,
+    disappears and reappears as the window moves under it.
+
+    "Offline" does not mean "not live"
+    ----------------------------------
+    An air-gapped machine has no route to the internet. It still has a network
+    interface, and a NIC in promiscuous mode on a mirror port sees traffic in
+    real time. Isolated networks are where local detection matters most,
+    precisely because nothing on them can phone a cloud for an opinion.
+    """
     iface = resolve_interface(interface)
 
     session = CaptureSession.objects.create(
@@ -83,7 +109,12 @@ def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='', name=
         bpf_filter=bpf_filter,
         state=CaptureSession.State.RUNNING,
         started_by=user,
+        home_net=home_net or '',
     )
+
+    if window_seconds > 0:
+        return _run_live_monitor(session, iface, packet_count, duration,
+                                 bpf_filter, window_seconds, on_window)
 
     aggregator = FlowAggregator()
 
@@ -110,6 +141,91 @@ def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='', name=
 
     flows, dns_records = aggregator.finalize()
     return session, persist_results(session, flows, dns_records, aggregator)
+
+
+def _fingerprint(finding):
+    """
+    What makes two findings across two windows 'the same finding'.
+
+    The rule that fired, who it is about, and what it said. Matching on the
+    database id would alert again every window, because each pass rewrites the
+    rows; matching on the claim does not.
+    """
+    return (finding.rule_id, finding.subject_ip, finding.title)
+
+
+def _run_live_monitor(session, iface, packet_count, duration, bpf_filter,
+                      window_seconds, on_window):
+    """The monitoring loop. See run_live_capture for why it is shaped this way."""
+    from scapy.sendrecv import AsyncSniffer
+
+    from .alerting import dispatch
+    from .detection import analyse_session
+
+    aggregator = FlowAggregator(thread_safe=True)
+
+    sniff_kwargs = {'iface': iface, 'prn': aggregator.process, 'store': False}
+    if bpf_filter:
+        sniff_kwargs['filter'] = bpf_filter
+
+    sniffer = AsyncSniffer(**sniff_kwargs)
+    sniffer.start()
+
+    already_alerted = set()
+    started = time.monotonic()
+    windows = 0
+
+    try:
+        while True:
+            time.sleep(window_seconds)
+            windows += 1
+
+            flows, dns_records = aggregator.finalize()
+            # Replace rather than append. The aggregator holds the whole
+            # session, so appending would duplicate every flow seen so far on
+            # every pass.
+            session.flows.all().delete()
+            persist_results(session, flows, dns_records, aggregator)
+
+            summary = analyse_session(session, dispatch_alerts=False)
+
+            fresh = [f for f in session.detections.all()
+                     if _fingerprint(f) not in already_alerted]
+            deliveries = dispatch(fresh, session=session) if fresh else []
+            already_alerted.update(_fingerprint(f) for f in fresh)
+
+            if on_window:
+                on_window({
+                    'window': windows,
+                    'elapsed_seconds': round(time.monotonic() - started, 1),
+                    'packets': aggregator.total_packets,
+                    'flows': len(flows),
+                    'findings_total': summary['total'],
+                    'findings_new': len(fresh),
+                    'new': [f.title for f in fresh],
+                    'alerts': [d.as_dict() for d in deliveries],
+                })
+
+            if duration and (time.monotonic() - started) >= duration:
+                break
+            if packet_count and aggregator.total_packets >= packet_count:
+                break
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Always stop the sniffer thread. Without this an interrupted capture
+        # leaves it running against a session that is already finished.
+        try:
+            sniffer.stop()
+        except Exception:
+            pass
+
+    flows, dns_records = aggregator.finalize()
+    session.flows.all().delete()
+    counts = persist_results(session, flows, dns_records, aggregator)
+    analyse_session(session, dispatch_alerts=False)
+    return session, counts
 
 
 def run_pcap_import(pcap_path, name=None, user=None, session=None, home_net='',

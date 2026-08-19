@@ -167,20 +167,11 @@ class Command(BaseCommand):
     # ── helpers ────────────────────────────────────────────────────────────
 
     def _check_privileges(self):
-        import socket
-        try:
-            socket.socket(socket.AF_PACKET, socket.SOCK_RAW, 3).close()
-        except PermissionError:
-            raise CommandError(
-                'Packet capture needs raw-socket access, which this process '
-                'does not have.\n\n'
-                'Either run this command under sudo, or grant the capability '
-                'once so it is not needed again:\n\n'
-                '    sudo setcap cap_net_raw,cap_net_admin=eip '
-                "$(readlink -f backend/.venv/bin/python)\n\n"
-                'The capability is narrower than sudo: it permits capture and '
-                'nothing else.'
-            )
+        from capture.privileges import can_capture
+
+        ok, reason = can_capture()
+        if not ok:
+            raise CommandError(reason)
 
     def _require_provenance(self, opts):
         valid = {'seized', 'reference', 'synthetic'}

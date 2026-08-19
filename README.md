@@ -232,7 +232,7 @@ unknown — and says what that means for the reader. See
 Or piecemeal:
 
 ```bash
-# Backend: 306 tests
+# Backend: 315 tests
 cd backend && ./.venv/bin/python manage.py test
 
 # Frontend: 61 Playwright E2E tests
@@ -596,7 +596,7 @@ individually confirmed.
 
 ## Test Coverage
 
-- **306 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
+- **315 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic
   false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper
   detection, custody-chain breakage, certificate refusal on failed integrity
 - **61 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of

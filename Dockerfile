@@ -10,14 +10,28 @@
 #
 # Air-gapped use
 # --------------
-# Build on a connected machine, then move the image on removable media:
+# The running container needs no network. Verified by running it under
+# `--network none`, where a socket to 1.1.1.1 fails with "Network is
+# unreachable" and the platform still seals a capture, analyses it and issues a
+# Section 63 certificate.
 #
-#     docker build -t netforensiq:1.0 .
-#     docker save netforensiq:1.0 | gzip > netforensiq-1.0.tar.gz
-#     # …carry across…
-#     docker load < netforensiq-1.0.tar.gz
+# BUILDING needs a network — this file pulls two base images and runs apt-get,
+# npm ci and pip install. So the build happens on a connected machine and the
+# result is carried across:
 #
-# `docker save` is the supported way to move an image without a registry.
+#     ./scripts/save_airgap_images.sh 1.1
+#     # …carry airgap-images/ across…
+#     ./scripts/load_airgap_images.sh airgap-images
+#
+# Use those scripts rather than a bare `docker save netforensiq:...`. Compose
+# also starts Postgres, and on the target `docker compose up` fails when it
+# tries to pull postgres:17-alpine — after printing enough to look like it is
+# working. The scripts save and verify both images.
+#
+# `docker compose up --build` on an air-gapped machine cannot work, by
+# definition. Use `docker compose up` with both images already loaded, or run
+# this image on its own against SQLite, which needs no second container at all.
+#
 # scripts/build_offline_bundle.sh remains the path for machines with no Docker.
 
 # ── stage 1: build the interface ──────────────────────────────────────────
@@ -58,6 +72,10 @@ COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./
+# The version file lives at the repository root, outside the build context
+# copied above. Without this the container reports 0.0.0-unknown on its own
+# landing page — see netforensiq_backend/version.py.
+COPY VERSION ./
 COPY --from=frontend /build/dist /app/frontend_dist
 
 ENV FRONTEND_DIST=/app/frontend_dist \

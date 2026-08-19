@@ -1306,7 +1306,7 @@ def synthesise_corroboration(session, findings):
 
 
 @transaction.atomic
-def analyse_session(session, clear_existing=True):
+def analyse_session(session, clear_existing=True, dispatch_alerts=True):
     """
     Run every rule over a completed capture and persist the findings.
 
@@ -1389,9 +1389,16 @@ def analyse_session(session, clear_existing=True):
     # after bulk_create rather than inside it, because a SIEM that is down must
     # not roll back an analysis. Returns [] when no sink is configured, which
     # is the default and is not an error.
+    # Live monitoring calls this every window and does its own dispatching, so
+    # that it can alert on findings that are new *since the last window* rather
+    # than re-announcing the same beacon every thirty seconds until someone
+    # mutes the channel.
     from .alerting import dispatch
 
-    deliveries = [result.as_dict() for result in dispatch(findings, session=session)]
+    deliveries = (
+        [result.as_dict() for result in dispatch(findings, session=session)]
+        if dispatch_alerts else []
+    )
 
     return {
         'total': len(findings),
