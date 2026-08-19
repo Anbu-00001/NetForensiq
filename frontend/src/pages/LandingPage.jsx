@@ -9,6 +9,8 @@ import HubIcon from '@mui/icons-material/Hub';
 import GavelIcon from '@mui/icons-material/Gavel';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { ConsoleBar } from './LoginPage';
+import GlassPanel, { Lift } from '../components/landing/GlassPanel';
+import HeroWeave from '../components/landing/HeroWeave';
 import { getEngineInfo, spellOut } from '../services/engine';
 
 const features = [
@@ -57,7 +59,12 @@ function LandingPage() {
         sx={{
           height: 58, display: 'flex', alignItems: 'center', px: { xs: 2.5, md: 5 }, gap: 1.5,
           borderBottom: '1px solid #ECEEF1',
-          backgroundColor: '#FFFFFF', 
+          // Frosted rather than solid: the hero's ruling slides under it on
+          // scroll instead of disappearing at a hard edge, which is the one
+          // moment the page gets to show that its surfaces are layered.
+          backgroundColor: 'rgba(255,255,255,0.78)',
+          backdropFilter: 'blur(14px) saturate(1.15)',
+          WebkitBackdropFilter: 'blur(14px) saturate(1.15)',
           position: 'sticky', top: 0, zIndex: 30,
         }}
       >
@@ -103,6 +110,11 @@ function LandingPage() {
           backgroundSize: '100% 100%, 100% 100%, 30px 30px, 30px 30px',
         }}
       >
+
+        {/* Behind everything: the threads the glass bends. See HeroWeave for
+            why this is drawn from the product's own diagram rather than being
+            an animated background. */}
+        <HeroWeave />
 
         <Box
           sx={{
@@ -207,40 +219,25 @@ function LandingPage() {
             </Box>
           </Box>
 
-          {/* live telemetry preview panel */}
-          <Box
+          {/*
+            The one place depth is spent. Glassmorphism applied to everything
+            is the signature of a template; applied once, to the panel that
+            explains what the product does, it is a technique — the panel sits
+            visibly above the ruled ground rather than pasted onto it. See
+            components/landing/GlassPanel.jsx for what makes it read as glass.
+          */}
+          <GlassPanel
             sx={{
-              width: { xs: '100%', md: 320 }, flexShrink: 0, p: 2.5,
-              borderRadius: 2,
-              // Frosted, not flat.
-              //
-              // Glassmorphism used everywhere is the signature of a template.
-              // Used once, on the one panel that explains what the product
-              // does, it is a technique: the panel sits visibly *above* the
-              // ruled ground instead of being pasted onto it, which is the
-              // whole reason to spend depth on something.
-              //
-              // Three shadows, doing three jobs: an inset highlight for the
-              // lit top edge, a long soft cast for elevation, and a short tight
-              // one for contact. A single shadow reads as a sticker.
-              position: 'relative',
-              backgroundColor: 'rgba(255,255,255,0.62)',
-              backdropFilter: 'blur(18px) saturate(1.2)',
-              WebkitBackdropFilter: 'blur(18px) saturate(1.2)',
-              border: '1px solid rgba(255,255,255,0.9)',
-              outline: '1px solid rgba(17,19,21,0.06)',
-              outlineOffset: '-1px',
-              boxShadow: `
-                0 1px 0 rgba(255,255,255,0.95) inset,
-                0 24px 48px -28px rgba(17,19,21,0.32),
-                0 3px 8px -4px rgba(17,19,21,0.10)
-              `,
+              width: { xs: '100%', md: 330 }, flexShrink: 0, p: 2.5,
               opacity: mounted ? 1 : 0,
-              transform: mounted ? 'none' : 'translateY(24px)',
-              transition: 'all 0.8s ease 0.35s',
+              // Composed with the tilt rather than replacing it: the entry
+              // animation moves the panel up on its own axis, the pointer
+              // rotates it, and the two do not fight because only opacity is
+              // animated here.
+              transition: 'opacity 0.8s ease 0.35s, transform 0.45s cubic-bezier(0.22,1,0.36,1)',
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Lift z={26} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <Typography
                 sx={{
                   fontSize: 10, letterSpacing: 1.5, flexGrow: 1,
@@ -249,7 +246,7 @@ function LandingPage() {
               >
                 HOW A CAPTURE BECOMES EVIDENCE
               </Typography>
-            </Box>
+            </Lift>
 
             {/*
               This panel previously showed "Packets / sec 84.2 K", "Evidence
@@ -265,13 +262,13 @@ function LandingPage() {
               ['03', 'Triage', 'An officer confirms, dismisses or escalates each finding.'],
               ['04', 'Certify', 'A Section 63 certificate is issued with the hash report enclosed.'],
             ].map(([step, title, body], i) => (
-              <Box
+              <Lift
                 key={step}
+                z={20}
                 sx={{
                   display: 'flex', gap: 1.6, mb: 1.8,
                   opacity: mounted ? 1 : 0,
-                  transform: mounted ? 'none' : 'translateX(10px)',
-                  transition: `all 0.6s ease ${0.45 + i * 0.07}s`,
+                  transition: `opacity 0.6s ease ${0.45 + i * 0.07}s`,
                 }}
               >
                 <Typography
@@ -290,7 +287,7 @@ function LandingPage() {
                     {body}
                   </Typography>
                 </Box>
-              </Box>
+              </Lift>
             ))}
 
             <Box sx={{ height: '1px', backgroundColor: '#E2E5E9', my: 1.8 }} />
@@ -304,11 +301,24 @@ function LandingPage() {
               No figures are shown here because none would be real until a
               capture is loaded. Sign in to see live ones.
             </Typography>
-          </Box>
+          </GlassPanel>
         </Box>
       </Box>
 
       {/* capability panels */}
+      <Box sx={{
+        position: 'relative',
+        // The same ruling as the hero, fainter. Glass needs something behind
+        // it to refract — a frosted card on a plain white field is just a grey
+        // rectangle — so the ground is what makes the four cards read as
+        // panes rather than tiles.
+        backgroundImage: `
+          linear-gradient(rgba(17,19,21,0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(17,19,21,0.02) 1px, transparent 1px),
+          radial-gradient(760px 320px at 50% -30%, rgba(7,110,124,0.045), transparent 65%)
+        `,
+        backgroundSize: '30px 30px, 30px 30px, 100% 100%',
+      }}>
       <Box sx={{ maxWidth: 1180, mx: 'auto', px: { xs: 3, md: 5 }, py: { xs: 6, md: 8 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.6, mb: 3.5 }}>
           <Typography
@@ -329,58 +339,54 @@ function LandingPage() {
             gap: 2.2,
           }}
         >
+          {/* Less tilt than the hero panel: four objects moving as much as one
+              would is a carousel, not a material. The shared treatment is what
+              makes the depth read as a property of the page rather than as an
+              effect applied to a hero. */}
           {features.map((f, i) => (
-            <Box
+            <GlassPanel
               key={f.title}
+              maxTilt={3}
+              sheen={200}
               sx={{
-                p: 2.5, borderRadius: 2, position: 'relative', overflow: 'hidden',
-                backgroundColor: '#F4F5F7',
-                border: '1px solid #E2E5E9',
-                transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+                p: 2.5,
                 animation: `panelRise 0.55s ease ${0.1 + i * 0.08}s both`,
                 '@keyframes panelRise': {
-                  from: { opacity: 0, transform: 'translateY(18px)' },
-                  to: { opacity: 1, transform: 'translateY(0)' },
+                  from: { opacity: 0 },
+                  to: { opacity: 1 },
                 },
-                '&::after': {
-                  content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
-                  backgroundColor: f.color,
-                  opacity: 0, transition: 'opacity 0.3s',
-                },
-                '&:hover': {
-                  borderColor: `${f.color}44`,
-                  backgroundColor: '#F4F5F7',
-                },
-                '&:hover::after': { opacity: 1 },
               }}
             >
-              <Box
-                sx={{
-                  width: 40, height: 40, borderRadius: 1.5, mb: 1.8,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: `${f.color}14`,
-                  border: `1px solid ${f.color}33`,
-                  color: f.color,
-                  '& svg': { fontSize: 20 },
-                }}
-              >
-                {f.icon}
-              </Box>
-              <Typography
-                sx={{
-                  fontSize: 9.5, letterSpacing: 1.2, mb: 0.7,
-                  fontFamily: "'JetBrains Mono', monospace", color: f.color,
-                }}
-              >
-                {f.tag}
-              </Typography>
-              <Typography sx={{ fontSize: 14.5, fontWeight: 700, mb: 1 }}>{f.title}</Typography>
-              <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: '#5A6068' }}>
-                {typeof f.desc === 'function' ? f.desc(engine) : f.desc}
-              </Typography>
-            </Box>
+              <Lift z={14}>
+                <Box
+                  sx={{
+                    width: 40, height: 40, borderRadius: 1.5, mb: 1.8,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: `${f.color}14`,
+                    border: `1px solid ${f.color}33`,
+                    color: f.color,
+                    '& svg': { fontSize: 20 },
+                  }}
+                >
+                  {f.icon}
+                </Box>
+                <Typography
+                  sx={{
+                    fontSize: 9.5, letterSpacing: 1.2, mb: 0.7,
+                    fontFamily: "'JetBrains Mono', monospace", color: f.color,
+                  }}
+                >
+                  {f.tag}
+                </Typography>
+                <Typography sx={{ fontSize: 14.5, fontWeight: 700, mb: 1 }}>{f.title}</Typography>
+                <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: '#5A6068' }}>
+                  {typeof f.desc === 'function' ? f.desc(engine) : f.desc}
+                </Typography>
+              </Lift>
+            </GlassPanel>
           ))}
         </Box>
+      </Box>
       </Box>
 
       {/* footer strip */}

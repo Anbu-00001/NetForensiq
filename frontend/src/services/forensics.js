@@ -29,6 +29,16 @@ export const getSessionGraph = (id, { nodes, focus } = {}) =>
     params: { ...(nodes ? { nodes } : {}), ...(focus ? { focus } : {}) },
   }).then((r) => r.data);
 
+// The findings against each implicated host, assembled into kill-chain order.
+//
+// A separate call from the graph rather than a field on it: the diagram is
+// about who talked to whom and this is about what happened in what order, and
+// a reader who never scrolls to the second should not have paid for it.
+export const getSessionScenario = (id, { minFindings } = {}) =>
+  api.get(`/sessions/${id}/scenario/`, {
+    params: minFindings ? { min_findings: minFindings } : {},
+  }).then((r) => r.data);
+
 export const analyseSession = (id) =>
   api.post(`/sessions/${id}/analyse/`).then((r) => r.data);
 

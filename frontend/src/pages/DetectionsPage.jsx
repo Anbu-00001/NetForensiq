@@ -24,6 +24,79 @@ const TRIAGE_ACTIONS = [
   { key: 'escalated', label: 'Escalate', color: '#B3261E' },
 ];
 
+/**
+ * The MITRE ATT&CK classification for one finding.
+ *
+ * Why it is on the card and not on a slide
+ * ----------------------------------------
+ * "Automated attack classification" is a stated bonus objective, and the
+ * mapping has existed on the API since it was built — but nothing rendered it,
+ * so a reader of the interface had no way to know it was there. A capability
+ * only the source code knows about is not a capability that has been
+ * delivered.
+ *
+ * Two things this is careful about. The identifier is a link, because the
+ * whole value of a shared vocabulary is that someone can check the claim
+ * against attack.mitre.org in ten seconds rather than trust our label. And
+ * where a rule maps to no technique, the sentence explaining why is printed
+ * instead of leaving a blank — a blank reads as an oversight, and somebody
+ * would eventually "fix" it by guessing an identifier.
+ */
+function AttackMapping({ mapping }) {
+  if (!mapping) return null;
+  const techniques = mapping.techniques ?? [];
+
+  return (
+    <Box sx={{ mb: 1.5 }}>
+      <Typography sx={{
+        fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6,
+        color: '#5A6068', mb: 0.8,
+      }}>
+        MITRE ATT&amp;CK
+      </Typography>
+
+      {techniques.length ? (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+          {techniques.map((t) => (
+            <Box
+              key={t.id}
+              component="a"
+              href={t.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t.note || `${t.tactic} — ${t.name}`}
+              sx={{
+                display: 'inline-flex', alignItems: 'baseline', gap: 0.7,
+                px: 1, py: 0.5, borderRadius: 1,
+                border: '1px solid #E2E5E9', backgroundColor: '#FFFFFF',
+                textDecoration: 'none',
+                '&:hover': { borderColor: '#076E7C', backgroundColor: '#E6F4F7' },
+              }}
+            >
+              <Box component="span" sx={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5,
+                fontWeight: 700, color: '#076E7C',
+              }}>
+                {t.id}
+              </Box>
+              <Box component="span" sx={{ fontSize: 11.5, color: '#2B3138' }}>
+                {t.name}
+              </Box>
+              <Box component="span" sx={{ fontSize: 10, color: '#5F656D' }}>
+                {t.tactic}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      ) : (
+        <Typography sx={{ fontSize: 11.5, color: '#5A6068', lineHeight: 1.5 }}>
+          {mapping.summary}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 function DetectionCard({ detection, onTriaged, canTriage }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -162,6 +235,8 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
             and anomaly rules are about a host across many flows, and there is
             no single conversation to show.
           */}
+          <AttackMapping mapping={detection.mitre_attack} />
+
           {detection.flow && <SessionTranscript flowId={detection.flow} />}
 
           <Box sx={{ height: 12 }} />

@@ -286,6 +286,30 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
     COLLAPSED_ID = 'other-hosts'
 
     @action(detail=True, methods=['get'])
+    def scenario(self, request, pk=None):
+        """
+        The findings against each implicated host, assembled into a sequence.
+
+        "Reconstruction of attack scenarios" is a stated requirement, and the
+        temptation it carries is to generate a narrative. This does not. It
+        orders what was found by the MITRE ATT&CK tactic sequence, prints the
+        packet timestamps beside each stage, names the ten tactics network
+        traffic cannot evidence at all, and reports every place the clock
+        disagrees with the ordering rather than sorting the disagreement away.
+
+        The reasoning, and why each of those is load-bearing, is in
+        `capture/scenario.py`.
+        """
+        from .scenario import reconstruct
+
+        session = self.get_object()
+        try:
+            floor = int(request.query_params.get('min_findings', 1))
+        except (TypeError, ValueError):
+            floor = 1
+        return Response(reconstruct(session, min_findings=max(1, min(floor, 50))))
+
+    @action(detail=True, methods=['get'])
     def graph(self, request, pk=None):
         """
         The capture as a picture: who talked to whom, and which of it matters.

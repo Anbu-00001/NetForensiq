@@ -30,8 +30,12 @@ from capture.detection import analyse_session
 from capture.home_net import suggest
 from capture.models import CaptureSession, Detection
 from capture.provenance import read_manifest
-from evidence.models import EvidenceRecord, Section63Certificate
-from evidence.service import issue_certificate, sign_part_b
+from evidence.models import (
+    Case, CaseAssignment, EvidenceRecord, Section63Certificate,
+)
+from evidence.service import (
+    issue_certificate, link_evidence_to_case, sign_part_b,
+)
 
 # Not an FIR number. Not in any format a court registry uses. That is the point.
 DEMO_CASE_REFERENCE = 'DEMO-NOT-A-REAL-CASE'
@@ -194,6 +198,7 @@ class Command(BaseCommand):
         if not opts['skip_analysis']:
             self._analyse_all()
 
+        self._seed_cases(officer)
         self._certify(officer)
         self._report()
 
@@ -226,6 +231,81 @@ class Command(BaseCommand):
                 self.stdout.write(f"  + account {spec['username']} ({spec['role']})")
             else:
                 self.stdout.write(f"  · account {spec['username']} already present")
+
+    def _seed_cases(self, officer):
+        """
+        Two demonstration case files, so the docket in the sidebar has
+        something in it and the BNSS s.193(3)(ii) clock has something to count.
+
+        The same rule as everywhere else in this command applies: nothing here
+        may be mistaken for a real matter. The case numbers say so in words,
+        the FIR field is left **blank** rather than filled with a plausible
+        number, and the police station names itself as a demonstration.
+
+        The two dates are chosen to show both states of the clock, because a
+        deadline indicator that has only ever been seen in its happy state has
+        not been demonstrated. One case sits inside the ninety days; the other
+        is past it, which is the condition the feature exists to catch.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        specs = [
+            {
+                'case_number': DEMO_CASE_REFERENCE,
+                'title': 'Demonstration — suspected data exfiltration',
+                'opened_on': today - timedelta(days=63),
+                'status': Case.Status.INVESTIGATION,
+                'role': CaseAssignment.Role.IO,
+            },
+            {
+                'case_number': f'{DEMO_CASE_REFERENCE}-2',
+                'title': 'Demonstration — command-and-control beaconing',
+                'opened_on': today - timedelta(days=97),
+                'status': Case.Status.INVESTIGATION,
+                'role': CaseAssignment.Role.IO,
+            },
+        ]
+
+        primary = None
+        for spec in specs:
+            case, created = Case.objects.get_or_create(
+                case_number=spec['case_number'],
+                defaults={
+                    'title': spec['title'],
+                    'fir_number': DEMO_FIR_NUMBER,
+                    'police_station': 'Demonstration — no station',
+                    'district': '',
+                    'offence_sections': '',
+                    'status': spec['status'],
+                    'opened_on': spec['opened_on'],
+                    'summary': 'Demonstration case file. Not a real matter.',
+                    'investigating_officer': officer,
+                    'created_by': officer,
+                },
+            )
+            primary = primary or case
+            CaseAssignment.objects.get_or_create(
+                case=case, officer=officer,
+                defaults={'role': spec['role'], 'assigned_by': officer},
+            )
+            self.stdout.write(
+                f"  {'+' if created else '·'} case {case.case_number} "
+                f"(opened {case.opened_on})"
+            )
+
+        # File the sealed exhibits under the first case, so the register shows
+        # the relationship the objective asks for rather than a set of loose
+        # exhibits. link_evidence_to_case refuses to overwrite what an exhibit
+        # was sealed bearing, so this cannot quietly rewrite provenance.
+        if primary is not None:
+            for record in EvidenceRecord.objects.filter(case__isnull=True):
+                try:
+                    link_evidence_to_case(record, primary, actor=officer)
+                except ValueError as exc:
+                    self.stdout.write(self.style.WARNING(f'  ! {exc}'))
 
     def _reference_captures(self):
         directory = Path(settings.BASE_DIR) / 'reference_captures'

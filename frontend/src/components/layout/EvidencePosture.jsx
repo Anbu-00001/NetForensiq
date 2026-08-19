@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
-import { getEvidencePosture } from '../../services/forensics';
+import { usePosture } from '../../services/posture';
 import {
   INK, INK_SOFT, GREY, GREY_MUTED, RULE, PANEL,
   INTACT, MEDIUM, CRITICAL, MONO,
@@ -35,8 +34,6 @@ import {
  * reported configuration instead of state would be the wrong thing to put in
  * front of someone all day.
  */
-
-const REFRESH_MS = 60_000;
 
 function Dot({ tone }) {
   const colour = { good: INTACT, warn: MEDIUM, bad: CRITICAL, none: GREY_MUTED }[tone];
@@ -90,17 +87,10 @@ function Row({ label, value, tone, detail, mono = true }) {
 }
 
 function EvidencePosture({ compact = false }) {
-  const [posture, setPosture] = useState(null);
-
-  useEffect(() => {
-    let live = true;
-    const load = () => getEvidencePosture()
-      .then((data) => { if (live) setPosture(data); })
-      .catch(() => { /* the strip is context; it must never break the page */ });
-    load();
-    const timer = setInterval(load, REFRESH_MS);
-    return () => { live = false; clearInterval(timer); };
-  }, []);
+  // One poll, shared with every other panel drawn from the same payload. See
+  // services/posture.js: the endpoint answers in a single request on purpose,
+  // and six components each polling it would give that guarantee away.
+  const posture = usePosture();
 
   if (!posture) return null;
 
@@ -130,15 +120,31 @@ function EvidencePosture({ compact = false }) {
   );
 
   if (compact) {
-    // The icon rail. Four dots and a tooltip: the states stay visible on a
-    // phone without a 210px column to put words in.
+    // The icon rail. Dots and a tooltip: the states stay visible on a phone
+    // without a 232px column to put words in. Everything the full strip can
+    // turn red is represented here — a warning that only exists at desktop
+    // width is a warning that is missing on the device an officer is most
+    // likely to be holding.
+    const owed = (posture.triage?.awaiting_review ?? 0)
+      + (posture.certificates?.incomplete ?? 0)
+      + (posture.docket?.updates_due ?? 0);
+    const owedTone = (posture.certificates?.incomplete || posture.docket?.updates_due)
+      ? 'bad'
+      : (posture.triage?.awaiting_review ? 'warn' : 'good');
+    const diskTone = { critical: 'bad', warning: 'warn', ok: 'good' }[
+      posture.store?.level] ?? 'warn';
+
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.1, py: 1 }}>
         {[
+          ['Outstanding', owed ? `${owed} item(s) owed` : 'Nothing owed', owedTone],
           ['Case', caseValue, 'none'],
           ['Seal', exhibit ? (exhibit.seal_intact ? 'Intact' : 'BROKEN') : '—', sealTone],
           ['Clock', clock?.summary ?? '', clockTone],
           ['Store', encryptionValue, encryptionTone],
+          ['Volume', posture.store?.available
+            ? `${posture.store.free_pct}% free`
+            : 'Unreadable', diskTone],
         ].map(([label, value, tone]) => (
           <Tooltip key={label} title={`${label}: ${value}`} placement="right">
             <Box sx={{ display: 'flex' }}><Dot tone={tone} /></Box>
@@ -180,11 +186,20 @@ function EvidencePosture({ compact = false }) {
         </Typography>
       )}
 
+      {/* The hardware-clock disclosure. A workstation whose RTC is kept in
+          local time rather than UTC reports timestamps that shift by an hour
+          across a daylight-saving boundary — which is a question about every
+          exhibit sealed near one, and the sort of thing that is only ever
+          asked in the witness box. timesource already computed it; until now
+          nothing rendered it. */}
       <Row
         label="TIME BASIS"
         value={clockTone === 'good' ? 'Network-synchronised' : 'Not synchronised'}
-        tone={clockTone}
-        detail={clock?.timezone ? `System zone ${clock.timezone}` : null}
+        tone={clock?.rtc_in_local_time ? 'warn' : clockTone}
+        detail={[
+          clock?.timezone ? `System zone ${clock.timezone}` : null,
+          clock?.rtc_in_local_time ? 'Hardware clock kept in local time, not UTC' : null,
+        ].filter(Boolean).join(' · ') || null}
         mono={false}
       />
 
@@ -199,6 +214,19 @@ function EvidencePosture({ compact = false }) {
       {exhibits?.tampered > 0 && (
         <Typography sx={{ fontSize: 10, color: CRITICAL, fontWeight: 700 }}>
           {exhibits.tampered} exhibit(s) failed verification
+        </Typography>
+      )}
+
+      {/* An exhibit filed under a case whose number is not what the exhibit
+          was sealed bearing. The system refuses to tidy that away — editing an
+          exhibit's stated provenance to match newer software is altering the
+          record to fit the tool — so it logs the disagreement instead. Logged
+          is not seen; without this line the first sighting is in
+          cross-examination. */}
+      {posture.custody?.mismatched_exhibits > 0 && (
+        <Typography sx={{ fontSize: 10, color: MEDIUM, fontWeight: 700, lineHeight: 1.35 }}>
+          {posture.custody.mismatched_exhibits} exhibit(s) filed under a case
+          number that differs from the one they were sealed with
         </Typography>
       )}
     </Box>

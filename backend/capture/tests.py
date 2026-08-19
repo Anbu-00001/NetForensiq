@@ -13,7 +13,12 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from scapy.all import Raw, wrpcap
 
-from .detection import THRESHOLDS, analyse_session, bowley_skewness, madm
+from django.contrib.auth import get_user_model
+
+from .detection import (
+    THRESHOLDS, analyse_session, bowley_skewness, describe_home_net, madm,
+    session_home_networks,
+)
 from .features import dns_query_features, interval_features, shannon_entropy
 from .models import Detection
 from .service import run_pcap_import
@@ -230,6 +235,59 @@ class IPv6Tests(TestCase):
         session, _ = run_pcap_import(path, name='ipv6')
         self.assertEqual(session.packet_count, 10)
         self.assertGreater(session.flows.count(), 0)
+
+
+class HomeNetIsDescribedAsAppliedTests(TestCase):
+    """
+    The sentence under the diagram has to name the boundary the diagram was
+    actually drawn against.
+
+    `describe_home_net` used to accept only a session; handed the parsed list
+    that `session_home_networks` returns — which is what the graph endpoint
+    passes — it fell through to the deployment-wide default and printed that
+    instead. Nothing raised, nothing looked wrong, and the caption stated a
+    monitored network four ranges wide while every host on screen had been
+    classified against one /32.
+    """
+
+    def _session(self, home_net):
+        from scapy.layers.inet import IP, TCP
+
+        packets = []
+        for i in range(4):
+            pkt = IP(src='10.3.14.101', dst='104.17.123.55') / TCP(sport=40000 + i, dport=443)
+            pkt.time = 1_700_000_000.0 + i
+            packets.append(pkt)
+        session, _ = run_pcap_import(write_pcap(packets), name=f'hn-{home_net}',
+                                     home_net=home_net)
+        return session
+
+    def test_parsed_networks_describe_themselves_not_the_global_default(self):
+        session = self._session('10.3.14.101/32')
+        networks = session_home_networks(session)
+
+        # Both spellings must agree. Before the fix the second returned
+        # '10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fd00::/8'.
+        self.assertEqual(describe_home_net(session), '10.3.14.101/32')
+        self.assertEqual(describe_home_net(networks), '10.3.14.101/32')
+
+    def test_the_graph_caption_names_the_range_it_classified_against(self):
+        session = self._session('10.3.14.101/32')
+        client = APIClient()
+        user = get_user_model().objects.create_user(
+            username='hn-officer', password='x', role='investigator',
+            is_approved=True,
+        )
+        client.force_authenticate(user=user)
+
+        body = client.get(f'/api/sessions/{session.id}/graph/').json()
+        self.assertEqual(body['home_networks'], '10.3.14.101/32')
+
+        # And the classification the caption is describing really did use it:
+        # the gateway shares the /24 but not the declared /32.
+        inside = {n['id'] for n in body['nodes'] if n['internal']}
+        self.assertIn('10.3.14.101', inside)
+        self.assertNotIn('10.3.14.1', inside)
 
 
 class DirectionAndNoiseTests(TestCase):

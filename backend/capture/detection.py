@@ -72,9 +72,30 @@ def session_home_networks(session):
     return nets or _home_networks()
 
 
-def describe_home_net(session):
-    """The ranges actually used, as a string, for a finding's evidence."""
-    return ', '.join(str(net) for net in session_home_networks(session))
+def describe_home_net(source):
+    """
+    The ranges actually used, as a string, for a finding's evidence.
+
+    Takes either a capture session or an already-parsed list of networks.
+
+    It used to take only a session, and anything else fell through
+    `getattr(source, 'home_net', '')` to the empty string and out to the
+    deployment-wide default. So `describe_home_net(session_home_networks(s))` —
+    which reads perfectly — printed the *global* default. The graph endpoint
+    did exactly that: every host had been classified against the capture's own
+    declared range of 10.3.14.101/32, while the caption under the diagram told
+    the reader the monitored network was 10.0.0.0/8, 172.16.0.0/12,
+    192.168.0.0/16, fd00::/8.
+
+    That is the worst class of defect this system can have. Nothing looked
+    broken — the diagram was correct, the classification was correct, and the
+    sentence describing them was false. An officer reading it would have
+    understood the inside/outside boundary to be four private ranges when the
+    tool had drawn a single host, and "outside the monitored network" is the
+    claim an exfiltration finding rests on.
+    """
+    nets = source if isinstance(source, (list, tuple)) else session_home_networks(source)
+    return ', '.join(str(net) for net in nets)
 
 
 def is_internal(ip, networks=None):

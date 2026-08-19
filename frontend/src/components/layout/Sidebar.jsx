@@ -9,6 +9,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 
 import EvidencePosture from './EvidencePosture';
+import { DutyBoard, CaseDocket, CaptureHealth } from './SidebarPanels';
 import { listSessions, unwrap } from '../../services/forensics';
 import { PANEL, RULE, RULE_STRONG, CYAN, INK, GREY, PAPER } from '../../theme/tokens';
 import { useCurrentUser } from '../../services/session';
@@ -146,7 +147,7 @@ function Sidebar() {
         // 210px against a 390px viewport left 180px for the content and the
         // page scrolled sideways — which on a tool an officer may open on a
         // phone is not a cosmetic problem.
-        width: { xs: 56, md: 210 },
+        width: { xs: 56, md: 232 },
         flexShrink: 0,
         height: `calc(100vh - ${BANNER_HEIGHT}px)`,
         position: 'sticky',
@@ -225,16 +226,26 @@ function Sidebar() {
         })}
       </Box>
 
-      {/* The capture window needs room for two timestamps; on a rail it
-          would truncate into something unreadable, so it is hidden rather
-          than shown badly. */}
       {/*
-        What is being held and whether it can be relied on. Below the
-        navigation because it is context rather than a destination, and above
-        the capture window because a broken seal outranks a timestamp.
+        Below the navigation because these are context rather than
+        destinations, and in this order because it is the order an officer
+        needs them in:
+
+          what is owed        — the only block that can be acted on today;
+          what is held        — and whether it can still be relied on;
+          which cases         — and in what capacity, which decides who may
+                                sign what;
+          what is recording   — and whether there is room left to record into;
+          the capture window  — a detail about the exhibit on screen.
+
+        A broken seal outranks a timestamp, and an overdue statutory duty
+        outranks both.
       */}
       <Box sx={{ px: 2, display: { xs: 'none', md: 'block' } }}>
+        <DutyBoard />
         <EvidencePosture />
+        <CaseDocket />
+        <CaptureHealth />
         <CaptureWindow />
       </Box>
 

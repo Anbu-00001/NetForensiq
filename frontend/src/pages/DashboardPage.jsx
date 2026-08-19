@@ -10,11 +10,13 @@ import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/Classi
 import TopBar from '../components/layout/TopBar';
 import StatCard from '../components/dashboard/StatCard';
 import NetworkGraph from '../components/graph/NetworkGraph';
+import AttackScenario from '../components/scenario/AttackScenario';
 import ProtocolBubbles from '../components/dashboard/ProtocolBubbles';
 import ProtocolRanking from '../components/dashboard/ProtocolRanking';
 import SeverityBreakdown from '../components/dashboard/SeverityBreakdown';
 import {
   listSessions, getSessionSummary, getSessionTimeline, getSessionGraph,
+  getSessionScenario,
   analyseSession,
   unwrap, formatBytes, formatCount,
 } from '../services/forensics';
@@ -44,6 +46,7 @@ function DashboardPage() {
   // Who the diagram draws. Kept here rather than inside the graph so a
   // re-fetch is a normal data load and not a component reaching for the API.
   const [graphFocus, setGraphFocus] = useState('flagged');
+  const [scenario, setScenario] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // A capture that is still being taken. The dashboard refreshes itself while
@@ -89,13 +92,18 @@ function DashboardPage() {
       // The diagram is fetched alongside rather than after, so the page does
       // not render its most useful panel last.
       getSessionGraph(sessionId, { focus: graphFocus }).catch(() => null),
+      // Two findings, not one. A single finding against a machine is a
+      // finding; it is not a sequence, and listing it as one would inflate
+      // the panel with hosts that have no story to tell.
+      getSessionScenario(sessionId, { minFindings: 2 }).catch(() => null),
     ])
-      .then(([s, t, g]) => {
+      .then(([s, t, g, sc]) => {
         if (!current) return;
         setSummary(s);
         setTimeline(t.series ?? []);
         setBucketSeconds(t.bucket_seconds ?? null);
         setGraph(g);
+        setScenario(sc);
         setError('');
       })
       .catch((err) => { if (current) setError(describeError(err, 'Failed to load session data.')); })
@@ -119,13 +127,15 @@ function DashboardPage() {
     setAnalysing(true);
     try {
       await analyseSession(sessionId);
-      const [s, t, g] = await Promise.all([
+      const [s, t, g, sc] = await Promise.all([
         getSessionSummary(sessionId), getSessionTimeline(sessionId),
         getSessionGraph(sessionId, { focus: graphFocus }).catch(() => null),
+        getSessionScenario(sessionId, { minFindings: 2 }).catch(() => null),
       ]);
       setSummary(s);
       setTimeline(t.series ?? []);
       setGraph(g);
+      setScenario(sc);
     } catch {
       setError('Analysis failed.');
     } finally {
@@ -304,6 +314,23 @@ function DashboardPage() {
                     onFocusChange={setGraphFocus}
                   />
                 </Box>
+
+                {/* The diagram says who talked to whom; this says in what
+                    order. Directly beneath it because that is the order the
+                    two questions arrive in. */}
+                {scenario && (
+                  <Box sx={{ ...PANEL, mb: 2.5 }}>
+                    <Typography sx={{ fontSize: 13, color: '#2B3138', mb: 0.3, fontWeight: 600 }}>
+                      What happened, in order
+                    </Typography>
+                    <Typography sx={{ fontSize: 11.5, color: '#5A6068', mb: 1.5 }}>
+                      Findings against one machine, placed on the MITRE ATT&amp;CK
+                      kill chain. A sequence of observations — not a proof that
+                      one step caused the next.
+                    </Typography>
+                    <AttackScenario data={scenario} />
+                  </Box>
+                )}
 
                 <Box sx={{ ...PANEL, mb: 2.5 }}>
                   <Typography sx={{ fontSize: 13, color: '#5A6068', mb: 0.5 }}>

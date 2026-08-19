@@ -220,16 +220,21 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
         """
         The state of the evidence holding, for the operator strip.
 
-        One call, because these four facts are read together or not at all, and
-        four requests to draw a sidebar is four chances for a partial answer.
+        One call, because these facts are read together or not at all, and a
+        request per row is a chance per row for a partial answer.
 
         Every field here is measured, not configured. The clock is read from
         the system; the seal is re-derived; the encryption count walks the store
-        rather than trusting a flag on a row. An operator strip that reported a
-        setting instead of a state would be exactly the wrong thing to put in
-        an officer's eyeline all day.
+        rather than trusting a flag on a row; the disk figure comes from the
+        filesystem. An operator strip that reported a setting instead of a
+        state would be exactly the wrong thing to put in an officer's eyeline
+        all day.
+
+        What each block is for, and the statute behind it where there is one,
+        is documented in `evidence/posture.py`; the research that selected
+        them is `research/140_SIDEBAR_FEATURE_RESEARCH.md`.
         """
-        from . import timesource
+        from . import posture as operator_posture, timesource
         from .crypto import describe as describe_encryption, is_encrypted
 
         records = list(EvidenceRecord.objects.select_related('case')
@@ -280,6 +285,16 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
                                 if r.status == EvidenceRecord.Status.TAMPERED),
             },
             'latest_exhibit': exhibit,
+
+            # The obligations and the silent-failure states. Each is assembled
+            # in evidence/posture.py, where the reason it earns permanent
+            # screen space is written down next to it.
+            'triage': operator_posture.triage_backlog(),
+            'certificates': operator_posture.certificate_state(),
+            'docket': operator_posture.case_docket(request.user),
+            'store': operator_posture.store_headroom(),
+            'capture': operator_posture.capture_heartbeat(),
+            'custody': operator_posture.custody_reconciliation(),
         })
 
     @action(detail=False, methods=['get'], url_path='store-status')
