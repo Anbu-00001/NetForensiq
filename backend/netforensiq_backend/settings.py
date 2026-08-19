@@ -290,6 +290,19 @@ REST_FRAMEWORK = {
         # Public by necessity — an applicant has no account to sign in with —
         # so it is limited by volume rather than by identity.
         'approval_status': '20/hour',
+        # Open evidence verification. Higher than the other public scopes
+        # because the legitimate caller is a court or defence counsel checking
+        # several exhibits from one chambers address, and being throttled while
+        # testing a prosecution exhibit is the wrong failure. It discloses only
+        # whether a digest matches, so volume buys an attacker nothing beyond
+        # confirming that an exhibit number they already hold exists.
+        'public_verify': '60/hour',
+        # Capture upload. Each one seals an exhibit and parses a file that may
+        # be hundreds of megabytes, so the cost of a request is minutes of CPU
+        # rather than milliseconds. The limit is our own and is set for a
+        # working officer's pace, not a batch job — bulk import belongs on the
+        # command line, which has no limit.
+        'upload': '20/hour',
         # The landing and login pages read the rule count and version from
         # /api/engine/ on every visit. Under the generic 30/hour anonymous
         # bucket that ran out during a single test run, and on a police network

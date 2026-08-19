@@ -262,11 +262,20 @@ now §63(4) of the BSA — is a **"condition precedent for admissibility of
 computer-generated secondary evidence"**, and set aside as a **"patent
 illegality"** a trial court order that had sent an audio tape to FSL
 Gandhinagar without first deciding the certificate question.
-✅ VERIFIED — judgment text read directly at
+✅ VERIFIED TWICE — once by opening the judgment, and again over raw HTTP after
+a reviewer challenged it as fabricated; the challenge searched the parties'
+names, which surface their earlier 2016 and 2018 litigation and bury this
+order. Both quoted phrases, the case number, the judge and the FSL order are
+present in the judgment text at
 [indiankanoon.org/doc/19060776](https://indiankanoon.org/doc/19060776/), after
 two independent external checks returned the same case number and quotes. This
 is a Gujarat court, this year, insisting on certificate-first sequencing. It
 belongs beside the Gujarat State Judicial Academy material, not instead of it.
+
+**The line to put on the slide.** Para 8: *"If it is a primary document, it has
+to be produced along with the hash value."* A Gujarat judge, this year, naming
+the hash as what a primary electronic document must arrive with — which is
+exactly what this platform produces at the moment of capture.
 
 **Say the holding precisely.** The judgment does not state that referring
 evidence to FSL is itself illegal. It holds that admissibility must be decided

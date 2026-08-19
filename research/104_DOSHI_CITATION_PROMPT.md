@@ -35,6 +35,75 @@ same URL and the same verbatim quotes** — the decision rule below calls that a
 citation, not a coincidence. The judgment was then opened and read directly
 before anything was written into [research/99](99_GUJARAT_FIT.md) or PROGRESS.md.
 
+### Challenged 19 Aug 2026 — and it held
+
+A reviewing agent reported that this citation was fabricated: that the real
+dispute between these parties is a 2016 matter (SCA 743/2016) before Justice
+S.H. Vora, plus a 2018 bail matter before Justice R.P. Dholaria, and that the
+Indian Kanoon link "doesn't resolve to anything matching".
+
+**That report is wrong, and it is wrong in an instructive way**: it searched
+rather than opened the document. The parties are long-running litigants, so a
+search on their names surfaces the earlier stages of the same feud and buries
+the 2026 order.
+
+The page was re-fetched over raw HTTP — no model in the loop, no summarisation
+— and the judgment text itself says:
+
+```
+HTTP 200, 109,041 bytes
+<TITLE>Kshitijbhai Manubhai Patel vs Dilipbhai Laxmanbhai Kanani on 8 May, 2026</TITLE>
+
+Gujarat High Court
+NEUTRAL CITATION  C/SCA/120/2023   CAV JUDGMENT DATED: 08/05/2026
+Reserved On  : 30/04/2026
+Pronounced On: 08/05/2026
+IN THE HIGH COURT OF GUJARAT AT AHMEDABAD
+R/SPECIAL CIVIL APPLICATION NO. 120 of 2023
+HONOURABLE MR. JUSTICE J. C. DOSHI
+KSHITIJBHAI MANUBHAI PATEL & ORS. Versus DILIPBHAI LAXMANBHAI KANANI & ANR.
+```
+
+Both phrases are present verbatim in the body:
+
+> "…upheld the ratio in Anvar PV (supra) and held issuance of certificate under
+> section 65-B(4) is **a condition precedent** for admissibility of
+> computer-generated secondary evidence. It cannot be supplemented through oral
+> evidence."
+
+> "…the impugned order passed by the trial Court, ignoring the aforesaid
+> provision having the value of a binding precedent, dehors the same and is **a
+> patent illegality**, and therefore … the impugned order is required to be set
+> aside…"
+
+So is the FSL order it set aside:
+
+> "It is ordered that the audio tape submitted in the current suit shall be
+> sealed in the presence of the Registrar and sent through a Special Bailiff to
+> the F.S.L. (Forensic Science Laboratory), Gandhinagar for examination."
+
+The document carries the Gujarat High Court registry's own upload stamp —
+"Uploaded by Raj Subhash Dhobi (HC01779) on Wed May 13 2026" — and runs to 21
+pages.
+
+**Check it yourself in ten seconds**, which is the right response to a challenge
+like this:
+
+```bash
+curl -sL https://indiankanoon.org/doc/19060776/ | grep -o "J. C. DOSHI\|condition precedent\|patent illegality"
+```
+
+**Two things worth taking from the judgment that were not in the original
+report:**
+
+- It cites **Parulben W/o Mahendrabhai Rameshbhai Godhani v. State of Gujarat,
+  2026 (0) JX(Guj) 73** — a second Gujarat High Court authority holding the
+  §65B(4) certificate a prerequisite. A spare, if anyone disputes the first.
+- Para 8 says: *"If it is a primary document, it has to be produced along with
+  the **hash value**."* A Gujarat judge, this year, naming the hash as what a
+  primary electronic document must arrive with. That is the single most useful
+  sentence in the judgment for this project and it was missed on the first pass.
+
 **The holding**: a §65B(4) certificate "is a condition precedent for
 admissibility of computer-generated secondary evidence. It cannot be
 supplemented through oral evidence." In its absence "the Court cannot take

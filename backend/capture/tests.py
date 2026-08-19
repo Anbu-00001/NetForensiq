@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
 from scapy.all import Raw, wrpcap
 
 from .detection import THRESHOLDS, analyse_session, bowley_skewness, madm
@@ -1060,3 +1061,124 @@ class HomeNetSuggestionTests(TestCase):
 
         self.assertEqual(proposal, '')
         self.assertEqual(detail['sampled_packets'], 0)
+
+
+class CaptureUploadTests(TestCase):
+    """
+    Taking a capture into evidence through the browser.
+
+    The command line already did this correctly. The risk of a browser path is
+    that it becomes a softer one — accepting anything, guessing provenance,
+    sealing a file nobody looked at. These tests hold it to the same standard.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+        from accounts.models import User
+        cache.clear()
+        self.tmp = tempfile.mkdtemp()
+        self.officer = User.objects.create_user(
+            username='up-officer', password='a-long-enough-password',
+            badge_id='B-777', department='Cyber',
+            role=User.Role.INVESTIGATOR, is_approved=True,
+        )
+        self.viewer = User.objects.create_user(
+            username='up-viewer', password='a-long-enough-password',
+            badge_id='B-778', department='Records',
+            role=User.Role.VIEWER, is_approved=True,
+        )
+
+    def tearDown(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def _pcap_bytes(self):
+        """A real, minimal libpcap file the parser can actually read."""
+        from scapy.all import Ether, IP, UDP, wrpcap
+        path = Path(self.tmp) / 'upload-sample.pcap'
+        wrpcap(str(path), [Ether() / IP(src='10.0.0.5', dst='10.0.0.9') / UDP()])
+        return path.read_bytes()
+
+    def _post(self, user, data=None, name='sample.pcap', content=None):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        client = APIClient()
+        client.force_authenticate(user=user)
+        payload = {
+            'file': SimpleUploadedFile(
+                name, self._pcap_bytes() if content is None else content,
+                content_type='application/octet-stream',
+            ),
+            'provenance': 'seized',
+        }
+        payload.update(data or {})
+        with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
+            return client.post('/api/capture/upload/', payload, format='multipart')
+
+    def test_an_officer_can_take_a_capture_into_evidence(self):
+        response = self._post(self.officer, {'case_reference': 'CR/2026/9'})
+        self.assertEqual(response.status_code, 201, response.data)
+        body = response.data
+        self.assertEqual(len(body['sha256']), 64)
+        self.assertEqual(body['provenance'], 'seized')
+        self.assertFalse(body['is_demonstration_only'])
+        # Sealed before it was read: acquisition and hashing come first.
+        self.assertGreaterEqual(body['custody_events'], 2)
+
+    def test_a_read_only_account_cannot_upload(self):
+        self.assertEqual(self._post(self.viewer).status_code, 403)
+
+    def test_provenance_must_be_declared(self):
+        """
+        No default. The only safe default is the one that makes the feature
+        useless, so the officer states what they are handing over.
+        """
+        for value in ('', 'unattested', 'nonsense'):
+            with self.subTest(provenance=value):
+                response = self._post(self.officer, {'provenance': value})
+                self.assertEqual(response.status_code, 400)
+                self.assertIn('came from', response.data['detail'])
+
+    def test_a_file_that_is_not_a_capture_is_refused(self):
+        """
+        Checked by signature, not by extension — the extension is the part
+        entirely under the sender's control.
+        """
+        response = self._post(
+            self.officer, name='definitely.pcap',
+            content=b'PK\x03\x04 this is a zip pretending to be a capture',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('does not look like a packet capture', response.data['detail'])
+
+    def test_an_empty_file_is_refused(self):
+        response = self._post(self.officer, content=b'')
+        self.assertEqual(response.status_code, 400)
+
+    def test_pcapng_is_accepted(self):
+        """Wireshark's default format, so refusing it would refuse most files."""
+        from capture.upload import PCAP_MAGIC
+        self.assertIn(b'\x0a\x0d\x0d\x0a', PCAP_MAGIC)
+
+    def test_a_declared_demonstration_stays_a_demonstration(self):
+        response = self._post(self.officer, {'provenance': 'synthetic'})
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data['is_demonstration_only'])
+
+    def test_the_upload_is_attributed_to_the_officer(self):
+        from evidence.models import EvidenceRecord
+        response = self._post(self.officer)
+        record = EvidenceRecord.objects.get(exhibit_number=response.data['exhibit_number'])
+        self.assertEqual(record.collected_by, self.officer)
+        self.assertTrue(
+            record.custody_events.filter(actor=self.officer).exists(),
+            'custody must name the officer who took it, not the process',
+        )
+
+    def test_no_temporary_copy_is_left_behind(self):
+        """An unsealed duplicate of an exhibit sitting in /tmp is a leak."""
+        import glob
+        self._post(self.officer)
+        self.assertEqual(
+            glob.glob('/tmp/netforensiq-upload-*'), [],
+            'the temporary upload copy must be removed',
+        )

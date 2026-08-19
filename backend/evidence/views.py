@@ -1,7 +1,10 @@
 from django.http import FileResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 from rest_framework.serializers import BooleanField, CharField, ModelSerializer
 
 from accounts.models import AuditLog
@@ -219,3 +222,101 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
             as_attachment=True, filename=f'{certificate.reference}.pdf',
         )
         return response
+
+
+class PublicVerifyView(APIView):
+    """
+    Confirm an exhibit's integrity without holding an account.
+
+    Why this is open
+    ----------------
+    A §63 certificate asserts that a file has a particular SHA-256. Defence
+    counsel, a magistrate, or an FSL officer receiving that certificate has no
+    way to test the assertion if checking it requires credentials to the
+    investigating agency's own system — they would be taking the investigator's
+    word for the investigator's own exhibit. That is precisely the thing a
+    court is entitled to be sceptical about.
+
+    So this endpoint answers one question, to anyone, about an exhibit number
+    printed on a certificate: does the sealed file still hash to what the
+    certificate says, and is its custody chain unbroken?
+
+    What it deliberately does not disclose
+    --------------------------------------
+    No filename, no case reference, no FIR number, no seizure details, no
+    findings, no officer names, and never any content. An exhibit number is not
+    a secret — it is printed on a document handed to the other side — but the
+    case around it is. The reply is the same shape whether or not the caller
+    supplies a digest, so it cannot be used to enumerate.
+
+    The provenance field is included on purpose: it is what stops a
+    demonstration capture being verified in front of a court and mistaken for
+    seized evidence. A "synthetic" answer here is as important as an "intact"
+    one.
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'public_verify'
+
+    def get(self, request, exhibit_number):
+        record = EvidenceRecord.objects.filter(
+            exhibit_number__iexact=exhibit_number.strip(),
+        ).first()
+
+        if not record:
+            # Same wording whichever way it fails: an exhibit that does not
+            # exist and one the caller mistyped are not distinguished.
+            return Response(
+                {'found': False,
+                 'detail': 'No sealed exhibit matches that number.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        intact, computed = record.verify()
+        chain_ok, chain_problems = verify_custody_chain(record)
+
+        # An optional digest lets the holder of a certificate check their own
+        # copy of the file against the register, rather than trusting that the
+        # number printed on the page was transcribed correctly.
+        supplied = (request.query_params.get('h') or '').strip().lower()
+        supplied_matches = (supplied == record.sha256_hash) if supplied else None
+
+        certificate = record.certificates.order_by('-generated_at').first()
+
+        log_action(
+            request, AuditLog.Action.VERIFY_EVIDENCE,
+            username_attempted='(public)',
+            detail=(
+                f'Public verification of {record.exhibit_number}: '
+                f'content {"intact" if intact else "FAILED"}, '
+                f'chain {"intact" if chain_ok else "BROKEN"}'
+            ),
+        )
+
+        return Response({
+            'found': True,
+            'exhibit_number': record.exhibit_number,
+            'sealed_at': record.created_at,
+            'status': record.status,
+
+            # The two questions a court actually has.
+            'content_intact': intact,
+            'custody_chain_intact': chain_ok,
+            'custody_chain_problems': chain_problems,
+            'custody_event_count': record.custody_events.count(),
+
+            # What the register says the file hashes to, so a holder of the
+            # file can check it themselves offline.
+            'recorded_sha256': record.sha256_hash,
+            'computed_sha256': computed,
+            'supplied_digest_matches': supplied_matches,
+
+            # The claim this exhibit is entitled to make about itself.
+            'provenance': record.provenance,
+            'provenance_label': record.get_provenance_display(),
+            'is_demonstration_only': record.is_demonstration_only,
+
+            'certificate_reference': certificate.reference if certificate else None,
+            'certificate_complete': certificate.is_complete if certificate else None,
+        })

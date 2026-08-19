@@ -4,6 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { describeError } from '../services/api';
+import { useCurrentUser, canActOnEvidence } from '../services/session';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import StatCard from '../components/dashboard/StatCard';
@@ -88,6 +89,12 @@ function DashboardPage() {
     }
   };
 
+  // A read-only account cannot run detection — the API refuses it. Offering
+  // the button anyway produces a control that always fails, which is worse
+  // than not offering it: the officer learns the tool is broken rather than
+  // that the action is not theirs. This was the only page with no role check.
+  const canAnalyse = canActOnEvidence(useCurrentUser());
+
   const totals = summary?.totals;
   const severities = summary?.detections_by_severity ?? [];
 
@@ -121,16 +128,22 @@ function DashboardPage() {
                 </MenuItem>
               ))}
             </Select>
-            <Button
-              size="small" variant="outlined" onClick={runAnalysis}
-              disabled={!sessionId || analysing}
-              sx={{
-                borderColor: 'rgba(0,212,255,0.4)', color: '#00D4FF', fontSize: 12,
-                '&:hover': { borderColor: '#00D4FF', backgroundColor: 'rgba(0,212,255,0.08)' },
-              }}
-            >
-              {analysing ? 'Analysing…' : 'Run detection'}
-            </Button>
+            {canAnalyse ? (
+              <Button
+                size="small" variant="outlined" onClick={runAnalysis}
+                disabled={!sessionId || analysing}
+                sx={{
+                  borderColor: 'rgba(0,212,255,0.4)', color: '#00D4FF', fontSize: 12,
+                  '&:hover': { borderColor: '#00D4FF', backgroundColor: 'rgba(0,212,255,0.08)' },
+                }}
+              >
+                {analysing ? 'Analysing…' : 'Run detection'}
+              </Button>
+            ) : (
+              <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
+                Read-only access — detection is run by an investigating officer
+              </Typography>
+            )}
             {summary?.session?.capture_start && (
               <Typography sx={{ fontSize: 12, color: 'rgba(229,231,235,0.55)' }}>
                 traffic captured {new Date(summary.session.capture_start).toLocaleString()}

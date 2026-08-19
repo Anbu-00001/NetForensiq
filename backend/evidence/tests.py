@@ -566,3 +566,101 @@ class ScheduleAlgorithmTests(TestCase):
         # PDF stream, so the assertion matches the half that carries the claim.
         self.assertIn('primary digest and the only one relied upon', text)
         self.assertIn('collision resistance', text)
+
+
+class PublicVerifyTests(TestCase):
+    """
+    Open verification.
+
+    A §63 certificate asserts a SHA-256. If testing that assertion requires
+    credentials to the investigating agency's own system, the other side is
+    being asked to take the investigator's word for the investigator's own
+    exhibit. These tests hold the endpoint to answering the question while
+    disclosing nothing about the case.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.tmp = tempfile.mkdtemp()
+        with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
+            self.record = ingest_evidence(
+                make_capture_file(),
+                exhibit_number='EX-PUB-1',
+                case_reference='CR/2026/SECRET',
+                seized_from='A name that must not leak',
+                fir_number='0123/2026',
+                provenance=EvidenceRecord.Provenance.SEIZED,
+            )
+
+    def tearDown(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def _get(self, exhibit='EX-PUB-1', query=''):
+        with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
+            return self.client.get(f'/api/verify/{exhibit}/{query}')
+
+    def test_anyone_can_verify_without_signing_in(self):
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body['found'])
+        self.assertTrue(body['content_intact'])
+        self.assertTrue(body['custody_chain_intact'])
+        self.assertEqual(body['recorded_sha256'], self.record.sha256_hash)
+
+    def test_it_discloses_nothing_about_the_case(self):
+        """
+        An exhibit number is printed on a document handed to the other side.
+        The case around it is not.
+        """
+        raw = self._get().content.decode()
+        for secret in ('CR/2026/SECRET', 'A name that must not leak',
+                       '0123/2026', 'sample.pcap'):
+            self.assertNotIn(secret, raw, f'{secret!r} must not be disclosed')
+
+    def test_a_supplied_digest_is_checked_against_the_register(self):
+        """Lets the holder of a certificate check their own copy of the file."""
+        ok = self._get(query=f'?h={self.record.sha256_hash}')
+        self.assertTrue(ok.json()['supplied_digest_matches'])
+
+        wrong = self._get(query='?h=' + '0' * 64)
+        self.assertFalse(wrong.json()['supplied_digest_matches'])
+
+        # Absent means "not asked", not "did not match".
+        self.assertIsNone(self._get().json()['supplied_digest_matches'])
+
+    def test_tampering_is_reported_to_the_public_caller(self):
+        Path(self.record.stored_path).write_bytes(b'altered after sealing')
+        body = self._get().json()
+        self.assertFalse(body['content_intact'])
+        self.assertNotEqual(body['computed_sha256'], body['recorded_sha256'])
+
+    def test_provenance_is_published_so_a_demo_cannot_pass_as_evidence(self):
+        """
+        The point of exposing provenance here. A synthetic capture verified in
+        front of a court must announce itself as synthetic.
+        """
+        with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
+            ingest_evidence(
+                make_capture_file(b'\xd4\xc3\xb2\xa1 generated'),
+                exhibit_number='EX-DEMO-1',
+                provenance=EvidenceRecord.Provenance.SYNTHETIC,
+            )
+        body = self._get('EX-DEMO-1').json()
+        self.assertEqual(body['provenance'], EvidenceRecord.Provenance.SYNTHETIC)
+        self.assertTrue(body['is_demonstration_only'])
+
+    def test_an_unknown_exhibit_is_refused_without_saying_why(self):
+        response = self._get('EX-NOPE-9')
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.json()['found'])
+
+    def test_every_public_check_is_recorded(self):
+        from accounts.models import AuditLog
+        before = AuditLog.objects.filter(action=AuditLog.Action.VERIFY_EVIDENCE).count()
+        self._get()
+        after = AuditLog.objects.filter(action=AuditLog.Action.VERIFY_EVIDENCE).count()
+        self.assertEqual(after, before + 1,
+                         'who checked an exhibit, and when, is part of the record')
