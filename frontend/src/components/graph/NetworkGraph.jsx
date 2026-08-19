@@ -52,13 +52,13 @@ function NetworkGraph({ data, height = 420 }) {
   const [selected, setSelected] = useState(null);
 
   const palette = useMemo(() => ({
-    internal: '#5B8DEF',
-    external: '#FF9933',
-    medium: '#E8C24A',
-    hostile: '#FF6B6B',
-    edge: 'rgba(167,176,196,0.22)',
-    edgeRisk: 'rgba(255,107,107,0.55)',
-    label: '#A7B0C4',
+    internal: '#1F3A5F',
+    external: '#B45309',
+    medium: '#8A6100',
+    hostile: '#B3261E',
+    edge: '#E2E5E9',
+    edgeRisk: 'rgba(179,38,30,0.55)',
+    label: '#5A6068',
   }), []);
 
   useEffect(() => {
@@ -111,7 +111,7 @@ function NetworkGraph({ data, height = 420 }) {
       .attr('fill-opacity', 0.85)
       // The ring is the second signal: a flagged host is identifiable without
       // relying on hue.
-      .attr('stroke', (d) => (d.finding_count ? '#FFFFFF' : 'rgba(0,0,0,0.35)'))
+      .attr('stroke', (d) => (d.finding_count ? '#111315' : 'rgba(17,19,21,0.30)'))
       .attr('stroke-width', (d) => (d.finding_count ? 2 : 1))
       .style('cursor', 'pointer')
       .on('click', (_event, d) => setSelected(d));
@@ -159,7 +159,7 @@ function NetworkGraph({ data, height = 420 }) {
 
   if (!data?.nodes?.length) {
     return (
-      <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.6)', py: 4 }}>
+      <Typography sx={{ fontSize: 13, color: '#5A6068', py: 4 }}>
         No conversations to draw for this capture.
       </Typography>
     );
@@ -181,30 +181,30 @@ function NetworkGraph({ data, height = 420 }) {
       {/* The sentence, not a legend. */}
       <Box sx={{
         mt: 1, p: 1.5, minHeight: 58,
-        borderLeft: `3px solid ${selected ? colourFor(selected, palette) : 'rgba(167,176,196,0.3)'}`,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderLeft: `3px solid ${selected ? colourFor(selected, palette) : '#C7CCD2'}`,
+        backgroundColor: '#F4F5F7',
       }}>
         {selected ? (
           <>
             <Typography sx={{
               fontSize: 12.5, fontFamily: "'JetBrains Mono', monospace",
-              color: '#E8ECF4', mb: 0.4,
+              color: '#111315', mb: 0.4,
             }}>
               {selected.id}
             </Typography>
-            <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.82)' }}>
+            <Typography sx={{ fontSize: 12.5, color: '#2B3138' }}>
               {selected.caption}
             </Typography>
           </>
         ) : (
-          <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.7)' }}>
+          <Typography sx={{ fontSize: 12.5, color: '#2B3138' }}>
             Select any machine to read what it did. Larger circles moved more
             data; ringed circles have findings recorded against them.
           </Typography>
         )}
       </Box>
 
-      <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.6)', mt: 0.8 }}>
+      <Typography sx={{ fontSize: 11.5, color: '#5A6068', mt: 0.8 }}>
         {data.caption}
         {data.home_networks ? ` · monitored network: ${data.home_networks}` : ''}
       </Typography>

@@ -5,16 +5,20 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
-from rest_framework.serializers import BooleanField, CharField, ModelSerializer
+from rest_framework.serializers import (
+    BooleanField, CharField, IntegerField, ModelSerializer, SerializerMethodField,
+)
 
 from accounts.models import AuditLog
 from accounts.permissions import IsInvestigatorOrReadOnly
 from accounts.utils import get_client_ip, log_action
 
 from .certificate_pdf import render_certificate_pdf
-from .models import CustodyEvent, EvidenceRecord, Section63Certificate
+from .custody_register import build_register
+from .models import Case, CaseAssignment, CustodyEvent, EvidenceRecord, Section63Certificate
 from .service import (
-    issue_certificate, record_custody, sign_part_b, verify_custody_chain,
+    issue_certificate, link_evidence_to_case, record_custody, sign_part_b,
+    verify_custody_chain,
 )
 
 
@@ -60,6 +64,122 @@ class Section63CertificateSerializer(ModelSerializer):
         fields = '__all__'
 
 
+class CaseAssignmentSerializer(ModelSerializer):
+    officer_name = CharField(source='officer.get_full_name', read_only=True)
+    officer_username = CharField(source='officer.username', read_only=True)
+    officer_badge = CharField(source='officer.badge_id', read_only=True, default='')
+    role_display = CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = CaseAssignment
+        fields = [
+            'id', 'officer', 'officer_name', 'officer_username', 'officer_badge',
+            'role', 'role_display', 'assigned_at',
+        ]
+        read_only_fields = ['assigned_at']
+
+
+class CaseSerializer(ModelSerializer):
+    status_display = CharField(source='get_status_display', read_only=True)
+    reference_line = CharField(read_only=True)
+    assignments = CaseAssignmentSerializer(many=True, read_only=True)
+    exhibit_count = IntegerField(source='exhibits.count', read_only=True)
+    io_name = CharField(source='investigating_officer.get_full_name',
+                        read_only=True, default='')
+    # The whole point of the model: whether the separation s.63(4) requires is
+    # actually available on this case, answered from the record.
+    has_independent_expert = SerializerMethodField()
+
+    class Meta:
+        model = Case
+        fields = [
+            'id', 'case_number', 'title', 'fir_number', 'police_station',
+            'district', 'offence_sections', 'status', 'status_display',
+            'opened_on', 'summary', 'investigating_officer', 'io_name',
+            'reference_line', 'assignments', 'exhibit_count',
+            'has_independent_expert', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_has_independent_expert(self, case):
+        """
+        True when someone other than the investigating officer is on the case
+        as an examiner.
+
+        BSA 2023 s.63(4) wants Part A and Part B signed by two different
+        people. Answering this before a certificate is drafted is cheaper than
+        discovering it at signing, which is where it was discovered before.
+        """
+        experts = [a.officer_id for a in case.assignments.all()
+                   if a.role == CaseAssignment.Role.EXPERT]
+        return any(officer_id != case.investigating_officer_id
+                   for officer_id in experts)
+
+
+class CaseViewSet(viewsets.ModelViewSet):
+    """
+    Investigations.
+
+    Read is open to any signed-in officer; creating and editing needs
+    investigator rights, which is what IsInvestigatorOrReadOnly enforces. A
+    read-only records viewer can therefore look up a case and see which
+    exhibits belong to it, and can change nothing about it.
+    """
+
+    permission_classes = [IsInvestigatorOrReadOnly]
+    serializer_class = CaseSerializer
+    queryset = Case.objects.prefetch_related('assignments__officer', 'exhibits')
+
+    def perform_create(self, serializer):
+        case = serializer.save(created_by=self.request.user)
+        log_action(
+            self.request, AuditLog.Action.VIEW_EVIDENCE, user=self.request.user,
+            username_attempted=self.request.user.username,
+            detail=f'Created case {case.case_number} ({case.title})',
+        )
+
+    @action(detail=True, methods=['post'])
+    def assign(self, request, pk=None):
+        """Put an officer on this case in a stated capacity."""
+        case = self.get_object()
+        officer_id = request.data.get('officer')
+        role = request.data.get('role')
+        if not officer_id or role not in CaseAssignment.Role.values:
+            return Response(
+                {'detail': 'officer and a valid role are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        assignment, created = CaseAssignment.objects.update_or_create(
+            case=case, officer_id=officer_id,
+            defaults={'role': role, 'assigned_by': request.user},
+        )
+        log_action(
+            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=(f'{"Assigned" if created else "Changed"} officer '
+                    f'{officer_id} as {role} on case {case.case_number}'),
+        )
+        return Response(CaseAssignmentSerializer(assignment).data,
+                        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='link-exhibit')
+    def link_exhibit(self, request, pk=None):
+        """Attach a sealed exhibit to this case, recording it in the chain."""
+        case = self.get_object()
+        try:
+            record = EvidenceRecord.objects.get(pk=request.data.get('evidence'))
+        except EvidenceRecord.DoesNotExist:
+            return Response({'detail': 'No such exhibit.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        try:
+            link_evidence_to_case(
+                record, case, actor=request.user, actor_ip=get_client_ip(request),
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(EvidenceRecordSerializer(record).data)
+
+
 class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsInvestigatorOrReadOnly]
     queryset = EvidenceRecord.objects.all()
@@ -92,6 +212,28 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
                 record.custody_events.order_by('sequence'), many=True,
             ).data,
         })
+
+    @action(detail=True, methods=['get'], url_path='custody-register')
+    def custody_register(self, request, pk=None):
+        """
+        The custody log as the register a charge sheet has to carry.
+
+        Same rows as /custody/, different audience. That endpoint answers the
+        interface; this one produces the document required by BNSS 2023
+        s.193(3)(i) — "the sequence of custody in case of electronic device" —
+        in the register form directed in Kattavellai @ Devakar v. State of
+        Tamil Nadu, 2025 INSC 845.
+        """
+        record = self.get_object()
+        register = build_register(record)
+        log_action(
+            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=(f'Produced s.193(3)(i) custody register for '
+                    f'{record.exhibit_number} '
+                    f'({len(register["entries"])} movements)'),
+        )
+        return Response(register)
 
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):

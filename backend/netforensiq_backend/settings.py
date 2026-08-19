@@ -223,6 +223,20 @@ MEDIA_URL = 'media/'
 EVIDENCE_ROOT = MEDIA_ROOT / 'pcaps'
 CERTIFICATE_ROOT = MEDIA_ROOT / 'certificates'
 
+# Encryption of the evidence store at rest. On by default: the first ingest
+# generates a 0600 key file beside the project unless a key is supplied.
+#
+# EVIDENCE_ENCRYPTION_KEY (base64, 32 bytes) takes precedence, so a deployment
+# can hold the key in a secrets manager and never write it to this disk at all.
+# EVIDENCE_ENCRYPTION=off stores captures in the clear — a legitimate choice
+# when the workstation's full-disk encryption is the control of record, and one
+# the status endpoint reports rather than hides.
+#
+# Losing this key destroys the evidence. See evidence/crypto.py.
+EVIDENCE_ENCRYPTION = os.getenv('EVIDENCE_ENCRYPTION', 'on')
+EVIDENCE_ENCRYPTION_KEY = os.getenv('EVIDENCE_ENCRYPTION_KEY', '')
+EVIDENCE_KEY_FILE = Path(os.getenv('EVIDENCE_KEY_FILE', BASE_DIR / '.evidence.key'))
+
 # The address space being investigated, in the sense Snort and Suricata use
 # $HOME_NET. Egress rules (C2 beaconing, covert channels) only fire when the
 # initiator is inside it — otherwise every scanner on the internet reaching in

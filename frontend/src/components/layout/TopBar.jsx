@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { logout, getCurrentUser } from '../../services/auth';
 import { Box, Typography, InputBase, Avatar } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import { BANNER_HEIGHT } from './ClassificationBanner';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 
 function TopBar() {
@@ -29,16 +30,15 @@ const initials = user?.first_name
         px: { xs: 1.5, md: 3 },
         gap: { xs: 1, md: 2 },
         minWidth: 0,
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-        backgroundColor: 'rgba(11,16,32,0.8)',
-        backdropFilter: 'blur(14px)',
         position: 'sticky',
-        top: 0,
+        top: `${BANNER_HEIGHT}px`,
         zIndex: 20,
+        borderBottom: '1px solid #ECEEF1',
+        backgroundColor: '#FFFFFF',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-        <ShieldOutlinedIcon sx={{ color: '#FF9933', fontSize: 24 }} />
+        <ShieldOutlinedIcon sx={{ color: '#076E7C', fontSize: 24 }} />
         <Typography sx={{
           fontWeight: 800, letterSpacing: 2.5, fontSize: 15,
           display: { xs: 'none', sm: 'block' },
@@ -48,12 +48,12 @@ const initials = user?.first_name
       </Box>
 
       <Box sx={{
-        width: '1px', height: 22, backgroundColor: 'rgba(255,255,255,0.1)',
+        width: '1px', height: 22, backgroundColor: '#E2E5E9',
         display: { xs: 'none', md: 'block' },
       }} />
 
       <Typography sx={{
-        fontSize: 14, color: 'rgba(232,236,244,0.7)',
+        fontSize: 14, color: '#2B3138',
         display: { xs: 'none', md: 'block' },
       }}>
         Packet Forensics Console
@@ -73,17 +73,17 @@ const initials = user?.first_name
           width: { sm: 240 },
           minWidth: 0,
           borderRadius: 1.5,
-          backgroundColor: 'rgba(255,255,255,0.04)',
+          backgroundColor: '#F4F5F7',
           border: '1px solid transparent',
           transition: 'all 0.25s',
           '&:focus-within': {
-            borderColor: 'rgba(255,153,51,0.45)',
-            backgroundColor: 'rgba(255,153,51,0.07)',
+            borderColor: 'rgba(7,110,124,0.45)',
+            backgroundColor: 'rgba(7,110,124,0.07)',
             width: { xs: 150, sm: 300 },
           },
         }}
       >
-        <SearchIcon sx={{ fontSize: 17, color: 'rgba(232,236,244,0.55)' }} />
+        <SearchIcon sx={{ fontSize: 17, color: '#5A6068' }} />
         <InputBase
           placeholder="Search IP, domain, rule…"
           value={term}
@@ -95,7 +95,7 @@ const initials = user?.first_name
           }}
           sx={{
             fontSize: 13,
-            color: '#E8ECF4',
+            color: '#111315',
             width: '100%',
             fontFamily: "'JetBrains Mono', monospace",
           }}
@@ -108,14 +108,14 @@ const initials = user?.first_name
         sx={{
           display: 'flex', alignItems: 'center', gap: 1.2, cursor: 'pointer',
           px: 1, py: 0.5, borderRadius: 1.5, transition: 'background 0.2s',
-          '&:hover': { backgroundColor: 'rgba(255,255,255,0.04)' },
+          '&:hover': { backgroundColor: '#F4F5F7' },
         }}
       >
         <Avatar
           sx={{
             width: 32, height: 32, fontSize: 12, fontWeight: 700,
-            backgroundColor: 'rgba(91,141,239,0.16)', color: '#5B8DEF',
-            border: '1px solid rgba(91,141,239,0.34)',
+            backgroundColor: 'rgba(7,110,124,0.16)', color: '#076E7C',
+            border: '1px solid rgba(7,110,124,0.34)',
           }}
         >
           {initials}
@@ -128,7 +128,7 @@ const initials = user?.first_name
                 side of this one already use an em dash. */}
             {user?.role || '—'}
           </Typography>
-          <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', lineHeight: 1.2 }}>
+          <Typography sx={{ fontSize: 10.5, color: '#5A6068', lineHeight: 1.2 }}>
             {user?.username || '—'}
           </Typography>
         </Box>
@@ -144,24 +144,24 @@ const initials = user?.first_name
           paper: {
             sx: {
               mt: 1, minWidth: 180,
-              backgroundColor: '#141B2E',
-              border: '1px solid rgba(255,255,255,0.09)',
+              backgroundColor: '#F4F5F7',
+              border: '1px solid #E2E5E9',
               borderRadius: 1.5,
             },
           },
         }}
       >
-        <Box sx={{ px: 2, py: 1.2, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <Typography sx={{ fontSize: 9.5, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)' }}>
+        <Box sx={{ px: 2, py: 1.2, borderBottom: '1px solid #E2E5E9' }}>
+          <Typography sx={{ fontSize: 9.5, letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", color: '#5A6068' }}>
             BADGE ID
           </Typography>
-          <Typography sx={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#E8ECF4' }}>
+          <Typography sx={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#111315' }}>
             {user?.badge_id || '—'}
           </Typography>
         </Box>
         <MenuItem
           onClick={logout}
-          sx={{ fontSize: 13, gap: 1.2, color: '#FF6B6B', mt: 0.5, '&:hover': { backgroundColor: 'rgba(255,107,107,0.07)' } }}
+          sx={{ fontSize: 13, gap: 1.2, color: '#B3261E', mt: 0.5, '&:hover': { backgroundColor: 'rgba(179,38,30,0.07)' } }}
         >
           <LogoutIcon sx={{ fontSize: 17 }} />
           Terminate session

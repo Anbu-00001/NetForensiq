@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
@@ -13,17 +13,16 @@ import { getEngineInfo, spellOut } from '../services/engine';
 
 const features = [
   { icon: <RadarIcon />, title: 'Explainable Detection', tag: 'CITED THRESHOLDS',
-    desc: (engine) => `${spellOut(engine?.rule_count)} deterministic rules for beaconing, DNS tunnelling, port scanning, exfiltration and covert channels. Every threshold carries its source, and values we invented say so.`, color: '#00D4FF' },
+    desc: (engine) => `${spellOut(engine?.rule_count)} deterministic rules for beaconing, DNS tunnelling, port scanning, exfiltration and covert channels. Every threshold carries its source, and values we invented say so.`, color: '#076E7C' },
   { icon: <HubIcon />, title: 'Analyst Triage', tag: 'HUMAN IN THE LOOP',
-    desc: 'Nothing is auto-actioned. Each finding states the value observed, the threshold it crossed and where that threshold came from, then waits for an officer to confirm, dismiss or escalate.', color: '#3FD873' },
+    desc: 'Nothing is auto-actioned. Each finding states the value observed, the threshold it crossed and where that threshold came from, then waits for an officer to confirm, dismiss or escalate.', color: '#1B6E3C' },
   { icon: <GavelIcon />, title: 'Section 63 Certificate', tag: 'BSA 2023 SCHEDULE',
-    desc: 'Generates the certificate prescribed by THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023, Parts A and B, with the hash report the Schedule requires enclosed.', color: '#E8C24A' },
+    desc: 'Generates the certificate prescribed by THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023, Parts A and B, with the hash report the Schedule requires enclosed.', color: '#8A6100' },
   { icon: <VerifiedUserIcon />, title: 'Sealed Evidence', tag: 'SHA-256 CUSTODY',
-    desc: 'Each exhibit is hashed before anything reads it. The custody log is hash-chained, so an altered or removed entry breaks every later link — tamper-evident, which is what a database table can honestly claim.', color: '#B08CE8' },
+    desc: 'Each exhibit is hashed before anything reads it. The custody log is hash-chained, so an altered or removed entry breaks every later link — tamper-evident, which is what a database table can honestly claim.', color: '#6B4FA8' },
 ];
 
 function LandingPage() {
-  const canvasRef = useRef(null);
   // Counts and version come from the engine, not from prose. A failed fetch
   // leaves them as an em dash rather than falling back to a number that was
   // true when the copy was written.
@@ -48,81 +47,24 @@ function LandingPage() {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    let animationId;
-    const particles = [];
-
-    const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    for (let i = 0; i < 60; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.32,
-        vy: (Math.random() - 0.5) * 0.32,
-      });
-    }
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const p of particles) {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,212,255,0.5)';
-        ctx.fill();
-      }
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < 130) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(0,212,255,${0.12 * (1 - d / 130)})`;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
-        }
-      }
-      animationId = requestAnimationFrame(draw);
-    };
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animationId);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0B1020' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#FFFFFF' }}>
       <ConsoleBar />
 
       {/* nav */}
       <Box
         sx={{
           height: 58, display: 'flex', alignItems: 'center', px: { xs: 2.5, md: 5 }, gap: 1.5,
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          backgroundColor: 'rgba(11,16,32,0.75)', backdropFilter: 'blur(14px)',
+          borderBottom: '1px solid #ECEEF1',
+          backgroundColor: '#FFFFFF', 
           position: 'sticky', top: 0, zIndex: 30,
         }}
       >
-        <ShieldOutlinedIcon sx={{ color: '#FF9933', fontSize: 23 }} />
+        <ShieldOutlinedIcon sx={{ color: '#076E7C', fontSize: 23 }} />
         <Typography sx={{ fontWeight: 800, letterSpacing: 2.4, fontSize: 15 }}>NETFORENSIQ</Typography>
-        <Box sx={{ width: '1px', height: 20, backgroundColor: 'rgba(255,255,255,0.1)', mx: 1, display: { xs: 'none', sm: 'block' } }} />
-        <Typography sx={{ fontSize: 13, color: 'rgba(232,236,244,0.55)', display: { xs: 'none', sm: 'block' } }}>
+        <Box sx={{ width: '1px', height: 20, backgroundColor: '#E2E5E9', mx: 1, display: { xs: 'none', sm: 'block' } }} />
+        <Typography sx={{ fontSize: 13, color: '#5A6068', display: { xs: 'none', sm: 'block' } }}>
           Network &amp; Packet Forensics Platform
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
@@ -130,9 +72,9 @@ function LandingPage() {
           component={RouterLink} to="/login" variant="outlined" size="small"
           startIcon={<LoginIcon sx={{ fontSize: 16 }} />}
           sx={{
-            borderColor: 'rgba(255,153,51,0.38)', color: '#FF9933',
+            borderColor: 'rgba(7,110,124,0.38)', color: '#076E7C',
             fontSize: 12.5, fontWeight: 600, borderRadius: 1.5, px: 2,
-            '&:hover': { borderColor: '#FF9933', backgroundColor: 'rgba(255,153,51,0.09)' },
+            '&:hover': { borderColor: '#076E7C', backgroundColor: 'rgba(7,110,124,0.09)' },
           }}
         >
           Sign In
@@ -143,20 +85,9 @@ function LandingPage() {
       <Box
         sx={{
           position: 'relative', overflow: 'hidden',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          borderBottom: '1px solid #ECEEF1',
         }}
       >
-        <Box
-          component="canvas" ref={canvasRef}
-          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}
-        />
-        <Box
-          sx={{
-            position: 'absolute', width: 900, height: 620, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(0,212,255,0.09) 0%, transparent 65%)',
-            top: '-30%', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 0,
-          }}
-        />
 
         <Box
           sx={{
@@ -171,17 +102,17 @@ function LandingPage() {
               sx={{
                 display: 'inline-flex', alignItems: 'center', gap: 1, mb: 2.5,
                 px: 1.6, py: 0.6, borderRadius: 10,
-                border: '1px solid rgba(167,176,196,0.20)',
-                backgroundColor: 'rgba(255,255,255,0.02)',
+                border: '1px solid #E2E5E9',
+                backgroundColor: '#F4F5F7',
                 opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(10px)',
                 transition: 'all 0.6s ease',
               }}
             >
-              <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#3FD873', boxShadow: '0 0 8px #3FD873' }} />
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#1B6E3C', boxShadow: '0 0 8px #1B6E3C' }} />
               <Typography
                 sx={{
                   fontSize: 10.5, letterSpacing: 0.9,
-                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.6)',
+                  fontFamily: "'JetBrains Mono', monospace", color: '#5A6068',
                 }}
               >
                 BUILT FOR CYBER CRIME INVESTIGATION · KANAD S.H.I.E.L.D. 2026
@@ -201,8 +132,7 @@ function LandingPage() {
               <Box
                 component="span"
                 sx={{
-                  background: 'linear-gradient(92deg,#00D4FF 0%,#B08CE8 100%)',
-                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  color: '#111315', borderBottom: '3px solid #111315',
                 }}
               >
                 Prove it in court.
@@ -211,7 +141,7 @@ function LandingPage() {
 
             <Typography
               sx={{
-                fontSize: 14.5, lineHeight: 1.75, color: 'rgba(232,236,244,0.6)',
+                fontSize: 14.5, lineHeight: 1.75, color: '#5A6068',
                 maxWidth: 520, mb: 3.5,
                 opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(16px)',
                 transition: 'all 0.7s ease 0.2s',
@@ -234,12 +164,10 @@ function LandingPage() {
                 startIcon={<LoginIcon sx={{ fontSize: 17 }} />}
                 sx={{
                   px: 3, py: 1.15, fontWeight: 700, fontSize: 13, letterSpacing: 0.8,
-                  borderRadius: 1.5, backgroundColor: '#FF9933', color: '#0B1020',
-                  boxShadow: '0 0 22px rgba(0,212,255,0.32)',
+                  borderRadius: 1.5, backgroundColor: '#111315', color: '#FFFFFF',
                   transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
                   '&:hover': {
-                    backgroundColor: '#FFAD5C', boxShadow: '0 0 34px rgba(0,212,255,0.55)',
-                    transform: 'translateY(-2px)',
+                    backgroundColor: '#2B3138', boxShadow: '0 0 34px rgba(0,212,255,0.55)',
                   },
                 }}
               >
@@ -250,12 +178,12 @@ function LandingPage() {
                 startIcon={<PersonAddAltIcon sx={{ fontSize: 17 }} />}
                 sx={{
                   px: 3, py: 1.15, fontWeight: 700, fontSize: 13, letterSpacing: 0.8,
-                  borderRadius: 1.5, borderColor: 'rgba(255,255,255,0.14)',
-                  color: 'rgba(232,236,244,0.85)',
+                  borderRadius: 1.5, borderColor: '#C7CCD2',
+                  color: '#2B3138',
                   transition: 'all 0.25s',
                   '&:hover': {
-                    borderColor: 'rgba(255,153,51,0.5)', backgroundColor: 'rgba(255,153,51,0.07)',
-                    color: '#FF9933', transform: 'translateY(-2px)',
+                    borderColor: 'rgba(7,110,124,0.5)', backgroundColor: 'rgba(7,110,124,0.07)',
+                    color: '#076E7C', transform: 'translateY(-2px)',
                   },
                 }}
               >
@@ -268,9 +196,8 @@ function LandingPage() {
           <Box
             sx={{
               width: { xs: '100%', md: 320 }, flexShrink: 0, p: 2.5,
-              borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.025)',
-              border: '1px solid rgba(255,255,255,0.07)',
-              boxShadow: '0 20px 60px -20px rgba(0,0,0,0.7)',
+              borderRadius: 2, backgroundColor: '#F4F5F7',
+              border: '1px solid #E2E5E9',
               opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(24px)',
               transition: 'all 0.8s ease 0.35s',
             }}
@@ -279,7 +206,7 @@ function LandingPage() {
               <Typography
                 sx={{
                   fontSize: 10, letterSpacing: 1.5, flexGrow: 1,
-                  fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)',
+                  fontFamily: "'JetBrains Mono', monospace", color: '#5A6068',
                 }}
               >
                 HOW A CAPTURE BECOMES EVIDENCE
@@ -312,27 +239,27 @@ function LandingPage() {
                 <Typography
                   sx={{
                     fontSize: 11, fontWeight: 700, minWidth: 20,
-                    fontFamily: "'JetBrains Mono', monospace", color: '#5B8DEF',
+                    fontFamily: "'JetBrains Mono', monospace", color: '#076E7C',
                   }}
                 >
                   {step}
                 </Typography>
                 <Box>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#E8ECF4' }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#111315' }}>
                     {title}
                   </Typography>
-                  <Typography sx={{ fontSize: 12, lineHeight: 1.6, color: 'rgba(232,236,244,0.55)' }}>
+                  <Typography sx={{ fontSize: 12, lineHeight: 1.6, color: '#5A6068' }}>
                     {body}
                   </Typography>
                 </Box>
               </Box>
             ))}
 
-            <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', my: 1.8 }} />
+            <Box sx={{ height: '1px', backgroundColor: '#E2E5E9', my: 1.8 }} />
 
             <Typography
               sx={{
-                fontSize: 11, lineHeight: 1.6, color: 'rgba(232,236,244,0.55)',
+                fontSize: 11, lineHeight: 1.6, color: '#5A6068',
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
@@ -349,12 +276,12 @@ function LandingPage() {
           <Typography
             sx={{
               fontSize: 10.5, letterSpacing: 1.6, whiteSpace: 'nowrap',
-              fontFamily: "'JetBrains Mono', monospace", color: '#5B8DEF',
+              fontFamily: "'JetBrains Mono', monospace", color: '#076E7C',
             }}
           >
             PLATFORM CAPABILITIES
           </Typography>
-          <Box sx={{ flexGrow: 1, height: '1px', background: 'linear-gradient(90deg, rgba(167,176,196,0.28), transparent)' }} />
+          <Box sx={{ flexGrow: 1, height: '1px', backgroundColor: '#E2E5E9' }} />
         </Box>
 
         <Box
@@ -369,8 +296,8 @@ function LandingPage() {
               key={f.title}
               sx={{
                 p: 2.5, borderRadius: 2, position: 'relative', overflow: 'hidden',
-                backgroundColor: 'rgba(255,255,255,0.022)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                backgroundColor: '#F4F5F7',
+                border: '1px solid #E2E5E9',
                 transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
                 animation: `panelRise 0.55s ease ${0.1 + i * 0.08}s both`,
                 '@keyframes panelRise': {
@@ -379,14 +306,12 @@ function LandingPage() {
                 },
                 '&::after': {
                   content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
-                  background: `linear-gradient(90deg, transparent, ${f.color}, transparent)`,
+                  backgroundColor: f.color,
                   opacity: 0, transition: 'opacity 0.3s',
                 },
                 '&:hover': {
                   borderColor: `${f.color}44`,
-                  backgroundColor: 'rgba(255,255,255,0.038)',
-                  transform: 'translateY(-4px)',
-                  boxShadow: `0 14px 34px -14px ${f.color}55`,
+                  backgroundColor: '#F4F5F7',
                 },
                 '&:hover::after': { opacity: 1 },
               }}
@@ -412,7 +337,7 @@ function LandingPage() {
                 {f.tag}
               </Typography>
               <Typography sx={{ fontSize: 14.5, fontWeight: 700, mb: 1 }}>{f.title}</Typography>
-              <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: 'rgba(232,236,244,0.55)' }}>
+              <Typography sx={{ fontSize: 12.5, lineHeight: 1.65, color: '#5A6068' }}>
                 {typeof f.desc === 'function' ? f.desc(engine) : f.desc}
               </Typography>
             </Box>
@@ -423,7 +348,7 @@ function LandingPage() {
       {/* footer strip */}
       <Box
         sx={{
-          borderTop: '1px solid rgba(255,255,255,0.05)',
+          borderTop: '1px solid #ECEEF1',
           px: { xs: 3, md: 5 }, py: 2.5,
           display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
         }}
@@ -431,7 +356,7 @@ function LandingPage() {
         <Typography
           sx={{
             fontSize: 10.5, letterSpacing: 0.8,
-            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)',
+            fontFamily: "'JetBrains Mono', monospace", color: '#5A6068',
           }}
         >
           NETFORENSIQ v{engine?.version ?? '—'}
@@ -440,7 +365,7 @@ function LandingPage() {
         <Typography
           sx={{
             fontSize: 10.5, letterSpacing: 0.8,
-            fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)',
+            fontFamily: "'JetBrains Mono', monospace", color: '#5A6068',
           }}
         >
           Sign-in attempts are recorded

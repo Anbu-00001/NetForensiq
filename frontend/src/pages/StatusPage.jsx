@@ -72,7 +72,7 @@ function StatusPage() {
   const rejected = result?.stage === 'rejected';
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0B1020', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
       <ConsoleBar />
 
       <Box
@@ -80,27 +80,19 @@ function StatusPage() {
           flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
           px: 2, py: 4, position: 'relative',
           backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)
+            linear-gradient(rgba(17,19,21,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(17,19,21,0.035) 1px, transparent 1px)
           `,
           backgroundSize: '46px 46px',
         }}
       >
-        <Box
-          sx={{
-            position: 'absolute', width: 760, height: 760, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(232,194,74,0.055) 0%, transparent 68%)',
-            top: '50%', left: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none',
-          }}
-        />
 
         <Grow in appear timeout={620}>
           <Box
             sx={{
               width: '100%', maxWidth: 620, borderRadius: 2, overflow: 'hidden',
-              backgroundColor: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.07)',
-              boxShadow: '0 24px 70px -20px rgba(0,0,0,0.75)',
+              backgroundColor: '#F4F5F7',
+              border: '1px solid #E2E5E9',
               position: 'relative', zIndex: 1, p: { xs: 3, sm: 4 },
             }}
           >
@@ -109,8 +101,8 @@ function StatusPage() {
                 sx={{
                   width: 38, height: 38, borderRadius: 1.5,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: 'rgba(232,194,74,0.09)',
-                  border: '1px solid rgba(232,194,74,0.28)', color: '#E8C24A',
+                  backgroundColor: 'rgba(138,97,0,0.09)',
+                  border: '1px solid rgba(138,97,0,0.28)', color: '#8A6100',
                 }}
               >
                 <TravelExploreOutlinedIcon sx={{ fontSize: 21 }} />
@@ -123,7 +115,7 @@ function StatusPage() {
                   sx={{
                     fontSize: 10.5, letterSpacing: 0.8,
                     fontFamily: "'JetBrains Mono', monospace",
-                    color: 'rgba(232,236,244,0.55)',
+                    color: '#5A6068',
                   }}
                 >
                   CHECK YOUR AUTHORIZATION STATUS
@@ -131,15 +123,15 @@ function StatusPage() {
               </Box>
             </Box>
 
-            <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', my: 2.4 }} />
+            <Box sx={{ height: '1px', backgroundColor: '#E2E5E9', my: 2.4 }} />
 
             {error && (
               <Alert
                 severity="error"
                 sx={{
                   mb: 2, fontSize: 12.5,
-                  backgroundColor: 'rgba(255,107,107,0.08)',
-                  border: '1px solid rgba(255,107,107,0.25)', color: '#FFB0B0',
+                  backgroundColor: 'rgba(179,38,30,0.08)',
+                  border: '1px solid rgba(179,38,30,0.25)', color: '#B3261E',
                 }}
               >
                 {error}
@@ -169,13 +161,10 @@ function StatusPage() {
                 sx={{
                   mt: 2.8, py: 1.15, fontWeight: 700, fontSize: 13,
                   letterSpacing: 1.2, borderRadius: 1.5,
-                  backgroundColor: '#E8C24A', color: '#0B1020',
-                  boxShadow: '0 0 22px rgba(232,194,74,0.28)',
+                  backgroundColor: '#8A6100', color: '#FFFFFF',
                   transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
                   '&:hover': {
-                    backgroundColor: '#F0D06A',
-                    boxShadow: '0 0 32px rgba(232,194,74,0.5)',
-                    transform: 'translateY(-1px)',
+                    backgroundColor: '#6F4E00',
                   },
                 }}
               >
@@ -186,14 +175,14 @@ function StatusPage() {
             {result && (
               <Grow in timeout={500}>
                 <Box sx={{ mt: 3.5 }}>
-                  <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', mb: 2.5 }} />
+                  <Box sx={{ height: '1px', backgroundColor: '#E2E5E9', mb: 2.5 }} />
 
                   <Box
                     sx={{
                       display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 3,
                       p: 1.8, borderRadius: 1.5,
-                      backgroundColor: 'rgba(255,255,255,0.025)',
-                      border: '1px solid rgba(255,255,255,0.06)',
+                      backgroundColor: '#F4F5F7',
+                      border: '1px solid #E2E5E9',
                     }}
                   >
                     <Meta k="OPERATOR" v={result.username} />
@@ -206,16 +195,16 @@ function StatusPage() {
                     <Box
                       sx={{
                         display: 'flex', gap: 1.5, p: 2, borderRadius: 1.5,
-                        backgroundColor: 'rgba(255,107,107,0.06)',
-                        border: '1px solid rgba(255,107,107,0.22)',
+                        backgroundColor: 'rgba(179,38,30,0.06)',
+                        border: '1px solid rgba(179,38,30,0.22)',
                       }}
                     >
-                      <CancelIcon sx={{ color: '#FF6B6B', fontSize: 22 }} />
+                      <CancelIcon sx={{ color: '#B3261E', fontSize: 22 }} />
                       <Box>
-                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#FFB0B0' }}>
+                        <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#B3261E' }}>
                           Enrollment not authorized
                         </Typography>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)', mt: 0.4 }}>
+                        <Typography sx={{ fontSize: 12, color: '#5A6068', mt: 0.4 }}>
                           Contact your unit administrator for clarification.
                         </Typography>
                       </Box>
@@ -224,7 +213,7 @@ function StatusPage() {
                     STAGES.map((s, i) => {
                       const done = i < activeIdx;
                       const current = i === activeIdx;
-                      const color = done ? '#3FD873' : current ? '#E8C24A' : 'rgba(232,236,244,0.28)';
+                      const color = done ? '#1B6E3C' : current ? '#8A6100' : '#6B7178';
 
                       return (
                         <Box
@@ -239,7 +228,7 @@ function StatusPage() {
                             '&::before': i < STAGES.length - 1 ? {
                               content: '""', position: 'absolute', left: 15, top: 32,
                               width: '1px', height: 'calc(100% - 32px)',
-                              backgroundColor: done ? 'rgba(63,216,115,0.3)' : 'rgba(255,255,255,0.08)',
+                              backgroundColor: done ? 'rgba(27,110,60,0.3)' : '#E2E5E9',
                             } : {},
                           }}
                         >
@@ -249,16 +238,12 @@ function StatusPage() {
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               fontSize: 11, fontWeight: 700,
                               fontFamily: "'JetBrains Mono', monospace",
-                              color: done || current ? '#0B1020' : 'rgba(232,236,244,0.4)',
-                              backgroundColor: done ? '#3FD873' : current ? '#E8C24A' : 'rgba(255,255,255,0.05)',
-                              border: done || current ? 'none' : '1px solid rgba(255,255,255,0.09)',
-                              boxShadow: current ? '0 0 16px rgba(232,194,74,0.45)' : 'none',
+                              color: done || current ? '#FFFFFF' : '#6B7178',
+                              backgroundColor: done ? '#1B6E3C' : current ? '#8A6100' : '#ECEEF1',
+                              border: done || current ? 'none' : '1px solid #E2E5E9',
+                              boxShadow: current ? '0 0 16px rgba(138,97,0,0.45)' : 'none',
                               zIndex: 1,
                               animation: current ? 'pulseNode 2.2s ease-in-out infinite' : 'none',
-                              '@keyframes pulseNode': {
-                                '0%,100%': { boxShadow: '0 0 0 0 rgba(232,194,74,0.4)' },
-                                '50%': { boxShadow: '0 0 0 9px rgba(232,194,74,0)' },
-                              },
                             }}
                           >
                             {done ? <CheckCircleIcon sx={{ fontSize: 17 }} />
@@ -270,7 +255,7 @@ function StatusPage() {
                             <Typography
                               sx={{
                                 fontSize: 13.5, fontWeight: 500,
-                                color: done || current ? '#E8ECF4' : 'rgba(232,236,244,0.45)',
+                                color: done || current ? '#111315' : '#6B7178',
                               }}
                             >
                               {s.label}
@@ -295,9 +280,8 @@ function StatusPage() {
                       sx={{
                         mt: 1, py: 1.15, fontWeight: 700, fontSize: 13,
                         letterSpacing: 1.2, borderRadius: 1.5,
-                        backgroundColor: '#3FD873', color: '#0B1020',
-                        boxShadow: '0 0 22px rgba(63,216,115,0.3)',
-                        '&:hover': { backgroundColor: '#63E28D' },
+                        backgroundColor: '#1B6E3C', color: '#FFFFFF',
+                        '&:hover': { backgroundColor: '#155B31' },
                       }}
                     >
                       PROCEED TO TERMINAL
@@ -307,8 +291,8 @@ function StatusPage() {
               </Grow>
             )}
 
-            <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mt: 3, textAlign: 'center' }}>
-              <RouterLink to="/login" style={{ color: '#FF9933', textDecoration: 'none', fontWeight: 600 }}>
+            <Typography sx={{ fontSize: 12.5, color: '#5A6068', mt: 3, textAlign: 'center' }}>
+              <RouterLink to="/login" style={{ color: '#076E7C', textDecoration: 'none', fontWeight: 600 }}>
                 Return to terminal
               </RouterLink>
             </Typography>
@@ -325,7 +309,7 @@ function Meta({ k, v }) {
       <Typography
         sx={{
           fontSize: 9, letterSpacing: 1,
-          fontFamily: "'JetBrains Mono', monospace", color: 'rgba(232,236,244,0.55)',
+          fontFamily: "'JetBrains Mono', monospace", color: '#5A6068',
         }}
       >
         {k}
@@ -333,7 +317,7 @@ function Meta({ k, v }) {
       <Typography
         sx={{
           fontSize: 12.5, fontFamily: "'JetBrains Mono', monospace",
-          color: '#E8ECF4', textTransform: 'capitalize',
+          color: '#111315', textTransform: 'capitalize',
         }}
       >
         {v || '—'}

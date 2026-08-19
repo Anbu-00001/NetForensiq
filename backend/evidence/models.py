@@ -6,6 +6,7 @@ Everything here exists to answer one question a defence counsel will ask:
 
 Field provenance is tagged in comments as:
   [STATUTORY]     required by Bharatiya Sakshya Adhiniyam 2023 s.63 or its Schedule
+  [BNSS]          required by Bharatiya Nagarik Suraksha Sanhita 2023 s.193(3)
   [STANDARD]      derived from ISO/IEC 27037 or NIST SP 800-86
   [GOOD PRACTICE] our design choice, no legal backing claimed
 
@@ -91,6 +92,124 @@ def hash_file(path, algorithms=('sha256', 'sha1', 'md5'), chunk_size=1024 * 1024
     return {name: d.hexdigest() for name, d in digests.items()}, size
 
 
+class Case(models.Model):
+    """
+    The investigation an exhibit belongs to.
+
+    Why this is a table and not three text fields
+    ---------------------------------------------
+    Every exhibit used to carry its own free-text `case_reference`,
+    `fir_number` and `police_station`. Twelve exhibits from one raid meant the
+    same FIR number typed twelve times, and one of those twelve will be wrong.
+    That is not a cosmetic defect: it is the discrepancy a defence counsel uses
+    to ask which case the certificate actually refers to. ICJS names the
+    principle for exactly this problem — "ONE DATA ONCE ENTRY".
+
+    What this deliberately does NOT do
+    ----------------------------------
+    It does not rewrite the case reference already recorded on a sealed
+    exhibit. Those fields stay authoritative for records sealed before this
+    model existed, and linking a sealed exhibit to a Case is itself recorded as
+    a custody event rather than applied silently. Editing an exhibit's stated
+    provenance so that it matches newer software is altering the record to fit
+    the tool.
+    """
+
+    class Status(models.TextChoices):
+        # Aligned to the stages the BNSS actually names, not to a generic
+        # workflow. "Closed" covers both a final report and an untraced case,
+        # because the distinction is the magistrate's to record, not ours.
+        REGISTERED = 'registered', 'FIR registered'
+        INVESTIGATION = 'investigation', 'Under investigation'
+        CHARGESHEETED = 'chargesheeted', 'Report filed under BNSS s.193'
+        CLOSED = 'closed', 'Closed'
+
+    case_number = models.CharField(max_length=60, unique=True)          # [GOOD PRACTICE]
+    title = models.CharField(max_length=200)                            # [GOOD PRACTICE]
+
+    # The identifiers a court will use to find this matter. Entered once here
+    # and read from here by every exhibit, certificate and forwarding letter.
+    fir_number = models.CharField(max_length=60, blank=True)            # [BNSS]
+    police_station = models.CharField(max_length=200)                   # [BNSS]
+    district = models.CharField(max_length=120, blank=True)             # [BNSS]
+    # Free text on purpose. Sections get added and dropped during an
+    # investigation, and a fixed list would be wrong within a year of the BNS
+    # commencing.
+    offence_sections = models.CharField(max_length=300, blank=True)     # [BNSS]
+
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.REGISTERED,
+    )
+    opened_on = models.DateField()                                      # [BNSS]
+    summary = models.TextField(blank=True)
+
+    investigating_officer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='cases_as_io',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='cases_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-opened_on', '-id']
+
+    def __str__(self):
+        return f"{self.case_number} — {self.title}"
+
+    @property
+    def reference_line(self):
+        """The one-line identifier a letter or certificate prints."""
+        parts = [self.case_number]
+        if self.fir_number:
+            parts.append(f'FIR {self.fir_number}')
+        if self.police_station:
+            parts.append(self.police_station)
+        return ' · '.join(parts)
+
+
+class CaseAssignment(models.Model):
+    """
+    Who is on a case, and in what capacity.
+
+    This is not the permission system — the API decides what a role may do.
+    It answers a different question, the one the certificate needs: BSA 2023
+    s.63(4) requires Part B to be signed by an expert, and the expert must be a
+    different person from the officer who signed Part A. Recording both against
+    the case is how that separation becomes checkable after the fact instead of
+    being asserted at signing time.
+    """
+
+    class Role(models.TextChoices):
+        IO = 'io', 'Investigating Officer'
+        EXPERT = 'expert', 'FSL / Examiner'
+        SUPERVISOR = 'supervisor', 'Supervising Officer'
+        OBSERVER = 'observer', 'Observer (read-only)'
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='assignments')
+    officer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='case_assignments',
+    )
+    role = models.CharField(max_length=12, choices=Role.choices)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='case_assignments_made',
+    )
+
+    class Meta:
+        ordering = ['case', 'role', 'id']
+        # One person, one capacity per case. Someone who is both the IO and the
+        # countersigning expert defeats the point of s.63(4).
+        unique_together = [('case', 'officer')]
+
+    def __str__(self):
+        return f"{self.officer} as {self.get_role_display()} on {self.case.case_number}"
+
+
 class EvidenceRecord(models.Model):
     """
     The original seized artefact — for us, a PCAP file.
@@ -124,6 +243,12 @@ class EvidenceRecord(models.Model):
         max_length=10, choices=HashAlgorithm.choices, default=HashAlgorithm.SHA256,
     )
 
+    # Whether the sealed copy on disk is ciphertext. The recorded hashes above
+    # are always of the plaintext capture, encrypted or not — see
+    # evidence/crypto.py for why that is the only workable choice.
+    encrypted_at_rest = models.BooleanField(default=False)              # [GOOD PRACTICE]
+    encryption_algorithm = models.CharField(max_length=60, blank=True)  # [GOOD PRACTICE]
+
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.SEALED)
     last_verified_at = models.DateTimeField(null=True, blank=True)      # [STANDARD]
 
@@ -144,6 +269,13 @@ class EvidenceRecord(models.Model):
     )
 
     # Case linkage
+    # The case this exhibit belongs to. Nullable because exhibits sealed
+    # before cases existed have only the text below, and backfilling them with
+    # a guess would be worse than leaving the gap visible.
+    case = models.ForeignKey(                                            # [BNSS]
+        'Case', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='exhibits',
+    )
     case_reference = models.CharField(max_length=120, blank=True)        # [GOOD PRACTICE]
 
     # The FIR the exhibit belongs to, and the station holding it.
@@ -215,9 +347,18 @@ class EvidenceRecord(models.Model):
         """
         from django.utils import timezone
 
+        from .crypto import EvidenceDecryptionError, readable
+
         try:
-            digests, _ = hash_file(self.stored_path, algorithms=('sha256',))
-        except OSError:
+            # Decrypts first when the store is encrypted, so `computed` is
+            # always a digest of the capture as seized and stays comparable to
+            # the value printed on the certificate.
+            with readable(self.stored_path) as plaintext:
+                digests, _ = hash_file(plaintext, algorithms=('sha256',))
+        except (OSError, EvidenceDecryptionError):
+            # A file that will not decrypt is indistinguishable, from here,
+            # from one that has been altered — and both answers are the same
+            # answer: do not trust this artefact.
             self.status = self.Status.TAMPERED
             self.save(update_fields=['status'])
             return False, None
@@ -254,6 +395,9 @@ class CustodyEvent(models.Model):
         # action. Reusing CERTIFICATE_ISSUED printed two identical rows on the
         # custody annexure and hid who actually countersigned.
         PART_B_SIGNED = 'part_b_signed', 'Section 63 Part B countersigned by expert'
+        # Attaching a sealed exhibit to a case changes what the record says
+        # about it, so it is a movement in the chain and not a silent edit.
+        CASE_LINKED = 'case_linked', 'Linked to case'
 
     evidence = models.ForeignKey(
         EvidenceRecord, on_delete=models.CASCADE, related_name='custody_events',

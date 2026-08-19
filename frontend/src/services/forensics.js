@@ -133,10 +133,10 @@ export const formatCount = (n) => {
 };
 
 export const SEVERITY_COLOR = {
-  critical: '#FF6B6B',
-  high: '#FF9933',
-  medium: '#E8C24A',
-  low: '#00A8FF',
+  critical: '#B3261E',
+  high: '#B45309',
+  medium: '#8A6100',
+  low: '#1F3A5F',
 };
 
 /**

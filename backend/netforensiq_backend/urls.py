@@ -14,7 +14,9 @@ from capture.views import (
     CaptureSessionViewSet, DNSRecordViewSet, DetectionViewSet, FlowViewSet,
     engine_info,
 )
-from evidence.views import CertificateViewSet, EvidenceViewSet, PublicVerifyView
+from evidence.views import (
+    CaseViewSet, CertificateViewSet, EvidenceViewSet, PublicVerifyView,
+)
 
 from .spa import serve_collected_static, serve_frontend
 
@@ -23,6 +25,7 @@ router.register('sessions', CaptureSessionViewSet, basename='session')
 router.register('flows', FlowViewSet, basename='flow')
 router.register('dns', DNSRecordViewSet, basename='dns')
 router.register('detections', DetectionViewSet, basename='detection')
+router.register('cases', CaseViewSet, basename='case')
 router.register('evidence', EvidenceViewSet, basename='evidence')
 router.register('certificates', CertificateViewSet, basename='certificate')
 

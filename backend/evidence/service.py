@@ -1,5 +1,6 @@
 """Evidence intake, custody chain maintenance, and certificate issue."""
 
+import os
 import re
 import shutil
 import uuid
@@ -9,8 +10,9 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from . import crypto
 from .models import (
-    CustodyEvent, EvidenceRecord, Section63Certificate, hash_file,
+    Case, CustodyEvent, EvidenceRecord, Section63Certificate, hash_file,
 )
 
 
@@ -89,6 +91,48 @@ def verify_custody_chain(evidence):
 
 
 @transaction.atomic
+def link_evidence_to_case(evidence, case, actor=None, actor_ip=None):
+    """
+    Attach an exhibit to an investigation, and say so in the custody log.
+
+    Two things this refuses to do:
+
+    It will not move an exhibit that is already on another case. Reassignment
+    is a decision with consequences for a filed report, so it has to be an
+    explicit unlink first rather than an overwrite that leaves no trace.
+
+    It will not touch `case_reference`, `fir_number` or `police_station` on an
+    exhibit that already has them. Those record what was written down at
+    seizure. If they disagree with the Case, that disagreement is a fact about
+    the investigation and the officer needs to see it, not have it tidied away.
+    """
+    if evidence.case_id and evidence.case_id != case.id:
+        raise ValueError(
+            f'{evidence.exhibit_number} is already on case '
+            f'{evidence.case.case_number}; unlink it before reassigning.'
+        )
+    if evidence.case_id == case.id:
+        return evidence
+
+    evidence.case = case
+    evidence.save(update_fields=['case'])
+
+    detail = f'Linked to case {case.reference_line}'
+    stated = evidence.case_reference or evidence.fir_number
+    if stated and case.case_number not in stated and case.fir_number not in stated:
+        # Surfaced rather than corrected. See the docstring.
+        detail += (
+            f' — note: the exhibit was sealed bearing the reference '
+            f'"{stated}", which does not match this case.'
+        )
+    record_custody(
+        evidence, CustodyEvent.Action.CASE_LINKED,
+        actor=actor, detail=detail, actor_ip=actor_ip,
+    )
+    return evidence
+
+
+@transaction.atomic
 def ingest_evidence(
     source_path,
     original_filename=None,
@@ -162,7 +206,23 @@ def ingest_evidence(
         )
     shutil.copy2(source, destination)
 
+    # Hash before encrypting. The digest that goes on the certificate is of the
+    # capture as seized, which is the only digest anyone outside this system
+    # can reproduce from the same file.
     digests, size = hash_file(destination)
+
+    encrypted_at_rest = False
+    encryption_algorithm = ''
+    key = crypto.load_key(create=True)
+    if key is not None:
+        # Written alongside and swapped in, so a failure part-way through
+        # leaves the plaintext copy intact rather than a half-encrypted file
+        # that no longer hashes to anything.
+        sealed = destination.with_suffix(destination.suffix + '.enc')
+        crypto.encrypt_file(destination, sealed, key)
+        os.replace(sealed, destination)
+        encrypted_at_rest = True
+        encryption_algorithm = crypto.ALGORITHM
 
     # Carry the provenance manifest into the store beside the sealed copy.
     #

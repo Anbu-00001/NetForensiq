@@ -1,10 +1,13 @@
 import { Box, Typography } from '@mui/material';
+import { LOW, HIGH, CRITICAL, VIOLET, INK, GREY } from '../../theme/tokens';
 
+// A tinted disc with a solid outline of the same colour: readable on white
+// without a fill dark enough to swallow the label sitting on it.
 const PALETTE = {
-  TCP: { color: '#5B8DEF', glow: '#7FA8F5' },
-  UDP: { color: '#FF9933', glow: '#FFAD5C' },
-  ICMP: { color: '#E05252', glow: '#FF6B6B' },
-  OTHER: { color: '#B08CE8', glow: '#C9AEF2' },
+  TCP: { color: LOW },
+  UDP: { color: HIGH },
+  ICMP: { color: CRITICAL },
+  OTHER: { color: VIOLET },
 };
 
 /**
@@ -37,8 +40,8 @@ function ProtocolBubbles({ protocols = [] }) {
       sx={{
         p: 2,
         borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.02)',
-        border: '1px solid rgba(255,255,255,0.06)',
+        backgroundColor: '#F4F5F7',
+        border: '1px solid #E2E5E9',
       }}
     >
       <Typography sx={{ fontSize: 13.5, fontWeight: 600, mb: 1 }}>
@@ -46,7 +49,7 @@ function ProtocolBubbles({ protocols = [] }) {
       </Typography>
 
       {!bubbles.length ? (
-        <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)' }}>
+        <Typography sx={{ fontSize: 12, color: '#5A6068' }}>
           No flows in this capture.
         </Typography>
       ) : (
@@ -55,14 +58,14 @@ function ProtocolBubbles({ protocols = [] }) {
             {bubbles.map((b) => (
               <g key={b.label}>
                 <circle cx={b.x} cy={b.y} r={b.r} fill={b.color} opacity={0.22} />
-                <circle cx={b.x} cy={b.y} r={b.r} fill="none" stroke={b.glow}
+                <circle cx={b.x} cy={b.y} r={b.r} fill="none" stroke={b.color}
                   strokeWidth={1.5} opacity={0.85} />
-                <text x={b.x} y={b.y - 2} textAnchor="middle" fill="#E8ECF4"
+                <text x={b.x} y={b.y - 2} textAnchor="middle" fill={INK}
                   fontSize={b.r > 30 ? 14 : 11} fontWeight={600}>
                   {b.label}
                 </text>
                 <text x={b.x} y={b.y + 14} textAnchor="middle"
-                  fill="rgba(232,236,244,0.6)" fontSize={10.5}>
+                  fill={GREY} fontSize={10.5}>
                   {b.pct}%
                 </text>
               </g>

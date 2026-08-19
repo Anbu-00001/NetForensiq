@@ -3,6 +3,7 @@ import {
   Box, Typography, Chip, Button, CircularProgress, Alert, Collapse, TextField,
 } from '@mui/material';
 import Sidebar from '../components/layout/Sidebar';
+import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/ClassificationBanner';
 import TopBar from '../components/layout/TopBar';
 import {
   listEvidence, getCustodyChain, verifyEvidence, unwrap, formatBytes,
@@ -13,19 +14,19 @@ import { describeError } from '../services/api';
 import { GUJARATI } from '../i18n/gujarati';
 
 const STATUS_STYLE = {
-  sealed: { color: '#3FD873', label: 'Sealed — hash verified' },
-  tampered: { color: '#FF6B6B', label: 'INTEGRITY FAILED' },
-  archived: { color: '#8A93A8', label: 'Archived' },
+  sealed: { color: '#1B6E3C', label: 'Sealed — hash verified' },
+  tampered: { color: '#B3261E', label: 'INTEGRITY FAILED' },
+  archived: { color: '#6B7178', label: 'Archived' },
 };
 
 function Hash({ label, value }) {
   return (
     <Box sx={{ mb: 0.8 }}>
       <Typography sx={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.6,
-        color: 'rgba(232,236,244,0.55)' }}>
+        color: '#5A6068' }}>
         {label}
       </Typography>
-      <Typography sx={{ fontSize: 11.5, fontFamily: 'monospace', color: '#E8ECF4',
+      <Typography sx={{ fontSize: 11.5, fontFamily: 'monospace', color: '#111315',
         wordBreak: 'break-all' }}>
         {value || '—'}
       </Typography>
@@ -63,9 +64,9 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
   };
 
   return (
-    <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+    <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid #E2E5E9' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
-        <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#E8ECF4' }}>
+        <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#111315' }}>
           Section 63 certificates
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
@@ -73,12 +74,12 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
           <Button
             size="small" variant="outlined" disabled={busy === 'issue'}
             onClick={() => setShowPartA((v) => !v)}
-            sx={{ fontSize: 11.5, borderColor: 'rgba(63,216,115,0.4)', color: '#3FD873' }}
+            sx={{ fontSize: 11.5, borderColor: 'rgba(27,110,60,0.4)', color: '#1B6E3C' }}
           >
             {showPartA ? 'Cancel' : 'Issue certificate (Part A)'}
           </Button>
         ) : (
-          <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)' }}>
+          <Typography sx={{ fontSize: 11.5, color: '#5A6068' }}>
             Issuing a certificate requires Investigator clearance
           </Typography>
         )}
@@ -94,11 +95,11 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
       <Collapse in={showPartA}>
         <Box sx={{
           p: 1.5, mb: 1.5, borderRadius: 1.5,
-          backgroundColor: 'rgba(0,0,0,0.3)',
-          border: '1px solid rgba(63,216,115,0.25)',
+          backgroundColor: '#ECEEF1',
+          border: '1px solid rgba(27,110,60,0.25)',
         }}>
           <Typography sx={{
-            fontSize: 11.5, lineHeight: 1.6, color: 'rgba(232,236,244,0.7)', mb: 1.2,
+            fontSize: 11.5, lineHeight: 1.6, color: '#2B3138', mb: 1.2,
           }}>
             You are about to affirm, under THE SCHEDULE to the Bharatiya Sakshya
             Adhiniyam 2023, that you produced this electronic record from a device
@@ -115,9 +116,9 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
                 onChange={(e) => setPartA({ ...partA, [field]: e.target.value })}
                 sx={{
                   flexGrow: 1, minWidth: 130,
-                  '& .MuiInputBase-input': { fontSize: 12, color: '#E8ECF4' },
+                  '& .MuiInputBase-input': { fontSize: 12, color: '#111315' },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255,255,255,0.12)',
+                    borderColor: '#C7CCD2',
                   },
                 }}
               />
@@ -133,7 +134,7 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
                 });
                 setShowPartA(false);
               })}
-              sx={{ fontSize: 11.5, borderColor: 'rgba(63,216,115,0.5)', color: '#3FD873' }}
+              sx={{ fontSize: 11.5, borderColor: 'rgba(27,110,60,0.5)', color: '#1B6E3C' }}
             >
               {busy === 'issue' ? 'Signing…' : 'Affirm and sign Part A'}
             </Button>
@@ -144,17 +145,17 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
       {error && <Alert severity="error" sx={{ mb: 1.5, fontSize: 12 }}>{error}</Alert>}
 
       {!mine.length ? (
-        <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)' }}>
+        <Typography sx={{ fontSize: 12, color: '#5A6068' }}>
           None issued. Issuing re-verifies the hash first and refuses if it no longer matches.
         </Typography>
       ) : mine.map((c) => (
         <Box key={c.id} sx={{
           p: 1.5, mb: 1, borderRadius: 1.5,
-          backgroundColor: 'rgba(0,0,0,0.3)',
-          border: '1px solid rgba(255,255,255,0.06)',
+          backgroundColor: '#ECEEF1',
+          border: '1px solid #E2E5E9',
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 12.5, fontFamily: 'monospace', color: '#E8ECF4' }}>
+            <Typography sx={{ fontSize: 12.5, fontFamily: 'monospace', color: '#111315' }}>
               {c.reference}
             </Typography>
             <Chip
@@ -162,15 +163,15 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
               size="small"
               sx={{
                 fontSize: 10.5,
-                backgroundColor: c.is_complete ? 'rgba(63,216,115,0.15)' : 'rgba(232,194,74,0.15)',
-                color: c.is_complete ? '#3FD873' : '#E8C24A',
+                backgroundColor: c.is_complete ? 'rgba(27,110,60,0.15)' : 'rgba(138,97,0,0.15)',
+                color: c.is_complete ? '#1B6E3C' : '#8A6100',
               }}
             />
             <Box sx={{ flexGrow: 1 }} />
             <Button
               size="small" disabled={busy === `pdf${c.id}`}
               onClick={() => run(`pdf${c.id}`, () => downloadCertificatePdf(c.id, c.reference))}
-              sx={{ fontSize: 11.5, color: '#5B8DEF' }}
+              sx={{ fontSize: 11.5, color: '#076E7C' }}
             >
               Download PDF
             </Button>
@@ -186,9 +187,9 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
                   onChange={(e) => setExpert({ ...expert, [field]: e.target.value })}
                   sx={{
                     flexGrow: 1, minWidth: 130,
-                    '& .MuiInputBase-input': { fontSize: 12, color: '#E8ECF4' },
+                    '& .MuiInputBase-input': { fontSize: 12, color: '#111315' },
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.12)',
+                      borderColor: '#C7CCD2',
                     },
                   }}
                 />
@@ -200,7 +201,7 @@ function CertificatePanel({ record, certificates, onChanged, canAct }) {
                   part_b_designation: expert.designation,
                   part_b_qualification: expert.qualification,
                 }))}
-                sx={{ fontSize: 11.5, borderColor: 'rgba(232,194,74,0.5)', color: '#E8C24A' }}
+                sx={{ fontSize: 11.5, borderColor: 'rgba(138,97,0,0.5)', color: '#8A6100' }}
               >
                 Countersign Part B
               </Button>
@@ -221,7 +222,7 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
   // integrity is the one thing this page must never do quietly.
   const style = STATUS_STYLE[record.status] ?? {
     label: `Unrecognised status: ${record.status ?? 'none'}`,
-    color: '#E8C24A',
+    color: '#8A6100',
   };
 
   const toggle = async () => {
@@ -244,13 +245,13 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
   return (
     <Box sx={{
       mb: 2, borderRadius: 2, overflow: 'hidden',
-      border: '1px solid rgba(255,255,255,0.07)',
-      backgroundColor: 'rgba(255,255,255,0.02)',
+      border: '1px solid #E2E5E9',
+      backgroundColor: '#F4F5F7',
       borderLeft: `3px solid ${style.color}`,
     }}>
       <Box sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#E8ECF4',
+          <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#111315',
             fontFamily: 'monospace' }}>
             {record.exhibit_number}
           </Typography>
@@ -261,17 +262,17 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
           <Box sx={{ flexGrow: 1 }} />
           {canAct && (
             <Button size="small" variant="outlined" disabled={busy} onClick={runVerify}
-              sx={{ fontSize: 11.5, borderColor: 'rgba(255,153,51,0.45)', color: '#FF9933' }}>
+              sx={{ fontSize: 11.5, borderColor: 'rgba(7,110,124,0.45)', color: '#076E7C' }}>
               {busy ? 'Verifying…' : 'Re-verify integrity'}
             </Button>
           )}
           <Button size="small" onClick={toggle}
-            sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.6)' }}>
+            sx={{ fontSize: 11.5, color: '#5A6068' }}>
             {open ? 'Hide' : 'Show'} chain of custody
           </Button>
         </Box>
 
-        <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mb: 1.5 }}>
+        <Typography sx={{ fontSize: 12.5, color: '#5A6068', mb: 1.5 }}>
           {record.original_filename} · {formatBytes(record.file_size_bytes)}
           {record.case_reference ? ` · case ${record.case_reference}` : ''}
         </Typography>
@@ -284,20 +285,20 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
         */}
         <Box sx={{
           mb: 1.5, px: 1.2, py: 0.9, borderRadius: 1.2,
-          border: `1px solid ${record.is_demonstration_only ? '#FF6B6B55' : 'rgba(255,255,255,0.08)'}`,
+          border: `1px solid ${record.is_demonstration_only ? '#B3261E55' : '#E2E5E9'}`,
           backgroundColor: record.is_demonstration_only
-            ? 'rgba(255,107,107,0.10)' : 'rgba(255,255,255,0.02)',
+            ? 'rgba(179,38,30,0.10)' : '#F4F5F7',
         }}>
           <Typography sx={{
             fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-            color: record.is_demonstration_only ? '#FF6B6B' : 'rgba(232,236,244,0.6)',
+            color: record.is_demonstration_only ? '#B3261E' : '#5A6068',
           }}>
             {record.is_demonstration_only
               ? 'SYNTHETIC — GENERATED FOR DEMONSTRATION, NOT EVIDENCE'
               : (record.provenance_label ?? 'Origin not recorded')}
           </Typography>
           {record.provenance_detail && (
-            <Typography sx={{ fontSize: 11, color: 'rgba(232,236,244,0.55)', mt: 0.3 }}>
+            <Typography sx={{ fontSize: 11, color: '#5A6068', mt: 0.3 }}>
               {record.provenance_detail}
             </Typography>
           )}
@@ -328,23 +329,23 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
                 {chain.events.map((e) => (
                   <Box key={e.id} sx={{
                     display: 'flex', gap: 1.5, py: 1,
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    borderBottom: '1px solid #ECEEF1',
                   }}>
-                    <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)',
+                    <Typography sx={{ fontSize: 11.5, color: '#5A6068',
                       minWidth: 26, fontFamily: 'monospace' }}>
                       #{e.sequence}
                     </Typography>
                     <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 12.5, color: '#E8ECF4' }}>
+                      <Typography sx={{ fontSize: 12.5, color: '#111315' }}>
                         {e.action}
                         {e.actor_badge ? ` · badge ${e.actor_badge}` : ''}
                       </Typography>
-                      <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)',
+                      <Typography sx={{ fontSize: 11.5, color: '#5A6068',
                         wordBreak: 'break-all' }}>
                         {e.detail}
                       </Typography>
                       <Typography sx={{ fontSize: 10.5, fontFamily: 'monospace',
-                        color: 'rgba(232,236,244,0.55)', wordBreak: 'break-all' }}>
+                        color: '#5A6068', wordBreak: 'break-all' }}>
                         {new Date(e.timestamp).toLocaleString()} · hash {e.entry_hash?.slice(0, 24)}…
                       </Typography>
                     </Box>
@@ -395,12 +396,14 @@ function EvidencePage() {
     setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
 
   return (
-    <Box sx={{ display: 'flex', backgroundColor: '#0B1020', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', backgroundColor: '#FFFFFF', minHeight: '100vh',
+      pt: `${BANNER_HEIGHT}px` }}>
+      <ClassificationBanner level="restricted" fixed />
       <Sidebar />
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
         <TopBar />
         <Box sx={{ p: 2.5 }}>
-          <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#E8ECF4', mb: 0.5 }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#111315', mb: 0.5 }}>
             Evidence register
           </Typography>
           {/*
@@ -411,11 +414,11 @@ function EvidencePage() {
             is not translated.
           */}
           <Typography lang="gu" sx={{
-            fontSize: 13, color: 'rgba(232,236,244,0.55)', mb: 0.5,
+            fontSize: 13, color: '#5A6068', mb: 0.5,
           }}>
             {GUJARATI.evidenceRegister} · {GUJARATI.act} · {GUJARATI.section}
           </Typography>
-          <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mb: 2.5 }}>
+          <Typography sx={{ fontSize: 12.5, color: '#5A6068', mb: 2.5 }}>
             Each exhibit is hashed on arrival, before any analysis reads it. The custody log is
             hash-chained, so an altered or removed entry breaks every later link.
             Certificates follow THE SCHEDULE to the Bharatiya Sakshya Adhiniyam 2023,
@@ -426,7 +429,7 @@ function EvidencePage() {
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress sx={{ color: '#FF9933' }} />
+              <CircularProgress sx={{ color: '#076E7C' }} />
             </Box>
           ) : !records.length ? (
             <Alert severity="info">

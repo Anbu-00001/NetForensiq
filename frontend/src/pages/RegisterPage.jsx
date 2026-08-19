@@ -20,9 +20,9 @@ const roles = [
 // Only the stages that exist. "Identity verification" was advertised here and
 // on the status page; nothing in the system performs it.
 const pipeline = [
-  ['01', 'Submit credentials', '#FF9933', 'YOU ARE HERE'],
-  ['02', 'Administrator review', 'rgba(232,236,244,0.3)', 'PENDING'],
-  ['03', 'Access granted', 'rgba(232,236,244,0.3)', 'LOCKED'],
+  ['01', 'Submit credentials', '#076E7C', 'YOU ARE HERE'],
+  ['02', 'Administrator review', '#6B7178', 'PENDING'],
+  ['03', 'Access granted', '#6B7178', 'LOCKED'],
 ];
 
 function RegisterPage() {
@@ -84,7 +84,7 @@ function RegisterPage() {
 };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0B1020', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
       <ConsoleBar />
 
       <Box
@@ -92,28 +92,20 @@ function RegisterPage() {
           flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
           px: 2, py: 4, position: 'relative',
           backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)
+            linear-gradient(rgba(17,19,21,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(17,19,21,0.035) 1px, transparent 1px)
           `,
           backgroundSize: '46px 46px',
         }}
       >
-        <Box
-          sx={{
-            position: 'absolute', width: 820, height: 820, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(176,140,232,0.06) 0%, transparent 68%)',
-            top: '45%', left: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none',
-          }}
-        />
 
         <Grow in appear timeout={620}>
           <Box
             sx={{
               display: 'flex', flexDirection: { xs: 'column', md: 'row' },
               width: '100%', maxWidth: 940, borderRadius: 2, overflow: 'hidden',
-              backgroundColor: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.07)',
-              boxShadow: '0 24px 70px -20px rgba(0,0,0,0.75)',
+              backgroundColor: '#F4F5F7',
+              border: '1px solid #E2E5E9',
               position: 'relative', zIndex: 1,
             }}
           >
@@ -121,16 +113,16 @@ function RegisterPage() {
             <Box
               sx={{
                 width: { xs: '100%', md: 288 }, flexShrink: 0, p: 3,
-                backgroundColor: 'rgba(255,255,255,0.014)',
-                borderRight: { md: '1px solid rgba(255,255,255,0.06)' },
-                borderBottom: { xs: '1px solid rgba(255,255,255,0.06)', md: 'none' },
+                backgroundColor: '#F4F5F7',
+                borderRight: { md: '1px solid #E2E5E9' },
+                borderBottom: { xs: '1px solid #E2E5E9', md: 'none' },
               }}
             >
               <Typography
                 sx={{
                   fontSize: 10, letterSpacing: 1.6, mb: 2.5,
                   fontFamily: "'JetBrains Mono', monospace",
-                  color: 'rgba(232,236,244,0.55)',
+                  color: '#5A6068',
                 }}
               >
                 ENROLLMENT PIPELINE
@@ -149,7 +141,7 @@ function RegisterPage() {
                     '&::before': i < pipeline.length - 1 ? {
                       content: '""', position: 'absolute', left: 13, top: 30,
                       width: '1px', height: 'calc(100% - 30px)',
-                      backgroundColor: 'rgba(255,255,255,0.08)',
+                      backgroundColor: '#E2E5E9',
                     } : {},
                   }}
                 >
@@ -159,9 +151,9 @@ function RegisterPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 10.5, fontWeight: 700,
                       fontFamily: "'JetBrains Mono', monospace",
-                      color: i === 0 ? '#0B1020' : 'rgba(232,236,244,0.4)',
-                      backgroundColor: i === 0 ? '#FF9933' : 'rgba(255,255,255,0.05)',
-                      border: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.09)',
+                      color: i === 0 ? '#FFFFFF' : '#6B7178',
+                      backgroundColor: i === 0 ? '#076E7C' : '#ECEEF1',
+                      border: i === 0 ? 'none' : '1px solid #E2E5E9',
                       boxShadow: i === 0 ? '0 0 16px rgba(0,212,255,0.45)' : 'none',
                       zIndex: 1,
                     }}
@@ -169,7 +161,7 @@ function RegisterPage() {
                     {n}
                   </Box>
                   <Box sx={{ pt: 0.2 }}>
-                    <Typography sx={{ fontSize: 12.5, fontWeight: 500, color: i === 0 ? '#E8ECF4' : 'rgba(232,236,244,0.5)' }}>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 500, color: i === 0 ? '#111315' : '#5A6068' }}>
                       {label}
                     </Typography>
                     <Typography
@@ -184,11 +176,11 @@ function RegisterPage() {
                 </Box>
               ))}
 
-              <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', my: 1.5 }} />
+              <Box sx={{ height: '1px', backgroundColor: '#E2E5E9', my: 1.5 }} />
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2, mt: 2 }}>
-                <Dot color="#E8C24A" label="MANUAL REVIEW REQUIRED" />
-                <Dot color="#FF6B6B" label="FALSE DECLARATION = OFFENCE" />
+                <Dot color="#8A6100" label="MANUAL REVIEW REQUIRED" />
+                <Dot color="#B3261E" label="FALSE DECLARATION = OFFENCE" />
               </Box>
             </Box>
 
@@ -199,8 +191,8 @@ function RegisterPage() {
                   sx={{
                     width: 38, height: 38, borderRadius: 1.5,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: 'rgba(91,141,239,0.10)',
-                    border: '1px solid rgba(91,141,239,0.34)', color: '#5B8DEF',
+                    backgroundColor: 'rgba(7,110,124,0.10)',
+                    border: '1px solid rgba(7,110,124,0.34)', color: '#076E7C',
                   }}
                 >
                   <BadgeOutlinedIcon sx={{ fontSize: 21 }} />
@@ -213,7 +205,7 @@ function RegisterPage() {
                     sx={{
                       fontSize: 10.5, letterSpacing: 0.8,
                       fontFamily: "'JetBrains Mono', monospace",
-                      color: 'rgba(232,236,244,0.55)',
+                      color: '#5A6068',
                     }}
                   >
                     NETFORENSIQ · CYBER CRIME BRANCH
@@ -221,15 +213,15 @@ function RegisterPage() {
                 </Box>
               </Box>
 
-              <Box sx={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', my: 2.4 }} />
+              <Box sx={{ height: '1px', backgroundColor: '#E2E5E9', my: 2.4 }} />
 
               {error && (
                 <Alert
                   severity="error"
                   sx={{
                     mb: 2, fontSize: 12.5,
-                    backgroundColor: 'rgba(255,107,107,0.08)',
-                    border: '1px solid rgba(255,107,107,0.25)', color: '#FFB0B0',
+                    backgroundColor: 'rgba(179,38,30,0.08)',
+                    border: '1px solid rgba(179,38,30,0.25)', color: '#B3261E',
                   }}
                 >
                   {error}
@@ -240,8 +232,8 @@ function RegisterPage() {
                   severity="success"
                   sx={{
                     mb: 2, fontSize: 12.5,
-                    backgroundColor: 'rgba(63,216,115,0.07)',
-                    border: '1px solid rgba(63,216,115,0.25)', color: '#9FE8B5',
+                    backgroundColor: 'rgba(27,110,60,0.07)',
+                    border: '1px solid rgba(27,110,60,0.25)', color: '#1B6E3C',
                   }}
                 >
                   Request logged. Awaiting administrator authorization.
@@ -283,7 +275,7 @@ function RegisterPage() {
                       displayEmpty: true,
                       renderValue: (v) => v
                         ? roles.find((r) => r.value === v)?.label
-                        : <span style={{ color: 'rgba(232,236,244,0.55)' }}>select clearance…</span>,
+                        : <span style={{ color: '#5A6068' }}>select clearance…</span>,
                       // slotProps.paper, not PaperProps: the deprecated form
                       // is forwarded to the DOM and React logs a warning on
                       // every render of the registration form.
@@ -291,8 +283,8 @@ function RegisterPage() {
                         slotProps: {
                           paper: {
                             sx: {
-                              backgroundColor: '#141B2E',
-                              border: '1px solid rgba(255,255,255,0.09)',
+                              backgroundColor: '#F4F5F7',
+                              border: '1px solid #E2E5E9',
                               '& .MuiMenuItem-root': { fontSize: 13 },
                             },
                           },
@@ -304,7 +296,7 @@ function RegisterPage() {
                       <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                     ))}
                   </TextField>
-                  <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', mt: 0.6 }}>
+                  <Typography sx={{ fontSize: 10.5, color: '#5A6068', mt: 0.6 }}>
                     Administrator clearance cannot be self-requested.
                   </Typography>
                 </Box>
@@ -328,7 +320,7 @@ function RegisterPage() {
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton size="small" onClick={() => setShowPassword(!showPassword)}
-                              sx={{ color: 'rgba(232,236,244,0.55)' }}>
+                              sx={{ color: '#5A6068' }}>
                               {showPassword ? <VisibilityOff sx={{ fontSize: 17 }} /> : <Visibility sx={{ fontSize: 17 }} />}
                             </IconButton>
                           </InputAdornment>
@@ -346,7 +338,7 @@ function RegisterPage() {
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton size="small" onClick={() => setShowConfirm(!showConfirm)}
-                              sx={{ color: 'rgba(232,236,244,0.55)' }}>
+                              sx={{ color: '#5A6068' }}>
                               {showConfirm ? <VisibilityOff sx={{ fontSize: 17 }} /> : <Visibility sx={{ fontSize: 17 }} />}
                             </IconButton>
                           </InputAdornment>
@@ -363,13 +355,10 @@ function RegisterPage() {
                   sx={{
                     mt: 3.2, py: 1.15, fontWeight: 700, fontSize: 13,
                     letterSpacing: 1.2, borderRadius: 1.5,
-                    backgroundColor: '#FF9933', color: '#0B1020',
-                    boxShadow: '0 0 22px rgba(0,212,255,0.32)',
+                    backgroundColor: '#111315', color: '#FFFFFF',
                     transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
                     '&:hover': {
-                      backgroundColor: '#25DDFF',
-                      boxShadow: '0 0 32px rgba(0,212,255,0.55)',
-                      transform: 'translateY(-1px)',
+                      backgroundColor: '#2B3138',
                     },
                   }}
                 >
@@ -377,16 +366,16 @@ function RegisterPage() {
                 </Button>
               </form>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mt: 2.4, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: '#5A6068', mt: 2.4, textAlign: 'center' }}>
                 Already enrolled?{' '}
-                <RouterLink to="/login" style={{ color: '#FF9933', textDecoration: 'none', fontWeight: 600 }}>
+                <RouterLink to="/login" style={{ color: '#076E7C', textDecoration: 'none', fontWeight: 600 }}>
                   Return to terminal
                 </RouterLink>
               </Typography>
 
-              <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mt: 0.8, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 12.5, color: '#5A6068', mt: 0.8, textAlign: 'center' }}>
                 Already submitted?{' '}
-                <RouterLink to="/status" style={{ color: '#E8C24A', textDecoration: 'none', fontWeight: 600 }}>
+                <RouterLink to="/status" style={{ color: '#8A6100', textDecoration: 'none', fontWeight: 600 }}>
                   Track your request
                 </RouterLink>
               </Typography>
@@ -404,12 +393,12 @@ function SectionRule({ text, sx }) {
       <Typography
         sx={{
           fontSize: 10, letterSpacing: 1.5, whiteSpace: 'nowrap',
-          fontFamily: "'JetBrains Mono', monospace", color: '#5B8DEF',
+          fontFamily: "'JetBrains Mono', monospace", color: '#076E7C',
         }}
       >
         {text}
       </Typography>
-      <Box sx={{ flexGrow: 1, height: '1px', background: 'linear-gradient(90deg, rgba(167,176,196,0.28), transparent)' }} />
+      <Box sx={{ flexGrow: 1, height: '1px', backgroundColor: '#E2E5E9' }} />
     </Box>
   );
 }

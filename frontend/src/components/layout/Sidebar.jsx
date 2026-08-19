@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BANNER_HEIGHT } from './ClassificationBanner';
 import { Box, Typography } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
@@ -59,13 +60,13 @@ function CaptureWindow() {
     return (
       <Box sx={{
         p: 1.5, borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
+        backgroundColor: '#F4F5F7',
+        border: '1px solid #E2E5E9',
       }}>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: '#5A6068', letterSpacing: 0.8 }}>
           CAPTURE WINDOW
         </Typography>
-        <Typography sx={{ fontSize: 11.5, color: 'rgba(232,236,244,0.55)' }}>
+        <Typography sx={{ fontSize: 11.5, color: '#5A6068' }}>
           No capture loaded
         </Typography>
       </Box>
@@ -93,28 +94,28 @@ function CaptureWindow() {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, borderRadius: 2,
-      backgroundColor: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.06)',
+      backgroundColor: '#F4F5F7',
+      border: '1px solid #E2E5E9',
     }}>
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: '#5A6068', letterSpacing: 0.8 }}>
           CAPTURE START
         </Typography>
         <Typography sx={{
-          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#E8ECF4',
+          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#111315',
         }}>
           {`${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`}
         </Typography>
         <Typography sx={{
-          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#E8ECF4', mb: 1,
+          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#111315', mb: 1,
         }}>
           {`${pad(start.getHours())}:${pad(start.getMinutes())}:${pad(start.getSeconds())}`}
         </Typography>
-        <Typography sx={{ fontSize: 10.5, color: 'rgba(232,236,244,0.55)', letterSpacing: 0.8 }}>
+        <Typography sx={{ fontSize: 10.5, color: '#5A6068', letterSpacing: 0.8 }}>
           SPAN COVERED
         </Typography>
         <Typography sx={{
-          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#3FD873',
+          fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", color: '#1B6E3C',
         }}>
           {span}
         </Typography>
@@ -122,7 +123,7 @@ function CaptureWindow() {
       <Box sx={{
         width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '1.5px solid rgba(255,153,51,0.35)', color: '#FF9933',
+        border: '1.5px solid rgba(7,110,124,0.35)', color: '#076E7C',
       }}>
         <AccessTimeIcon sx={{ fontSize: 19 }} />
       </Box>
@@ -145,11 +146,11 @@ function Sidebar() {
         // phone is not a cosmetic problem.
         width: { xs: 56, md: 210 },
         flexShrink: 0,
-        height: '100vh',
+        height: `calc(100vh - ${BANNER_HEIGHT}px)`,
         position: 'sticky',
-        top: 0,
-        backgroundColor: '#0B1020',
-        borderRight: '1px solid rgba(255,255,255,0.05)',
+        top: `${BANNER_HEIGHT}px`,
+        backgroundColor: '#FFFFFF',
+        borderRight: '1px solid #ECEEF1',
         display: 'flex',
         flexDirection: 'column',
         py: 2,
@@ -175,8 +176,8 @@ function Sidebar() {
                 borderRadius: 1.5,
                 cursor: 'pointer',
                 position: 'relative',
-                color: isActive ? '#FF9933' : 'rgba(232,236,244,0.65)',
-                backgroundColor: isActive ? 'rgba(255,153,51,0.09)' : 'transparent',
+                color: isActive ? '#076E7C' : '#5A6068',
+                backgroundColor: isActive ? 'rgba(7,110,124,0.09)' : 'transparent',
                 transition: 'all 0.22s cubic-bezier(0.4,0,0.2,1)',
                 animation: `slideIn 0.4s ease ${i * 0.05}s both`,
                 '@keyframes slideIn': {
@@ -184,8 +185,8 @@ function Sidebar() {
                   to: { opacity: 1, transform: 'translateX(0)' },
                 },
                 '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  color: '#E8ECF4',
+                  backgroundColor: '#F4F5F7',
+                  color: '#111315',
                   transform: 'translateX(3px)',
                 },
                 '&::before': isActive
@@ -194,12 +195,10 @@ function Sidebar() {
                       position: 'absolute',
                       left: -12,
                       top: '50%',
-                      transform: 'translateY(-50%)',
                       width: 3,
                       height: 20,
                       borderRadius: 4,
-                      backgroundColor: '#FF9933',
-                      boxShadow: '0 0 10px #00D4FF',
+                      backgroundColor: '#076E7C',
                     }
                   : {},
               }}

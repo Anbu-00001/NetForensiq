@@ -53,10 +53,10 @@ function strokeFor(bytes, heaviest) {
 }
 
 const COLOURS = {
-  flagged: '#FF6B6B',
-  internal: '#5B8DEF',
-  external: '#FF9933',
-  quiet: 'rgba(167,176,196,0.55)',
+  flagged: '#B3261E',
+  internal: '#1F3A5F',
+  external: '#B45309',
+  quiet: '#6B7178',
 };
 
 function colourFor(host) {
@@ -107,7 +107,7 @@ function LinkChart({ hosts = [], edges = [], totalHosts = 0 }) {
 
   if (!hosts.length) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center', color: 'rgba(167,176,196,0.9)' }}>
+      <Box sx={{ p: 3, textAlign: 'center', color: '#5A6068' }}>
         <Typography sx={{ fontSize: 13 }}>
           No machines to draw yet — run detection on a capture first.
         </Typography>
@@ -120,10 +120,10 @@ function LinkChart({ hosts = [], edges = [], totalHosts = 0 }) {
 
   return (
     <Box>
-      <Typography sx={{ fontSize: 13, color: '#E8ECF4', mb: 0.25 }}>
+      <Typography sx={{ fontSize: 13, color: '#111315', mb: 0.25 }}>
         Who talked to whom
       </Typography>
-      <Typography sx={{ fontSize: 11.5, color: 'rgba(167,176,196,0.95)', mb: 1.5 }}>
+      <Typography sx={{ fontSize: 11.5, color: '#5A6068', mb: 1.5 }}>
         {shown} of {totalHosts.toLocaleString()} machines — the ones a rule
         named, and everything they spoke to. Circle area is how many
         conversations; line thickness is how much data moved.
@@ -186,7 +186,7 @@ function LinkChart({ hosts = [], edges = [], totalHosts = 0 }) {
                     x={node.x}
                     y={node.y + node.r + 13}
                     textAnchor="middle"
-                    fill="#E8ECF4"
+                    fill="#111315"
                     style={{ fontSize: 10.5, fontFamily: "'JetBrains Mono', monospace" }}
                   >
                     {node.ip}
@@ -202,7 +202,7 @@ function LinkChart({ hosts = [], edges = [], totalHosts = 0 }) {
           colour-blind reader can use, and this diagram may be printed. */}
       <Box sx={{
         display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1,
-        fontSize: 11.5, color: 'rgba(167,176,196,0.95)',
+        fontSize: 11.5, color: '#5A6068',
       }}>
         {[['Named by a rule', COLOURS.flagged],
           ['Inside the monitored network', COLOURS.internal],
@@ -216,7 +216,7 @@ function LinkChart({ hosts = [], edges = [], totalHosts = 0 }) {
         ))}
       </Box>
 
-      <Typography sx={{ fontSize: 11, color: 'rgba(167,176,196,0.85)', mt: 1 }}>
+      <Typography sx={{ fontSize: 11, color: '#5A6068', mt: 1 }}>
         A red line means one of the two machines it joins was named by a rule.
         The rules name machines, not links — the line is drawn red to point the
         eye, not to conclude anything about the connection itself.
@@ -224,15 +224,15 @@ function LinkChart({ hosts = [], edges = [], totalHosts = 0 }) {
 
       {selected && (
         <Box sx={{
-          mt: 1.5, p: 1.5, border: '1px solid rgba(167,176,196,0.16)',
-          borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.02)',
+          mt: 1.5, p: 1.5, border: '1px solid #E2E5E9',
+          borderRadius: 1, backgroundColor: '#F4F5F7',
         }}>
           <Typography sx={{
-            fontSize: 12.5, fontFamily: "'JetBrains Mono', monospace", color: '#E8ECF4',
+            fontSize: 12.5, fontFamily: "'JetBrains Mono', monospace", color: '#111315',
           }}>
             {selected.ip} · {selected.role}
           </Typography>
-          <Typography sx={{ fontSize: 12, color: 'rgba(167,176,196,0.95)', mt: 0.5 }}>
+          <Typography sx={{ fontSize: 12, color: '#5A6068', mt: 0.5 }}>
             {selected.verdict}
           </Typography>
         </Box>

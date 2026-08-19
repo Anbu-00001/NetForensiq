@@ -3,6 +3,7 @@ import {
   Box, Typography, Button, Chip, CircularProgress, Alert,
 } from '@mui/material';
 import Sidebar from '../components/layout/Sidebar';
+import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/ClassificationBanner';
 import TopBar from '../components/layout/TopBar';
 import { listPendingAccounts, decideAccount } from '../services/forensics';
 import { describeError } from '../services/api';
@@ -50,15 +51,17 @@ function ApprovalsPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', backgroundColor: '#0B1020', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', backgroundColor: '#FFFFFF', minHeight: '100vh',
+      pt: `${BANNER_HEIGHT}px` }}>
+      <ClassificationBanner level="restricted" fixed />
       <Sidebar />
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
         <TopBar />
         <Box sx={{ p: 2.5 }}>
-          <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#E8ECF4' }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#111315' }}>
             Account approvals
           </Typography>
-          <Typography sx={{ fontSize: 12.5, color: 'rgba(232,236,244,0.55)', mb: 2.5 }}>
+          <Typography sx={{ fontSize: 12.5, color: '#5A6068', mb: 2.5 }}>
             An account holds no access until it is approved here. Every decision is
             attributed to the officer who made it and written to the audit log.
           </Typography>
@@ -74,7 +77,7 @@ function ApprovalsPage() {
 
               {queue === null ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-                  <CircularProgress sx={{ color: '#FF9933' }} />
+                  <CircularProgress sx={{ color: '#076E7C' }} />
                 </Box>
               ) : queue.pending.length === 0 ? (
                 <Alert severity="success">
@@ -86,33 +89,33 @@ function ApprovalsPage() {
                 queue.pending.map((account) => (
                   <Box key={account.username} sx={{
                     mb: 1.5, p: 2, borderRadius: 2,
-                    border: '1px solid rgba(255,255,255,0.07)',
-                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    border: '1px solid #E2E5E9',
+                    backgroundColor: '#F4F5F7',
                     display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
                   }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: 14, color: '#E8ECF4' }}>
+                      <Typography sx={{ fontSize: 14, color: '#111315' }}>
                         {account.username}
                       </Typography>
-                      <Typography sx={{ fontSize: 12, color: 'rgba(232,236,244,0.55)' }}>
+                      <Typography sx={{ fontSize: 12, color: '#5A6068' }}>
                         {account.department || '—'} · badge {account.badge_id || '—'}
                       </Typography>
                     </Box>
                     <Chip label={`requested: ${account.role}`} size="small" sx={{
-                      backgroundColor: 'rgba(91,141,239,0.16)', color: '#5B8DEF', fontSize: 11,
+                      backgroundColor: 'rgba(7,110,124,0.16)', color: '#076E7C', fontSize: 11,
                     }} />
                     <Box sx={{ flexGrow: 1 }} />
                     <Button
                       size="small" variant="outlined" disabled={busy === account.username}
                       onClick={() => decide(account.username, 'approve')}
-                      sx={{ fontSize: 11.5, borderColor: 'rgba(63,216,115,0.5)', color: '#3FD873' }}
+                      sx={{ fontSize: 11.5, borderColor: 'rgba(27,110,60,0.5)', color: '#1B6E3C' }}
                     >
                       Approve
                     </Button>
                     <Button
                       size="small" variant="outlined" disabled={busy === account.username}
                       onClick={() => decide(account.username, 'reject')}
-                      sx={{ fontSize: 11.5, borderColor: 'rgba(255,107,107,0.5)', color: '#FF6B6B' }}
+                      sx={{ fontSize: 11.5, borderColor: 'rgba(179,38,30,0.5)', color: '#B3261E' }}
                     >
                       Reject
                     </Button>

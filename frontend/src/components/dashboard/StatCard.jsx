@@ -14,8 +14,8 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
         minWidth: 168,
         p: 1.8,
         borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.025)',
-        border: '1px solid rgba(255,255,255,0.06)',
+        backgroundColor: '#F4F5F7',
+        border: '1px solid #E2E5E9',
         transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
         animation: `cardRise 0.5s ease ${delay}s both`,
         '@keyframes cardRise': {
@@ -24,14 +24,12 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
         },
         '&:hover': {
           borderColor: `${color}55`,
-          backgroundColor: 'rgba(255,255,255,0.04)',
-          transform: 'translateY(-3px)',
-          boxShadow: `0 8px 24px -8px ${color}40`,
+          backgroundColor: '#F4F5F7',
         },
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.2 }}>
-        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'rgba(232,236,244,0.85)' }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#2B3138' }}>
           {title}
         </Typography>
         <Box
@@ -40,9 +38,6 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
             height: 7,
             borderRadius: '50%',
             backgroundColor: color,
-            boxShadow: `0 0 8px ${color}`,
-            animation: 'blip 2s ease-in-out infinite',
-            '@keyframes blip': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.35 } },
           }}
         />
       </Box>
@@ -56,7 +51,7 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
               flex: 1,
               height: `${(v / max) * 100}%`,
               borderRadius: '1px',
-              background: `linear-gradient(180deg, ${color} 0%, ${color}30 100%)`,
+              backgroundColor: color,
               transformOrigin: 'bottom',
               animation: `growBar 0.5s ease ${delay + i * 0.02}s both`,
               '@keyframes growBar': {
@@ -69,7 +64,7 @@ function StatCard({ title, primary, secondary, color, data, delay = 0 }) {
       </Box>
       )}
 
-      <Row color="rgba(232,236,244,0.3)" value={primary} />
+      <Row color="#6B7178" value={primary} />
       <Row color={color} value={secondary} />
     </Box>
   );
@@ -83,7 +78,7 @@ function Row({ color, value }) {
         sx={{
           fontSize: 12,
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'rgba(232,236,244,0.75)',
+          color: '#2B3138',
         }}
       >
         {value}

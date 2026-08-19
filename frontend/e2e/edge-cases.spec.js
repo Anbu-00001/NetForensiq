@@ -476,8 +476,11 @@ test.describe('an applicant can enrol and find out what happened', () => {
  * delivery — takes WCAG 2.1 AA as its baseline. AA requires 4.5:1 contrast for
  * normal text.
  *
- * On this dark palette the muted greys sat at alpha 0.35–0.45, which measures
- * 2.8–3.9:1 against #080B14. Every one of them failed.
+ * This probe has caught the same class of mistake on both palettes. On the
+ * old dark ground the muted greys sat at alpha 0.35–0.45 and measured
+ * 2.8–3.9:1; on the white ground the trap is the accent, because the cyan
+ * that reads at 10.5:1 on ink measures 1.77:1 on paper. Reasoning about
+ * either by eye is how they got shipped.
  */
 const CONTRAST_PROBE = () => {
   const luminance = ([r, g, b]) => {
@@ -500,7 +503,7 @@ const CONTRAST_PROBE = () => {
       if (c && c.a > 0.9) return c.rgb;
       node = node.parentElement;
     }
-    return [8, 11, 20];
+    return [255, 255, 255];
   };
 
   const bad = [];

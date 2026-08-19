@@ -1,9 +1,38 @@
+/* Set before React mounts, so the first painted frame is already paper and
+   the page never flashes dark. */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  color-scheme: light;
+}
+
 body {
-  background-color: #0A0E1A;
+  background-color: #FFFFFF;
+  color: #111315;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus is never removed, only restyled. An officer working a long shift on a
+   keyboard needs to see where they are. */
+:focus-visible {
+  outline: 2px solid #076E7C;
+  outline-offset: 2px;
+}
+
+/* Printing is a real workflow here: findings go into a case file on paper.
+   Dark panels waste toner and lose hairlines, so print gets plain black on
+   white with visible borders. */
+@media print {
+  body { background: #FFFFFF; }
+  * {
+    background: transparent !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 90%; }
 }
