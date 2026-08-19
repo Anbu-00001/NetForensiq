@@ -30,14 +30,28 @@ tethered phone's traffic, or pull a PCAPdroid capture over adb.
 
 | Sub-item | State | Where |
 |---|---|---|
-| Protocol decoding (HTTP, HTTPS, DNS, …) | 🟡 | DNS, TLS/SNI, HTTP host decoded; FTP and SMTP are **port-inferred only** |
+| Protocol decoding (HTTP, HTTPS, DNS, …) | ✅ | DNS, TLS/SNI, HTTP host at capture time; **full FTP, SMTP and HTTP transcripts** on demand — `capture/protocols.py` |
 | Payload inspection for hidden data | ✅ | Shannon entropy sampling, `features.shannon_entropy` |
 | Encrypted / obfuscated traffic patterns | ✅ | **JA4** TLS client fingerprinting, `tls_fingerprint.py` — verified against FoxIO's published reference values |
-| Session reconstruction | ❌ | Flows are aggregated, not reassembled into streams |
+| Session reconstruction | ✅ | `capture/reassembly.py` — TCP stream reassembly with gap, retransmission and **overlap-conflict** reporting; `/api/flows/{id}/transcript/` |
 
 **Honest note**: 94% of protocol labels on the server capture are port
 inference, not observation (1,281 observed vs 21,034 inferred of 166,972). The
 UI states which is which rather than presenting a guess as a reading.
+
+**Added this pass**: real TCP reassembly, and the design decision behind it.
+Ptacek & Newsham (1998) showed operating systems resolve overlapping segments
+differently, so a reconstructed stream depends on an assumption about the
+receiving host. Snort resolves this by guessing the destination OS —
+appropriate for a sensor predicting what a victim saw, wrong for an examiner
+who is testifying. So this keeps the first arrival, **names that policy**, and
+reports the reconstruction as *ambiguous* whenever a later segment contradicts
+an earlier one. Gaps end a run rather than being closed up: a capture that
+missed the middle of a transfer must not yield a file that looks complete.
+28 tests in `capture/tests_reassembly.py`. TLS is reported as *encrypted,
+contents not recoverable* — materially different from an empty transcript.
+Reading a transcript needs Investigator clearance even though it is a GET, and
+is written to the exhibit's chain of custody.
 
 ## 3. Threat Detection
 
@@ -90,8 +104,8 @@ survives a colour-blind reader and a dim projector.
 |---|---|---|
 | Search and filter historical traffic | ✅ | Flow/detection/DNS filters, findings search |
 | Reconstruction of attack scenarios | 🟡 | `HOST_CORROBORATED` assembles multi-rule host stories; no explicit kill-chain view |
-| Timeline correlation of events | 🟡 | Per-session timeline exists; no cross-session correlation |
-| Case management for investigators | ❌ | FIR number and police station are fields on an exhibit; there is no Case object grouping exhibits, officers and status |
+| Timeline correlation of events | 🟡 | Per-session timeline exists; a Case now groups exhibits, but there is no cross-session correlation view |
+| Case management for investigators | ✅ | `evidence.models.Case` + `CaseAssignment`, `/api/cases/` — exhibits, officers and status on one record |
 
 ## 7. Evidence Collection & Reporting
 
@@ -183,3 +197,128 @@ number is carried end to end.
 | Forensic report generation sample | ✅ | `/api/sessions/{id}/report/` — rendered and read end to end |
 | Documentation (architecture, workflows, detection methods) | ✅ | `README.md`, `PROGRESS.md`, and 20+ research documents including SPEC_01/02/03 |
 | Deployment setup (containerised/cloud-ready) | ✅ | Docker image built and smoke-tested; compose file with Postgres |
+
+
+---
+
+## Added after the first compliance pass
+
+### Case management (objective 6)
+
+`Case` carries the identifiers a court uses — case number, FIR, police station,
+district, offence sections, status — entered **once** and read from there by
+every exhibit, certificate and forwarding letter. ICJS names the principle:
+*ONE DATA ONCE ENTRY*. Twelve exhibits from one raid previously meant the same
+FIR typed twelve times, and one of the twelve will be wrong.
+
+Two refusals are the interesting part:
+
+- Linking a sealed exhibit to a case **never rewrites** the `case_reference` it
+  was sealed with. If they disagree, the disagreement is recorded in the
+  custody log for the officer to see. Editing an exhibit's stated provenance so
+  it matches newer software is altering the record to fit the tool.
+- An exhibit already on another case cannot be silently reassigned.
+
+`CaseAssignment` enforces one capacity per officer per case, which is what makes
+BSA s.63(4)'s two-different-people requirement checkable *before* a certificate
+is drafted rather than at signing.
+
+### The custody register (objectives 6 and 8)
+
+Two requirements landed within a year of each other and describe a document
+this system can already produce:
+
+- **BNSS 2023 s.193(3)(i)** — the report filed on completion of investigation
+  must state *"the sequence of custody in case of electronic device"*. Chain of
+  custody is not good practice here; it is enumerated content of the charge
+  sheet.
+- **Kattavellai @ Devakar v. State of Tamil Nadu, 2025 INSC 845** (15 Jul 2025)
+  — a Chain of Custody Register recording *"each and every movement of the
+  evidence … with counter sign at each end thereof stating also the reason
+  therefor"*, kept to conviction or acquittal and placed on the trial court
+  record. Those directions were issued on DNA evidence and we do not claim they
+  govern packet captures; what they settle is what a court now expects such a
+  register to contain.
+
+`evidence/custody_register.py` produces it. The signature column is **printed
+empty** — the direction asks for a counter-signature from the person who made
+the movement, and a row saying who was logged in is not that.
+
+### Encryption at rest (objective 10)
+
+AES-256-GCM in 1 MiB chunks, each with its own nonce and tag; the final chunk
+carries a flag no other chunk carries, so truncation is detectable rather than
+silently returning a shorter capture. `evidence/crypto.py`.
+
+The constraint that shaped it: **the digest on the certificate stays a digest of
+the plaintext.** A hash of ciphertext cannot be reproduced by anyone handed the
+same capture, so it would be useless as evidence. Everything that reads an
+exhibit decrypts first.
+
+Switched on by default. When it is not on, the system says so — including how
+many exhibits are ciphertext on disk versus how many are not, because
+"encryption: on" beside forty exhibits in the clear is the failure worth seeing.
+`manage.py encrypt_evidence_store` migrates an existing store and refuses to
+encrypt any artefact that fails its hash first.
+
+Losing the key destroys the evidence. There is no recovery path and there is not
+meant to be one.
+
+### Real-time alert delivery (bonus 1)
+
+`capture/alerting.py` — RFC 5424 syslog over UDP or TCP, and JSON webhooks in
+Elastic Common Schema. Fires at the end of each detection pass, after findings
+are written, so an alert never describes a finding that failed to persist.
+
+Every attempt is recorded with its outcome, because **an alert nobody received
+that the system believes it sent is worse than no alerting at all** — the
+operator stops watching the console. Delivery failures never propagate into
+analysis: a SIEM that is down must not roll back a detection run.
+
+Empty by default. An air-gapped workstation with no configured sink must not
+open outbound connections, and silence there is correct behaviour rather than a
+misconfiguration to warn about. Batches are capped at 100 and the receiver is
+told the count withheld.
+
+
+### Reading it back: what the demo capture actually contained
+
+Reconstruction was run against the real server capture rather than the
+synthetic one, and it decoded a live exploitation attempt that no rule had
+flagged:
+
+```
+POST /hello.world?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input
+HTTP/1.1  →  404 Not Found
+```
+
+That is **CVE-2024-4577**, the PHP-CGI argument injection: the `%AD` soft
+hyphen survives the CGI handler's escaping and PHP's "best fit" Unicode mapping
+turns it back into a real hyphen, so `-d allow_url_include=1 -d
+auto_prepend_file=php://input` reaches the interpreter as command-line
+arguments. The server answered 404, so the attempt failed.
+
+Two things worth taking from it. The metadata layer saw a 33 KB HTTP flow and
+nothing more; the content layer named the attack. And the tool found it without
+a signature for it — which is the honest argument for why session
+reconstruction earns its place beside the rules rather than duplicating them.
+
+### Two defects the work surfaced
+
+**Orientation.** A flow's `src_ip` is whichever address the capture saw first,
+which for traffic recorded at the server is the server. The first
+reconstruction returned an empty HTTP request because it had parsed the
+*server's* stream looking for a request line. It failed silently — a transcript
+with the sides swapped looks like a transcript. Fixed by orienting on the
+recorded initiator (`reassembly.conversation_endpoints`), with three tests
+holding it.
+
+**Speed.** Finding one conversation means walking the whole capture, and
+dissecting every layer of every packet through scapy took **39.7 seconds** on a
+28 MB exhibit — long enough that nobody would use the feature twice. Replaced
+with a direct header parser reading only the eight fields reassembly needs:
+**0.9 seconds**, a 44× improvement. Correctness is held by tests that run the
+same captures through both paths and compare the recovered runs byte for byte,
+plus one that checks trailing Ethernet padding is not appended to the stream —
+the frame is padded to 60 bytes, so payload length has to come from the IP
+header's total length, never from the captured frame.

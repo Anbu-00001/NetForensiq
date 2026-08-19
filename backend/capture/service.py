@@ -120,12 +120,29 @@ def run_pcap_import(pcap_path, name=None, user=None, session=None, home_net='',
     Packets are streamed with PcapReader rather than loaded via rdpcap, so
     memory scales with the number of distinct conversations rather than with
     file size — police captures are routinely multi-gigabyte.
-    """
 
+    When the evidence store is encrypted the sealed copy is decrypted to a
+    private temporary file for the duration of the read and removed afterwards.
+    That happens here, at the one point every caller goes through, rather than
+    at each of the three call sites — a decryption wrapper that three callers
+    have to remember to apply is a decryption wrapper one of them will forget.
+    """
+    from evidence.crypto import readable
+
+    with readable(pcap_path) as plaintext:
+        return _import_from(plaintext, pcap_path, name, user, session, home_net,
+                            evidence)
+
+
+def _import_from(plaintext_path, recorded_path, name, user, session, home_net,
+                 evidence):
+    # `recorded_path` is what goes in the session record: the exhibit's place
+    # in the evidence store, not the temporary file it was decrypted into,
+    # which will not exist by the time anyone reads the session back.
     session = session or CaptureSession.objects.create(
         name=name or f"PCAP import {timezone.now():%Y-%m-%d %H:%M:%S}",
         source_type=CaptureSession.Source.PCAP,
-        pcap_filename=str(pcap_path),
+        pcap_filename=str(recorded_path),
         state=CaptureSession.State.RUNNING,
         started_by=user,
         home_net=home_net or '',
@@ -135,7 +152,7 @@ def run_pcap_import(pcap_path, name=None, user=None, session=None, home_net='',
     aggregator = FlowAggregator()
 
     try:
-        with PcapReader(str(pcap_path)) as reader:
+        with PcapReader(str(plaintext_path)) as reader:
             for pkt in reader:
                 aggregator.process(pkt)
     except Exception as exc:

@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 
 import os
+import sys
+import tempfile
 import secrets
 from datetime import timedelta
 
@@ -236,6 +238,32 @@ CERTIFICATE_ROOT = MEDIA_ROOT / 'certificates'
 EVIDENCE_ENCRYPTION = os.getenv('EVIDENCE_ENCRYPTION', 'on')
 EVIDENCE_ENCRYPTION_KEY = os.getenv('EVIDENCE_ENCRYPTION_KEY', '')
 EVIDENCE_KEY_FILE = Path(os.getenv('EVIDENCE_KEY_FILE', BASE_DIR / '.evidence.key'))
+
+# The test suite ingests evidence, which generates a key on first use. Left at
+# the default that key lands in the project root, where it is one `git add .`
+# away from being published — and it protects nothing, because every test
+# database is thrown away. So tests get a disposable one.
+if 'test' in sys.argv:
+    EVIDENCE_KEY_FILE = Path(tempfile.gettempdir()) / 'netforensiq-test.key'
+
+# Real-time alert delivery. Empty by default: a forensic workstation with no
+# configured sink must not open outbound connections, and on an air-gapped
+# machine there is nothing to open them to.
+#
+# ALERT_SYSLOG_PROTOCOL=tcp gives delivery you can actually count; udp is
+# fire-and-forget and the delivery record says so.
+# ALERT_WEBHOOK_INSECURE exists because an air-gapped SIEM usually presents a
+# private-CA certificate — it is opt-in so nobody disables verification by
+# accident. See capture/alerting.py.
+ALERT_SYSLOG_HOST = os.getenv('ALERT_SYSLOG_HOST', '')
+ALERT_SYSLOG_PORT = int(os.getenv('ALERT_SYSLOG_PORT', '514'))
+ALERT_SYSLOG_PROTOCOL = os.getenv('ALERT_SYSLOG_PROTOCOL', 'udp')
+ALERT_WEBHOOK_URL = os.getenv('ALERT_WEBHOOK_URL', '')
+ALERT_WEBHOOK_TOKEN = os.getenv('ALERT_WEBHOOK_TOKEN', '')
+ALERT_WEBHOOK_INSECURE = os.getenv('ALERT_WEBHOOK_INSECURE', '') == '1'
+# Findings below this are recorded but not pushed. 'high' by default: an
+# alerting channel that fires on everything is one an operator learns to mute.
+ALERT_MIN_SEVERITY = os.getenv('ALERT_MIN_SEVERITY', 'high')
 
 # The address space being investigated, in the sense Snort and Suricata use
 # $HOME_NET. Egress rules (C2 beaconing, covert channels) only fire when the

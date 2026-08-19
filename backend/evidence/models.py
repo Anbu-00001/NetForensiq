@@ -398,6 +398,10 @@ class CustodyEvent(models.Model):
         # Attaching a sealed exhibit to a case changes what the record says
         # about it, so it is a movement in the chain and not a silent edit.
         CASE_LINKED = 'case_linked', 'Linked to case'
+        # Encrypting the store rewrites the bytes on disk without changing the
+        # evidence. That distinction is exactly the kind a defence counsel
+        # probes, so the act is logged and the log says the hash is unchanged.
+        ENCRYPTED = 'encrypted', 'Encrypted at rest'
 
     evidence = models.ForeignKey(
         EvidenceRecord, on_delete=models.CASCADE, related_name='custody_events',

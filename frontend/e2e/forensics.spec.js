@@ -173,6 +173,13 @@ test.describe('provenance', () => {
     const demo = exhibits.find((e) => e.is_demonstration_only);
     test.skip(!demo, 'no synthetic exhibit seeded');
 
+    // Wait for the row rather than for the page load. Reading innerText
+    // straight after goto() passed only because the apiGet above happened to
+    // take longer than the render did — which is not a wait, it is a race that
+    // usually wins. Under a full-suite run it lost.
+    await expect(page.getByText(demo.exhibit_number, { exact: false }).first())
+      .toBeVisible({ timeout: 20_000 });
+
     const body = await page.locator('body').innerText();
     // The warning has to name the exhibit it belongs to, not float loose on
     // the page where it could be read as applying to a different row.

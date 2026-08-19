@@ -89,3 +89,35 @@ class IsAdministrator(BasePermission):
             and user.is_authenticated
             and (user.is_superuser or getattr(user, 'role', None) == User.Role.ADMIN)
         )
+
+
+class CanReadCommunicationContent(BasePermission):
+    """
+    Investigators and administrators only — including for GET.
+
+    Every other endpoint here treats a read as harmless, because every other
+    endpoint returns metadata: who spoke to whom, how much, how often. A
+    reconstructed session is different in kind. It is the substance of the
+    communication, and handing it to a read-only records account because the
+    HTTP verb happened to be GET is the wrong default.
+
+    So this permission deliberately does NOT exempt safe methods. It is the one
+    place in the API where reading is the privileged act.
+    """
+
+    message = (
+        'Your clearance is Viewer. Reading the contents of a communication '
+        'requires Investigator clearance or above; the summary and the flow '
+        'record remain available to you.'
+    )
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if not (user.is_superuser or getattr(user, 'is_approved', False)):
+            return False
+        return (
+            user.is_superuser
+            or getattr(user, 'role', None) in (User.Role.ADMIN, User.Role.INVESTIGATOR)
+        )

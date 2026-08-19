@@ -76,6 +76,7 @@ def write_manifest(pcap_path, *, kind, detail='', **fields):
     if kind not in VALID_KINDS:
         raise ValueError(f"Unknown provenance kind {kind!r}; expected one of {VALID_KINDS}")
 
+    from evidence.crypto import EvidenceDecryptionError, readable
     from evidence.models import hash_file
 
     path = Path(pcap_path)
@@ -103,6 +104,7 @@ def read_manifest(pcap_path):
     only truthful thing to say about the capture is nothing, and the caller
     records it as unattested.
     """
+    from evidence.crypto import EvidenceDecryptionError, readable
     from evidence.models import hash_file
 
     path = manifest_path(pcap_path)
@@ -122,8 +124,15 @@ def read_manifest(pcap_path):
     claimed = payload.get('sha256')
     if claimed:
         try:
-            digests, _ = hash_file(Path(pcap_path))
-        except OSError:
+            # Against the plaintext, because that is what the manifest
+            # describes. Once the evidence store is encrypted the bytes on disk
+            # hash to something else entirely, and comparing against those
+            # rejected every manifest — which downgraded a synthetic capture to
+            # "origin unknown", the quieter and more dangerous of the two
+            # answers.
+            with readable(Path(pcap_path)) as plaintext:
+                digests, _ = hash_file(plaintext)
+        except (OSError, EvidenceDecryptionError):
             return None
         if digests['sha256'] != claimed:
             # The manifest belongs to some other file. Saying nothing is

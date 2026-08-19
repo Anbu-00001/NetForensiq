@@ -39,6 +39,7 @@ class EvidenceRecordSerializer(ModelSerializer):
     # register: both rows look identical and only one of them is evidence.
     provenance_label = CharField(source='get_provenance_display', read_only=True)
     is_demonstration_only = BooleanField(read_only=True)
+    case_number = CharField(source='case.case_number', read_only=True, default='')
 
     class Meta:
         model = EvidenceRecord
@@ -52,6 +53,7 @@ class EvidenceRecordSerializer(ModelSerializer):
             'acquisition_notes', 'collected_by', 'created_at',
             'provenance', 'provenance_label', 'provenance_detail',
             'is_demonstration_only',
+            'case', 'case_number', 'encrypted_at_rest', 'encryption_algorithm',
         ]
 
 
@@ -211,6 +213,38 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
             'events': CustodyEventSerializer(
                 record.custody_events.order_by('sequence'), many=True,
             ).data,
+        })
+
+    @action(detail=False, methods=['get'], url_path='store-status')
+    def store_status(self, request):
+        """
+        Whether the evidence store is encrypted at rest, and by what.
+
+        Authenticated rather than public: whether a store is encrypted is
+        exactly what someone deciding whether to steal the disk would like to
+        know. Officers who hold evidence need the answer; the internet does
+        not.
+
+        This reports the configuration, and separately how many exhibits are
+        actually ciphertext on disk. Those two disagree whenever encryption was
+        switched on after evidence had already been taken into custody, and the
+        gap is the thing worth seeing — 'encryption: on' beside forty exhibits
+        in the clear is the failure this endpoint exists to make visible.
+        """
+        from .crypto import describe, is_encrypted
+
+        records = list(EvidenceRecord.objects.all())
+        on_disk = sum(1 for r in records if is_encrypted(r.stored_path))
+        state = describe()
+        return Response({
+            **state,
+            'exhibits_total': len(records),
+            'exhibits_encrypted': on_disk,
+            'exhibits_in_the_clear': len(records) - on_disk,
+            'remedy': (
+                None if on_disk == len(records)
+                else 'Run: manage.py encrypt_evidence_store'
+            ),
         })
 
     @action(detail=True, methods=['get'], url_path='custody-register')

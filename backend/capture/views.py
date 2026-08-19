@@ -14,14 +14,24 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 
 from accounts.models import AuditLog
-from accounts.permissions import IsInvestigatorOrReadOnly
-from accounts.utils import log_action
+from accounts.permissions import (
+    CanReadCommunicationContent, IsInvestigatorOrReadOnly,
+)
+from accounts.utils import get_client_ip, log_action
+from evidence.crypto import EvidenceDecryptionError
+from evidence.models import CustodyEvent as EvidenceCustodyEvent
+from evidence.service import record_custody
 
 from .detection import (
     INFORMATIONAL_THRESHOLDS, THRESHOLDS, analyse_session, describe_home_net,
     is_internal, session_home_networks,
 )
 from .hosts import profile_hosts
+from .protocols import decode
+from .reassembly import (
+    POLICY as REASSEMBLY_POLICY, UnsupportedCapture,
+    conversation_endpoints, reassemble_flow,
+)
 from .models import CaptureSession, DNSRecord, Detection, Flow
 from .serializers import (
     CaptureSessionSerializer, DNSRecordSerializer, DetectionSerializer,
@@ -471,6 +481,69 @@ class FlowViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'list':
             return FlowSummarySerializer
         return FlowSerializer
+
+    @action(detail=True, methods=['get'],
+            permission_classes=[CanReadCommunicationContent])
+    def transcript(self, request, pk=None):
+        """
+        Rebuild one conversation from the sealed exhibit and read it back.
+
+        Reconstruction happens on demand and nothing is kept: the decoded
+        content of a communication is never written into the analysis database,
+        because a working table full of message bodies is a second copy of the
+        intercepted material in a place with weaker handling than the exhibit
+        it came from.
+
+        Recorded as a custody event. "Who read the contents of this
+        conversation, and when" is a question that gets asked, and a system
+        that cannot answer it is asking to be taken at its word.
+        """
+        flow = self.get_object()
+        if flow.protocol != 'TCP':
+            return Response(
+                {'detail': f'Reassembly applies to TCP. This flow is '
+                           f'{flow.protocol}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        record = getattr(flow.session, 'evidence', None)
+        if record is None or not record.stored_path:
+            return Response(
+                {'detail': 'This session has no sealed exhibit behind it, so '
+                           'there is nothing to reconstruct from.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Oriented on who opened the connection, not on which address the
+        # capture saw first — see reassembly.conversation_endpoints.
+        client_ip, client_port, server_ip, server_port = conversation_endpoints(flow)
+        try:
+            client, server = reassemble_flow(record.stored_path, flow)
+        except UnsupportedCapture as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+        except (OSError, EvidenceDecryptionError) as exc:
+            return Response({'detail': f'Could not read the exhibit: {exc}'},
+                            status=status.HTTP_409_CONFLICT)
+
+        decoded = decode(client, server, client_port, server_port)
+
+        record_custody(
+            record, EvidenceCustodyEvent.Action.VIEWED, actor=request.user,
+            detail=(f'Reconstructed the conversation '
+                    f'{client_ip}:{client_port} → {server_ip}:{server_port} '
+                    f'({decoded.get("protocol", "unknown")})'),
+            actor_ip=get_client_ip(request),
+        )
+        return Response({
+            'flow': flow.id,
+            'endpoints': {
+                'client': f'{client_ip}:{client_port}',
+                'server': f'{server_ip}:{server_port}',
+            },
+            'exhibit_number': record.exhibit_number,
+            'reassembly_policy': REASSEMBLY_POLICY,
+            **decoded,
+        })
 
 
 class DNSRecordViewSet(viewsets.ReadOnlyModelViewSet):

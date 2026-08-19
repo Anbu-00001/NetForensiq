@@ -1384,6 +1384,15 @@ def analyse_session(session, clear_existing=True):
         by_severity[finding.severity] += 1
         by_rule[finding.rule_id] += 1
 
+    # Push to whatever is listening, once the findings are on disk. After the
+    # write, so an alert never describes a finding that failed to persist; and
+    # after bulk_create rather than inside it, because a SIEM that is down must
+    # not roll back an analysis. Returns [] when no sink is configured, which
+    # is the default and is not an error.
+    from .alerting import dispatch
+
+    deliveries = [result.as_dict() for result in dispatch(findings, session=session)]
+
     return {
         'total': len(findings),
         'triage_decisions_carried_forward': restored,
@@ -1391,4 +1400,7 @@ def analyse_session(session, clear_existing=True):
         'by_severity': dict(by_severity),
         'by_rule': dict(by_rule),
         'flows_flagged': len(per_flow),
+        # Reported to the caller so a failed push is visible where the analysis
+        # is read, rather than only in a log nobody opens.
+        'alerts': deliveries,
     }

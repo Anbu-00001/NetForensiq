@@ -182,6 +182,12 @@ test.describe('the findings list is the whole findings list', () => {
     await page.goto('/detections');
     await page.getByRole('button', { name: /detection thresholds/i }).click();
 
+    // The panel opens behind a Collapse transition, so the keys are not in the
+    // rendered text the instant the click resolves. Waiting for the first one
+    // is the difference between a test and a coin toss.
+    await expect(page.getByText(published[0].key, { exact: false }).first())
+      .toBeVisible({ timeout: 20_000 });
+
     const body = await page.locator('body').innerText();
     for (const threshold of published) {
       expect(body, `threshold ${threshold.key} is published but not shown`)

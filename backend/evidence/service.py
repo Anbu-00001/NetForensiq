@@ -248,6 +248,8 @@ def ingest_evidence(
         original_filename=original_filename or source.name,
         stored_path=str(destination),
         file_size_bytes=size,
+        encrypted_at_rest=encrypted_at_rest,
+        encryption_algorithm=encryption_algorithm,
         sha256_hash=digests['sha256'],
         md5_hash=digests.get('md5', ''),
         sha1_hash=digests.get('sha1', ''),

@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { describeError } from '../services/api';
 import Sidebar from '../components/layout/Sidebar';
+import SessionTranscript from '../components/transcript/SessionTranscript';
 import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/ClassificationBanner';
 import { GUJARATI } from '../i18n/gujarati';
 import TopBar from '../components/layout/TopBar';
@@ -152,6 +153,18 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
               {JSON.stringify(detection.evidence, null, 2)}
             </Box>
           </Box>
+
+          {/*
+            A finding is an assertion about a conversation. Where that
+            conversation is a TCP flow in a sealed exhibit, the officer can read
+            it back rather than take the rule's word for what happened. Only
+            offered when there is a flow behind the finding — the corroboration
+            and anomaly rules are about a host across many flows, and there is
+            no single conversation to show.
+          */}
+          {detection.flow && <SessionTranscript flowId={detection.flow} />}
+
+          <Box sx={{ height: 12 }} />
 
           {detection.triage_status === 'new' && !canTriage ? (
             <Typography sx={{ fontSize: 12, color: '#5A6068' }}>

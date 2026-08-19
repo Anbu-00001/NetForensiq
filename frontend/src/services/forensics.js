@@ -33,6 +33,12 @@ export const listFlows = (params = {}) =>
 export const getFlow = (id) =>
   api.get(`/flows/${id}/`).then((r) => r.data);
 
+// Rebuilt on demand from the sealed exhibit and never cached server-side, so
+// this is a slow call by design — it reads the capture. See
+// backend/capture/protocols.py for why decoded content is not kept in a table.
+export const getFlowTranscript = (id) =>
+  api.get(`/flows/${id}/transcript/`).then((r) => r.data);
+
 export const listDetections = (params = {}) =>
   api.get('/detections/', { params }).then((r) => r.data);
 
