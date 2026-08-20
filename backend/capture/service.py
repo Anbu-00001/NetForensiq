@@ -7,6 +7,7 @@ from django.db import transaction
 from scapy.all import sniff, conf
 from scapy.utils import PcapReader
 
+from . import fastparse
 from .models import CaptureSession, Flow, DNSRecord
 from .processor import FlowAggregator
 
@@ -63,6 +64,42 @@ def persist_results(session, flows, dns_records, aggregator):
     session.save()
 
     return len(created_flows), len(dns_objects)
+
+
+def _read_into(aggregator, path):
+    """
+    Feed every packet in a capture file to the aggregator.
+
+    Two routes, and the choice is made on one question: can `fastparse` read
+    this file's link layer?
+
+    * **It can** — the overwhelmingly common case, Ethernet and the raw-IP and
+      Linux-cooked variants — and the frames go straight from disk to the flow
+      model without a scapy object being built. On a 2.27 M-packet capture
+      that is the difference between reading the file in seconds and reading
+      it in minutes.
+
+    * **It cannot** — an unusual link type — and the whole file goes through
+      scapy's general dissector instead, exactly as it always did. Slower, and
+      correct, which is the right way round for that trade: a capture format
+      we have not taught the fast reader must not be parsed by guessing.
+
+    The fallback is per file rather than per packet on purpose. A file half
+    parsed by each reader would be a file whose findings depend on which
+    packets happened to be readable, and that is not a property anyone can
+    testify to.
+    """
+    linktype = fastparse.linktype_of(path)
+
+    if linktype is not None and fastparse.supports(linktype):
+        process_frame = aggregator.process_frame
+        for data, timestamp, frame_linktype in fastparse.iter_frames(path):
+            process_frame(data, timestamp, frame_linktype)
+        return
+
+    with PcapReader(str(path)) as reader:
+        for pkt in reader:
+            aggregator.process(pkt)
 
 
 def _fail(session, exc):
@@ -296,9 +333,7 @@ def _import_from(plaintext_path, recorded_path, name, user, session, home_net,
     aggregator = FlowAggregator()
 
     try:
-        with PcapReader(str(plaintext_path)) as reader:
-            for pkt in reader:
-                aggregator.process(pkt)
+        _read_into(aggregator, plaintext_path)
     except Exception as exc:
         _fail(session, exc)
         raise

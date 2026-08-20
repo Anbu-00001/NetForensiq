@@ -124,6 +124,61 @@ class LogoutTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data['token_blacklisted'])
 
+    def test_logout_stops_a_live_monitor_this_officer_started(self):
+        """
+        A live capture is a supervised acquisition, not a background daemon.
+        If the officer who started it signs out, nobody is left to see what it
+        raises — so logging out must request it to stop rather than leave it
+        sniffing unattended.
+        """
+        from capture.models import LiveMonitorState
+
+        LiveMonitorState.objects.update_or_create(pk=1, defaults={
+            'running': True, 'started_by': self.user,
+        })
+
+        tokens = self._tokens()
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {tokens["access"]}')
+        response = self.client.post('/api/auth/logout/',
+                                    {'refresh': tokens['refresh']}, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['monitor_stopped'])
+        self.assertTrue(LiveMonitorState.load().stop_requested)
+
+    def test_logout_leaves_another_officers_monitor_running(self):
+        """One officer's logout must not stop a capture they did not start."""
+        from capture.models import LiveMonitorState
+
+        other = User.objects.create_user(
+            username='io3', password='x', badge_id='I-3',
+            department='Cyber', role=User.Role.INVESTIGATOR, is_approved=True,
+        )
+        LiveMonitorState.objects.update_or_create(pk=1, defaults={
+            'running': True, 'started_by': other,
+        })
+
+        tokens = self._tokens()
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {tokens["access"]}')
+        response = self.client.post('/api/auth/logout/',
+                                    {'refresh': tokens['refresh']}, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['monitor_stopped'])
+        self.assertFalse(LiveMonitorState.load().stop_requested)
+
+    def test_logout_with_no_monitor_running_is_a_no_op(self):
+        from capture.models import LiveMonitorState
+
+        tokens = self._tokens()
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {tokens["access"]}')
+        response = self.client.post('/api/auth/logout/',
+                                    {'refresh': tokens['refresh']}, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['monitor_stopped'])
+        self.assertFalse(LiveMonitorState.load().stop_requested)
+
 
 class AuditTaxonomyTests(TestCase):
     """

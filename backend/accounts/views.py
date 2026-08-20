@@ -253,13 +253,46 @@ class LogoutView(APIView):
             except TokenError:
                 blacklisted = False
 
+        monitor_stopped = self._stop_own_monitor(request)
+
         log_action(
             request, AuditLog.Action.LOGOUT, user=request.user,
             username_attempted=request.user.username,
             detail=('Signed out; refresh token blacklisted' if blacklisted
                     else 'Signed out; no valid refresh token supplied to blacklist'),
         )
-        return Response({'detail': 'Signed out.', 'token_blacklisted': blacklisted})
+        return Response({
+            'detail': 'Signed out.',
+            'token_blacklisted': blacklisted,
+            'monitor_stopped': monitor_stopped,
+        })
+
+    @staticmethod
+    def _stop_own_monitor(request):
+        """
+        A live capture is a supervised acquisition, not a background daemon.
+        If the officer who started it logs out, the account it is attributed
+        to is no longer signed in to see the alerts it raises — so it is
+        requested to stop rather than left sniffing unattended.
+
+        Fire-and-forget, not `monitor.stop()`: that call blocks for up to a
+        whole window waiting for the capture thread to finish, and a logout
+        button that hangs for thirty seconds is its own bug. The capture
+        thread already polls `stop_requested` between windows, so setting the
+        flag is enough — it stops on its own without holding this request
+        open.
+
+        Scoped to this officer's own monitor: a second officer's logout must
+        not stop a capture they did not start and are not the one accountable
+        for.
+        """
+        from capture.models import LiveMonitorState
+
+        state = LiveMonitorState.load()
+        if state.running and state.started_by_id == request.user.pk:
+            LiveMonitorState.objects.filter(pk=1).update(stop_requested=True)
+            return True
+        return False
 
 
 class PendingAccountsView(APIView):

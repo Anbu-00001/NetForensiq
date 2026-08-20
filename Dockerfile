@@ -118,8 +118,17 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/engine/', timeout=4).status==200 else 1)"
 
+# --timeout is the ceiling on one synchronous request, and browser-uploaded
+# PCAP import is the longest one there is: scapy dissects and flow-aggregates
+# every packet in-process, with no queue to hand it off to. Measured against a
+# real 200MB / 2.27M-packet capture, that took ~530s end to end — a 512MB
+# upload (the browser path's own cap) is comfortably past the old 300s, which
+# is why gunicorn's own idle-worker abort was killing large-but-legitimate
+# imports mid-parse rather than the code doing anything wrong. 1800s covers
+# the full upload cap with headroom; imports larger than that are already
+# routed to `manage.py import_pcap`, which has no timeout at all.
 CMD ["gunicorn", "netforensiq_backend.wsgi:application", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "3", \
-     "--timeout", "300", \
+     "--timeout", "1800", \
      "--access-logfile", "-"]

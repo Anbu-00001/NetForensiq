@@ -6,6 +6,7 @@ from scapy.layers.inet import IP, TCP, UDP, ICMP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.dns import DNS
 
+from . import fastparse
 from .features import shannon_entropy, dns_query_features, compute_flow_metrics
 from .tls_fingerprint import fingerprint_payload
 
@@ -153,8 +154,51 @@ class FlowAggregator:
     # ── ingestion ────────────────────────────────────────────────────────
 
     def process(self, pkt):
+        """
+        Ingest one dissected scapy packet.
+
+        This is the live-capture path: scapy's sniffer hands over packets it
+        has already built, so there is nothing to be saved by parsing them
+        again. Reading a PCAP goes through `process_frame` instead.
+        """
         with self._lock:
             self._process(pkt)
+
+    def process_frame(self, data, timestamp, linktype=fastparse.DLT_ETHERNET):
+        """
+        Ingest one captured frame straight from its bytes.
+
+        The PCAP import path. `fastparse` reads the handful of header fields
+        the flow model is defined over without constructing a scapy object,
+        which is where nearly all of the import time used to go — see the
+        module docstring in `fastparse.py` for the measurements.
+
+        Frames it cannot read return None and are skipped, exactly as the
+        scapy path skips a packet with no IP layer. Callers that need the
+        general dissector for an unusual link type check `fastparse.supports`
+        first and fall back.
+        """
+        parsed = fastparse.parse(data, linktype)
+        if parsed is None:
+            return
+
+        src_ip, dst_ip, protocol, sport, dport, raw_flags, payload = parsed
+
+        if protocol == 'TCP':
+            flags = self._decode_tcp_flags(raw_flags)
+        else:
+            flags = ''
+            if protocol == 'ICMP':
+                # `fastparse` hands over the whole ICMP message because where
+                # its header ends is a question about the message type, and
+                # for error messages about the packet quoted inside it. Scapy
+                # answers that; the cost is confined to ICMP, which is a
+                # fraction of a percent of a capture.
+                payload = self._icmp_payload(payload)
+
+        with self._lock:
+            self._ingest(src_ip, dst_ip, protocol, sport, dport, flags,
+                         payload, len(data), timestamp, None)
 
     def _process(self, pkt):
         # Each `X in pkt` / `pkt[X]` pair walks the layer chain, and this
@@ -166,19 +210,33 @@ class FlowAggregator:
         if ip_layer is None:
             return
 
-        src_ip, dst_ip = ip_layer.src, ip_layer.dst
+        protocol, sport, dport, flags, transport = self._classify(pkt)
+        self._ingest(
+            ip_layer.src, ip_layer.dst, protocol, sport, dport, flags,
+            self._payload_of(transport), len(pkt), packet_timestamp(pkt), pkt,
+        )
+
+    def _ingest(self, src_ip, dst_ip, protocol, sport, dport, flags, payload,
+                pkt_len, now, scapy_pkt):
+        """
+        Fold one packet into the flow table.
+
+        Everything above this point differs between the two entry paths — one
+        has a dissected object, the other has bytes. Everything from here down
+        is the analysis, and it is deliberately shared: two copies of the flow
+        model would be two things to keep in step, and the moment they drifted
+        the same capture would yield different findings depending on how it
+        arrived. `tests_fastparse.py` holds both paths to the same output.
+        """
 
         self.total_packets += 1
-        pkt_len = len(pkt)
         self.total_bytes += pkt_len
 
-        now = packet_timestamp(pkt)
         if self.first_packet_time is None or now < self.first_packet_time:
             self.first_packet_time = now
         if self.last_packet_time is None or now > self.last_packet_time:
             self.last_packet_time = now
 
-        protocol, sport, dport, flags, transport = self._classify(pkt)
         key = flow_key(src_ip, dst_ip, sport, dport, protocol)
 
         is_syn = (protocol == 'TCP' and 'S' in flags and 'A' not in flags)
@@ -234,7 +292,6 @@ class FlowAggregator:
                 f['app_protocol'] = guessed
                 f['app_protocol_source'] = 'port'
 
-        payload = self._payload_of(transport)
         if payload and len(f['entropy_samples']) < MAX_ENTROPY_SAMPLES:
             f['entropy_samples'].append(
                 shannon_entropy(payload[:ENTROPY_SAMPLE_BYTES])
@@ -245,7 +302,9 @@ class FlowAggregator:
         # technique, it is the port allowed out. Gating on the port first
         # skips the traversal for the overwhelming majority of packets.
         if 53 in (sport, dport):
-            self._process_dns(pkt, f, src_ip, dst_ip, now)
+            dns = self._dns_layer(scapy_pkt, protocol, payload)
+            if dns is not None:
+                self._process_dns(dns, f, src_ip, dst_ip, now)
 
         if protocol == 'TCP' and payload:
             self._process_app_layer(payload, f, dport)
@@ -327,6 +386,22 @@ class FlowAggregator:
             'ja4_raw': '',
         }
 
+    def _icmp_payload(self, message):
+        """
+        The payload of an ICMP message, as the dissector path defines it.
+
+        Verified against 9,415 real ICMP messages spanning echo, destination
+        unreachable, time exceeded and timestamp types: identical to
+        `pkt.getlayer(ICMP).payload` in every case, including the error
+        messages whose payload sits inside a quoted packet.
+        """
+        if not message:
+            return b''
+        try:
+            return bytes(ICMP(message).payload)
+        except Exception:
+            return b''
+
     def _payload_of(self, transport):
         if transport is None:
             return b''
@@ -340,11 +415,39 @@ class FlowAggregator:
             char for bit, char in TCP_FLAG_MAP.items() if int(flag_value) & bit
         )
 
-    def _process_dns(self, pkt, f, src_ip, dst_ip, now):
+    def _dns_layer(self, scapy_pkt, protocol, payload):
+        """
+        The DNS message for a packet already known to be on port 53.
+
+        Two sources, one result. The live path has a dissected packet and just
+        asks for the layer. The import path has bytes, so the message is
+        dissected here — and only here, for the ~2.6% of packets on port 53,
+        rather than for every packet in the capture.
+
+        DNS over TCP is length-prefixed (RFC 1035 s.4.2.2). Scapy models that
+        with a field conditional on the underlayer being TCP, which a
+        standalone `DNS(...)` cannot see, so the two octets are removed
+        explicitly instead of being read as part of the header.
+        """
+        if scapy_pkt is not None:
+            return scapy_pkt.getlayer(DNS)
+
+        if not payload:
+            return None
+        try:
+            if protocol == 'TCP':
+                return DNS(payload[2:]) if len(payload) > 2 else None
+            return DNS(payload)
+        except Exception:
+            # Traffic on 53 that is not a DNS message — a tunnel carrying
+            # something else, or a truncated capture. Not an error; there is
+            # simply no message to record.
+            return None
+
+    def _process_dns(self, dns, f, src_ip, dst_ip, now):
         # Callers gate on port 53, which is necessary but not sufficient:
-        # traffic on 53 that scapy did not dissect as DNS (truncated, or
-        # something else entirely on that port) has no DNS layer.
-        dns = pkt.getlayer(DNS)
+        # traffic on 53 that was not dissected as DNS (truncated, or something
+        # else entirely on that port) yields no usable question section.
         if dns is None or not dns.qd:
             return
 

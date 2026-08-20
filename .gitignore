@@ -83,12 +83,14 @@ lerna-debug.log*
 # ──────────────────────────────────────────────────────────────
 *.pcap
 *.pcapng
+*.pcap.gz
 *.cap
 *.dmp
 evidence_store/
 backend/evidence_store/
 backend/synthetic_captures/
 captures/
+RealAttacksPCAP/
 
 # Generated forensic reports / certificates
 *.pdf
