@@ -1,0 +1,49 @@
+<!--
+  NetForensiq → Wazuh decoders.
+
+  Install to  /var/ossec/etc/decoders/netforensiq_decoders.xml
+  then         /var/ossec/bin/wazuh-control restart
+
+  What this is for
+  ================
+  NetForensiq already emits RFC 5424 syslog carrying a CEF record, and any
+  syslog-receiving SIEM can take delivery of it today. Receiving is not the
+  same as understanding: without a decoder the whole line lands in `full_log`
+  as one string, so an analyst can grep it and cannot alert on it, group by
+  it, or count it. These two files are the difference between an export
+  format and an integration.
+
+  What it decodes, and what it deliberately leaves alone
+  =====================================================
+  The CEF **header** is fixed-arity and always present, so it is decoded in
+  full: vendor, product, version, the rule identifier, the title, and the CEF
+  severity. `cs1` — our own severity word — is decoded too, because the rules
+  file keys Wazuh's alert level off it.
+
+  The CEF **extensions** are not all decoded, and that is deliberate rather
+  than unfinished. They are conditional: `cs3` appears only when the finding
+  maps to an ATT&CK technique, and `src`/`dst`/`proto` only when there is a
+  flow behind it. A single regex with optional groups misaligns Wazuh's
+  <order> list the moment one of them is absent, and a decoder that silently
+  puts the destination address into the protocol field is worse than one that
+  does not try. The full CEF line stays in `full_log`, which remains
+  searchable, and the fields that matter for alerting are the ones decoded.
+-->
+
+<decoder name="netforensiq">
+  <program_name>netforensiq</program_name>
+</decoder>
+
+<decoder name="netforensiq-cef">
+  <parent>netforensiq</parent>
+  <!--
+    CEF:Version|Vendor|Product|DevVersion|SignatureID|Name|Severity|Extensions
+
+    `(?:[^|\\]|\\.)*` rather than `[^|]*`: the CEF specification escapes a
+    literal pipe inside a header field as `\|`, so a field is "anything that
+    is not a pipe or a backslash, or a backslash followed by anything". A
+    naive [^|]* stops at the escaped pipe and shifts every later field by one.
+  -->
+  <regex type="pcre2">CEF:\d+\|((?:[^|\\]|\\.)*)\|((?:[^|\\]|\\.)*)\|((?:[^|\\]|\\.)*)\|((?:[^|\\]|\\.)*)\|((?:[^|\\]|\\.)*)\|(\d+)\|.*?\bcs1=(\w+)</regex>
+  <order>nf_vendor, nf_product, nf_version, nf_rule, nf_title, nf_cef_severity, nf_severity</order>
+</decoder>

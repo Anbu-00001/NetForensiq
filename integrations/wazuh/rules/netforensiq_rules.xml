@@ -1,0 +1,180 @@
+<!--
+  NetForensiq → Wazuh rules.
+
+  Install to  /var/ossec/etc/rules/netforensiq_rules.xml
+  then         /var/ossec/bin/wazuh-control restart
+
+  Rule id range 100200-100299 is inside Wazuh's documented user range
+  (100000+), so these cannot collide with a shipped ruleset.
+
+  How the level is chosen
+  =======================
+  Wazuh's level drives alerting, e-mail and the dashboard's severity colours,
+  so mapping it wrongly is how a real finding gets filed as noise. The mapping
+  is on **our** severity word (cs1), not on the CEF severity integer, because
+  our severities are the ones an officer triages against:
+
+      critical → 12   an analyst is expected to look now
+      high     → 10   an analyst is expected to look today
+      medium   →  7   worth review, not worth a page
+      low      →  3   recorded, not surfaced
+
+  Nothing here is auto-actioned and nothing here is set above 12. Wazuh treats
+  13-15 as "attack in progress"-class events, and a finding from a forensic
+  tool reading a capture is a claim about the past, not an active-response
+  trigger.
+
+  The MITRE identifiers
+  =====================
+  Each rule carries the ATT&CK technique its detection maps to, taken from
+  `backend/capture/attack_mapping.py` — the same table the platform's own UI
+  and its ECS output use, so Wazuh's ATT&CK view and ours cannot disagree.
+  Three of our detections carry no <mitre> block, deliberately: host
+  corroboration and the statistical anomaly are analytics about our own
+  findings rather than adversary behaviour, and a blocklist hit is a claim
+  about an address, not about a technique.
+-->
+
+<group name="netforensiq,forensics,">
+
+  <!-- Level 0: decoded and grouped, but not an alert on its own. Every rule
+       below narrows this one. -->
+  <rule id="100200" level="0">
+    <decoded_as>netforensiq</decoded_as>
+    <description>NetForensiq: network forensics finding received</description>
+  </rule>
+
+  <!-- ── severity floor, so an unrecognised rule id is never silently lost ── -->
+
+  <rule id="100201" level="3">
+    <if_sid>100200</if_sid>
+    <field name="nf_severity">^low$</field>
+    <description>NetForensiq: $(nf_rule) — $(nf_title)</description>
+  </rule>
+
+  <rule id="100202" level="7">
+    <if_sid>100200</if_sid>
+    <field name="nf_severity">^medium$</field>
+    <description>NetForensiq: $(nf_rule) — $(nf_title)</description>
+  </rule>
+
+  <rule id="100203" level="10">
+    <if_sid>100200</if_sid>
+    <field name="nf_severity">^high$</field>
+    <description>NetForensiq: $(nf_rule) — $(nf_title)</description>
+  </rule>
+
+  <rule id="100204" level="12">
+    <if_sid>100200</if_sid>
+    <field name="nf_severity">^critical$</field>
+    <description>NetForensiq: $(nf_rule) — $(nf_title)</description>
+  </rule>
+
+  <!-- ── per-detection rules, so ATT&CK lands in Wazuh's own view ── -->
+
+  <rule id="100210" level="10">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^C2_BEACON_PERIODIC$</field>
+    <description>NetForensiq: periodic command-and-control callback — $(nf_title)</description>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+  </rule>
+
+  <rule id="100211" level="10">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^C2_BEACON_KEEPALIVE$</field>
+    <description>NetForensiq: command-and-control keepalive — $(nf_title)</description>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+  </rule>
+
+  <rule id="100212" level="12">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^DNS_TUNNEL_SUBDOMAIN_VOLUME$</field>
+    <description>NetForensiq: data over DNS, by query volume — $(nf_title)</description>
+    <mitre>
+      <id>T1071.004</id>
+      <id>T1572</id>
+    </mitre>
+  </rule>
+
+  <rule id="100213" level="12">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^DNS_TUNNEL_LONG_LABEL$</field>
+    <description>NetForensiq: data over DNS, by label length — $(nf_title)</description>
+    <mitre>
+      <id>T1071.004</id>
+      <id>T1572</id>
+    </mitre>
+  </rule>
+
+  <rule id="100214" level="12">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^EXFIL_VOLUME_ASYMMETRY$</field>
+    <description>NetForensiq: outbound volume asymmetry — $(nf_title)</description>
+    <mitre>
+      <id>T1048</id>
+    </mitre>
+  </rule>
+
+  <rule id="100215" level="10">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^ICMP_TUNNEL_OVERSIZED$</field>
+    <description>NetForensiq: oversized ICMP, consistent with tunnelling — $(nf_title)</description>
+    <mitre>
+      <id>T1572</id>
+      <id>T1095</id>
+    </mitre>
+  </rule>
+
+  <rule id="100216" level="10">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^COVERT_CHANNEL_UNKNOWN_PORT$</field>
+    <description>NetForensiq: sustained channel on a non-standard port — $(nf_title)</description>
+    <mitre>
+      <id>T1571</id>
+    </mitre>
+  </rule>
+
+  <rule id="100217" level="7">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^RECON_PORT_SCAN$</field>
+    <description>NetForensiq: port scanning — $(nf_title)</description>
+    <mitre>
+      <id>T1046</id>
+      <id>T1595.001</id>
+    </mitre>
+  </rule>
+
+  <!--
+    No <mitre> block on the three below, and that is the point.
+
+    A corroboration finding is our analytic agreeing with itself; a
+    statistical anomaly says traffic was unusual for this capture, which is
+    not a claim about what an adversary did; and a blocklist hit is a claim
+    about an address rather than about a technique. Attaching a plausible
+    identifier to any of them would put a fabricated classification into a
+    SOC's ATT&CK coverage view, which is worse than a gap.
+  -->
+
+  <rule id="100220" level="12">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^HOST_CORROBORATED$</field>
+    <description>NetForensiq: one host implicated by several independent rules — $(nf_title)</description>
+  </rule>
+
+  <rule id="100221" level="7">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^ANOMALY_STATISTICAL$</field>
+    <description>NetForensiq: unsupervised anomaly, capped at medium by design — $(nf_title)</description>
+  </rule>
+
+  <rule id="100222" level="10">
+    <if_sid>100200</if_sid>
+    <field name="nf_rule">^IOC_FEED_MATCH$</field>
+    <description>NetForensiq: endpoint listed by an imported indicator feed — $(nf_title)</description>
+  </rule>
+
+</group>

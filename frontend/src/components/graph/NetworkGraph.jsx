@@ -67,12 +67,34 @@ const ROW_MAX = 30;
 const ROW_MIN = 17;
 const DOT = { min: 3.5, max: 9 };
 const AGG_R = 11;
+
+/**
+ * The folded count, short enough to sit inside its circle.
+ *
+ * A cyber-defence exercise capture folds 1,006 quiet hosts into one marker,
+ * and "1006" at 10px is wider than an 11px circle — the digits spilled over
+ * the dashes and read as a smudge. Abbreviated instead, with the exact number
+ * still in the caption and the tooltip, because the circle's job is "a lot of
+ * hosts, here is roughly how many" and the sentence underneath carries the
+ * figure.
+ */
+function compactCount(n) {
+  if (n === null || n === undefined) return '';
+  if (n < 1000) return String(n);
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  return `${Math.round(n / 1000)}k`;
+}
 // A monospaced glyph is a known fraction of its point size, which is what
 // makes it possible to place a label without measuring the DOM.
 const MONO_CH = 0.6;
 
 function dotRadius(node, maxBytes) {
-  if (node.aggregate) return AGG_R;
+  // The aggregate grows to fit its own label rather than being a fixed size:
+  // "22" and "1.0k" are different widths and the circle has to hold both.
+  if (node.aggregate) {
+    const label = compactCount(node.collapsed_count);
+    return Math.max(AGG_R, (label.length * 10 * MONO_CH) / 2 + 3);
+  }
   // Square root, so area rather than diameter tracks volume: a host that moved
   // ten times more data should not be drawn a hundred times larger.
   const share = maxBytes > 0 ? Math.sqrt((node.bytes || 0) / maxBytes) : 0;
@@ -467,7 +489,7 @@ function NetworkGraph({ data, height = 520, focus, onFocusChange }) {
                     fontSize={10} fontWeight={700} fontFamily={MONO}
                     fill={INK_SOFT} pointerEvents="none"
                   >
-                    {node.collapsed_count}
+                    {compactCount(node.collapsed_count)}
                   </text>
                 )}
                 {selectedId === node.id && (
@@ -484,7 +506,11 @@ function NetworkGraph({ data, height = 520, focus, onFocusChange }) {
                 >
                   {anchor === 'start' && count
                     && <tspan fill={colourFor(node)} fontWeight={700}>{count}</tspan>}
-                  <tspan>{node.aggregate ? 'other hosts' : node.id}</tspan>
+                  <tspan>
+                    {node.aggregate
+                      ? `${node.collapsed_count.toLocaleString()} other hosts`
+                      : node.id}
+                  </tspan>
                   {anchor === 'end' && count
                     && <tspan fill={colourFor(node)} fontWeight={700}>{` ${node.finding_count}`}</tspan>}
                 </text>

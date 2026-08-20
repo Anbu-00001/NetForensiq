@@ -11,6 +11,7 @@ import TopBar from '../components/layout/TopBar';
 import StatCard from '../components/dashboard/StatCard';
 import NetworkGraph from '../components/graph/NetworkGraph';
 import AttackScenario from '../components/scenario/AttackScenario';
+import LiveWatch from '../components/monitor/LiveWatch';
 import ProtocolBubbles from '../components/dashboard/ProtocolBubbles';
 import ProtocolRanking from '../components/dashboard/ProtocolRanking';
 import SeverityBreakdown from '../components/dashboard/SeverityBreakdown';
@@ -313,6 +314,18 @@ function DashboardPage() {
                     focus={graphFocus}
                     onFocusChange={setGraphFocus}
                   />
+                </Box>
+
+                {/* Watching an interface as traffic happens. Above the
+                    per-session panels because it is about the machine rather
+                    than about whichever capture is selected — and because a
+                    reader asking "does this thing work live?" should not have
+                    to scroll to find out. */}
+                <Box sx={{ ...PANEL, mb: 2.5 }}>
+                  <Typography sx={{ fontSize: 13, color: '#2B3138', mb: 0.3, fontWeight: 600 }}>
+                    Live watch
+                  </Typography>
+                  <LiveWatch />
                 </Box>
 
                 {/* The diagram says who talked to whom; this says in what

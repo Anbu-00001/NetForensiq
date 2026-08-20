@@ -56,6 +56,40 @@ SYSLOG_SEVERITY = {'low': 6, 'medium': 5, 'high': 4, 'critical': 2}
 # ECS categorisation for a detection-engine finding about network traffic.
 ECS_CATEGORIES = ['intrusion_detection', 'network']
 
+# The schema version these documents claim to follow. ECS requires it in every
+# document — a consumer uses it to decide how to read every other field, and
+# Elastic's own tooling treats a document without it as un-normalised.
+#
+# Pinned rather than tracked automatically: it states the version we actually
+# built and tested against. Raising it is a decision to re-check the field
+# names, not a version bump.
+ECS_VERSION = '8.11.0'
+
+# `event.type` narrows `event.category`. Every finding used to be typed
+# `info`, which is ECS's "nothing more specific applies" — true of none of
+# them. The values below are from ECS's allowed set for the categories above;
+# nothing is invented, and a rule with no better answer keeps `info` rather
+# than being forced into a type that reads as a stronger claim than the rule
+# makes.
+ECS_EVENT_TYPES = {
+    'RECON_PORT_SCAN': ['connection', 'start'],
+    'C2_BEACON_PERIODIC': ['connection', 'protocol'],
+    'C2_BEACON_KEEPALIVE': ['connection', 'protocol'],
+    'DNS_TUNNEL_LONG_LABEL': ['protocol'],
+    'DNS_TUNNEL_SUBDOMAIN_VOLUME': ['protocol'],
+    'ICMP_TUNNEL_OVERSIZED': ['protocol'],
+    'COVERT_CHANNEL_UNKNOWN_PORT': ['connection', 'protocol'],
+    'EXFIL_VOLUME_ASYMMETRY': ['connection'],
+    # A blocklist hit is ECS's `indicator` — the event exists because an
+    # indicator matched, which is precisely what that value is for.
+    'IOC_FEED_MATCH': ['indicator'],
+}
+
+
+def _ecs_event_types(detection):
+    """`event.type` for one finding, defaulting to ECS's own catch-all."""
+    return ECS_EVENT_TYPES.get(detection.rule_id, ['info'])
+
 
 def _escape_cef_header(value):
     """
@@ -91,6 +125,15 @@ def _endpoints(detection):
         'transport': (flow.protocol or '').lower(),
         'protocol': (flow.app_protocol or '').lower(),
         'bytes': (flow.bytes_sent or 0) + (flow.bytes_received or 0),
+        # Kept apart as well as summed. CEF's `in` and `out` are *directional*
+        # — inbound and outbound octets — and we were putting the combined
+        # total in `in`, which overstates inbound traffic by exactly the
+        # outbound volume. On an exfiltration finding, the field a SOC would
+        # look at to see data leaving was reporting the wrong number in the
+        # wrong direction.
+        'bytes_from_source': flow.bytes_sent or 0,
+        'bytes_to_source': flow.bytes_received or 0,
+        'first_seen': flow.first_seen,
     }
 
 
@@ -104,12 +147,29 @@ def to_ecs(detection, observer=None, beaconing_hosts=frozenset()):
     ends = _endpoints(detection)
     evidence = getattr(detection.session, 'evidence', None)
 
+    detected_at = detection.created_at.astimezone(dt_timezone.utc)
+    # `@timestamp` is when the *activity* happened; `event.created` is when we
+    # noticed. ECS is explicit about the distinction and both were previously
+    # set to the analysis time, so a SOC timeline plotted a week of findings as
+    # a single spike at the moment the PCAP was imported — which is the one
+    # thing a timeline must not do. Falls back to the detection time only when
+    # the finding has no flow behind it to date.
+    happened_at = ends.get('first_seen')
+    activity = (happened_at.astimezone(dt_timezone.utc)
+                if happened_at else detected_at)
+
     document = {
-        '@timestamp': detection.created_at.astimezone(dt_timezone.utc).isoformat(),
+        '@timestamp': activity.isoformat(),
+        # Required by ECS in every document: "must exist in all events".
+        # Consumers use it to decide how to interpret every other field, so an
+        # omitted version is not a cosmetic gap — Elastic's own tooling treats
+        # documents without it as un-normalised.
+        'ecs': {'version': ECS_VERSION},
         'event': {
             'kind': 'alert',
             'category': ECS_CATEGORIES,
-            'type': ['info'],
+            'created': detected_at.isoformat(),
+            'type': _ecs_event_types(detection),
             'severity': ECS_SEVERITY.get(detection.severity, 0),
             'provider': CEF_PRODUCT,
             'module': 'netforensiq',
@@ -143,18 +203,50 @@ def to_ecs(detection, observer=None, beaconing_hosts=frozenset()):
     from .attack_mapping import classify
     techniques = classify(detection, beaconing_hosts)
     if techniques:
-        document['threat'] = {
+        # ECS keeps sub-techniques in their own object. A dotted identifier
+        # such as T1071.004 belongs in `threat.technique.subtechnique.id` with
+        # its parent T1071 in `threat.technique.id` — put whole into the
+        # technique field, a dashboard grouping by technique buckets T1071 and
+        # T1071.004 as two unrelated strings and the parent's count is wrong.
+        parents, subs = [], []
+        for technique in techniques:
+            if '.' in technique['id']:
+                subs.append(technique)
+                parent_id = technique['id'].split('.', 1)[0]
+                if parent_id not in [p['id'] for p in parents]:
+                    parents.append({
+                        'id': parent_id,
+                        'name': technique['name'].split(':', 1)[0].strip(),
+                        'url': f'https://attack.mitre.org/techniques/{parent_id}/',
+                    })
+            elif technique['id'] not in [p['id'] for p in parents]:
+                parents.append(technique)
+
+        threat = {
+            'framework': 'MITRE ATT&CK',
             'technique': {
-                'id': [t['id'] for t in techniques],
-                'name': [t['name'] for t in techniques],
-                'reference': [t['url'] for t in techniques],
+                'id': [t['id'] for t in parents],
+                'name': [t['name'] for t in parents],
+                'reference': [t['url'] for t in parents],
             },
             'tactic': {
                 'id': sorted({t['tactic_id'] for t in techniques}),
                 'name': sorted({t['tactic'] for t in techniques}),
+                # The tactic URL was the one reference ECS defines that we did
+                # not send, and it is built the same way as the technique's.
+                'reference': [
+                    f'https://attack.mitre.org/tactics/{tid}/'
+                    for tid in sorted({t['tactic_id'] for t in techniques})
+                ],
             },
-            'framework': 'MITRE ATT&CK',
         }
+        if subs:
+            threat['technique']['subtechnique'] = {
+                'id': [t['id'] for t in subs],
+                'name': [t['name'] for t in subs],
+                'reference': [t['url'] for t in subs],
+            }
+        document['threat'] = threat
 
     if ends:
         document['source'] = {'ip': ends['source_ip'], 'port': ends['source_port']}
@@ -166,6 +258,18 @@ def to_ecs(detection, observer=None, beaconing_hosts=frozenset()):
             'protocol': ends['protocol'],
             'bytes': ends['bytes'],
         }
+
+    # `related.ip` is every address the event mentions, in one field. It exists
+    # so "show me everything that touched this address" is a single query
+    # rather than one per field name, and that is the first query a SOC analyst
+    # runs. Cheap to fill and useless to omit.
+    addresses = [a for a in (
+        document.get('source', {}).get('ip'),
+        document.get('destination', {}).get('ip'),
+        detection.subject_ip,
+    ) if a]
+    if addresses:
+        document['related'] = {'ip': sorted(set(addresses))}
 
     if evidence:
         # The exhibit number, so an analyst who sees this can ask for the
@@ -220,7 +324,13 @@ def to_cef(detection, observer=None, beaconing_hosts=frozenset()):
             'src': ends['source_ip'], 'spt': ends['source_port'],
             'dst': ends['destination_ip'], 'dpt': ends['destination_port'],
             'proto': ends['transport'].upper(),
-            'in': ends['bytes'],
+            # Directional, as the CEF dictionary defines them: `in` is inbound
+            # octets and `out` is outbound. Both were previously collapsed into
+            # `in` as a combined total, which reported the wrong number in the
+            # wrong direction on exactly the findings — exfiltration — where
+            # direction is the whole point.
+            'in': ends['bytes_to_source'],
+            'out': ends['bytes_from_source'],
         })
 
     body = ' '.join(

@@ -14,7 +14,7 @@ import threading
 
 from django.test import TestCase, override_settings
 from . import alerting
-from .models import CaptureSession, Detection
+from .models import CaptureSession, Detection, Flow
 
 
 def make_detection(session, severity='critical', rule_id='C2_BEACON_PERIODIC'):
@@ -245,3 +245,150 @@ class WebhookDeliveryTests(TestCase):
                                ALERT_WEBHOOK_TOKEN=''):
             alerting.dispatch(Detection.objects.all(), session=self.session)
         self.assertIsNone(self.received[0]['auth'])
+
+
+class ECSConformanceTests(TestCase):
+    """
+    The ECS document checked against the schema rather than against itself.
+
+    Each of these was a real gap found by reading Elastic's field reference
+    beside our output. None of them raised an error — a SIEM ingests a
+    non-conforming document quite happily and then answers questions wrongly,
+    which is the failure mode worth testing for.
+    """
+
+    def setUp(self):
+        from datetime import datetime, timedelta, timezone as tz
+
+        self.session = CaptureSession.objects.create(
+            name='ecs', source_type='pcap', state='completed',
+            home_net='10.0.0.0/24',
+        )
+        self.activity = datetime(2026, 2, 1, 8, 0, 0, tzinfo=tz.utc)
+        self.flow = Flow.objects.create(
+            session=self.session, src_ip='10.0.0.5', dst_ip='198.51.100.9',
+            src_port=51001, dst_port=443, protocol='TCP',
+            initiator_ip='10.0.0.5', initiator_confirmed=True,
+            bytes_sent=900_000, bytes_received=1_200,
+            first_seen=self.activity,
+            last_seen=self.activity + timedelta(minutes=3),
+        )
+
+    def _finding(self, rule_id='EXFIL_VOLUME_ASYMMETRY', **kwargs):
+        return Detection.objects.create(
+            session=self.session, flow=self.flow, rule_id=rule_id,
+            title='t', category='exfiltration', severity='high',
+            rationale='r', subject_ip='10.0.0.5', **kwargs,
+        )
+
+    def test_every_document_declares_the_schema_version(self):
+        """ECS: "must exist in all events"."""
+        from .siem import ECS_VERSION, to_ecs
+
+        document = to_ecs(self._finding())
+        self.assertEqual(document['ecs']['version'], ECS_VERSION)
+
+    def test_the_timestamp_is_when_the_traffic_happened_not_when_we_looked(self):
+        """
+        Both fields were the analysis time, so a week of findings imported from
+        one PCAP plotted as a single spike at the moment of import — the one
+        thing a SOC timeline must not do.
+        """
+        from .siem import to_ecs
+
+        document = to_ecs(self._finding())
+        self.assertEqual(document['@timestamp'], self.activity.isoformat())
+        self.assertNotEqual(document['@timestamp'], document['event']['created'])
+
+    def test_a_finding_with_no_flow_falls_back_to_the_detection_time(self):
+        from .siem import to_ecs
+
+        finding = Detection.objects.create(
+            session=self.session, rule_id='HOST_CORROBORATED', title='t',
+            category='correlation', severity='critical', rationale='r',
+            subject_ip='10.0.0.5',
+        )
+        document = to_ecs(finding)
+        self.assertEqual(document['@timestamp'], document['event']['created'])
+
+    def test_a_sub_technique_is_reported_under_its_parent(self):
+        """
+        T1071.004 put whole into `threat.technique.id` makes a dashboard bucket
+        it separately from T1071, so the parent's count is wrong.
+        """
+        from .siem import to_ecs
+
+        finding = self._finding(rule_id='DNS_TUNNEL_LONG_LABEL')
+        threat = to_ecs(finding)['threat']
+
+        self.assertIn('T1071', threat['technique']['id'])
+        self.assertNotIn('T1071.004', threat['technique']['id'])
+        self.assertIn('T1071.004', threat['technique']['subtechnique']['id'])
+
+    def test_the_tactic_carries_its_reference_url(self):
+        from .siem import to_ecs
+
+        threat = to_ecs(self._finding())['threat']
+        self.assertTrue(threat['tactic']['reference'])
+        for url in threat['tactic']['reference']:
+            self.assertTrue(url.startswith('https://attack.mitre.org/tactics/'))
+
+    def test_every_address_the_event_mentions_is_in_related_ip(self):
+        """The first query a SOC analyst runs is "everything that touched X"."""
+        from .siem import to_ecs
+
+        related = to_ecs(self._finding())['related']['ip']
+        self.assertIn('10.0.0.5', related)
+        self.assertIn('198.51.100.9', related)
+
+    def test_event_type_is_more_specific_than_info_where_it_can_be(self):
+        from .siem import to_ecs
+
+        self.assertEqual(
+            to_ecs(self._finding(rule_id='IOC_FEED_MATCH'))['event']['type'],
+            ['indicator'])
+        self.assertIn(
+            'connection',
+            to_ecs(self._finding(rule_id='RECON_PORT_SCAN'))['event']['type'])
+
+    def test_an_unmapped_rule_keeps_ecs_own_catch_all_rather_than_guessing(self):
+        from .siem import to_ecs
+
+        document = to_ecs(self._finding(rule_id='SOMETHING_ADDED_LATER'))
+        self.assertEqual(document['event']['type'], ['info'])
+
+
+class CEFDirectionTests(TestCase):
+    """
+    CEF's `in` and `out` are inbound and outbound octets.
+
+    We were putting the combined total in `in` and never sending `out`, which
+    reported the wrong number in the wrong direction on exactly the findings
+    where direction is the whole point.
+    """
+
+    def test_in_and_out_carry_the_two_directions_separately(self):
+        from .siem import to_cef
+
+        session = CaptureSession.objects.create(
+            name='cef', source_type='pcap', state='completed')
+        from datetime import datetime, timezone as tz
+        flow = Flow.objects.create(
+            session=session, src_ip='10.0.0.5', dst_ip='198.51.100.9',
+            src_port=51001, dst_port=443, protocol='TCP',
+            initiator_ip='10.0.0.5', initiator_confirmed=True,
+            bytes_sent=900_000, bytes_received=1_200,
+            first_seen=datetime(2026, 2, 1, tzinfo=tz.utc),
+            last_seen=datetime(2026, 2, 1, tzinfo=tz.utc),
+        )
+        finding = Detection.objects.create(
+            session=session, flow=flow, rule_id='EXFIL_VOLUME_ASYMMETRY',
+            title='t', category='exfiltration', severity='high',
+            rationale='r', subject_ip='10.0.0.5',
+        )
+
+        record = to_cef(finding)
+        self.assertIn('out=900000', record)
+        self.assertIn('in=1200', record)
+        # And never the sum, which is what the field used to hold.
+        self.assertNotIn('in=901200', record)

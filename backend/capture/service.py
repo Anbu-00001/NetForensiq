@@ -74,7 +74,7 @@ def _fail(session, exc):
 
 def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='',
                      name=None, user=None, window_seconds=0, home_net='',
-                     on_window=None):
+                     on_window=None, should_stop=None, on_session=None):
     """
     Sniff live traffic and persist the resulting flows.
 
@@ -99,6 +99,16 @@ def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='',
     interface, and a NIC in promiscuous mode on a mirror port sees traffic in
     real time. Isolated networks are where local detection matters most,
     precisely because nothing on them can phone a cloud for an opinion.
+    `should_stop` is polled once per window so a caller outside this thread —
+    the browser, via `capture.monitor` — can ask for the loop to finish. It is
+    checked between windows rather than inside one: the window persists flows
+    and runs detection, and stopping halfway leaves a session holding traffic
+    nothing has been analysed against, which looks exactly like a capture in
+    which nothing was found.
+
+    `on_session` fires once, as soon as the row exists, so a caller can report
+    which session it is watching without waiting a whole window for the first
+    result.
     """
     iface = resolve_interface(interface)
 
@@ -112,9 +122,13 @@ def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='',
         home_net=home_net or '',
     )
 
+    if on_session:
+        on_session(session)
+
     if window_seconds > 0:
         return _run_live_monitor(session, iface, packet_count, duration,
-                                 bpf_filter, window_seconds, on_window)
+                                 bpf_filter, window_seconds, on_window,
+                                 should_stop)
 
     aggregator = FlowAggregator()
 
@@ -155,7 +169,7 @@ def _fingerprint(finding):
 
 
 def _run_live_monitor(session, iface, packet_count, duration, bpf_filter,
-                      window_seconds, on_window):
+                      window_seconds, on_window, should_stop=None):
     """The monitoring loop. See run_live_capture for why it is shaped this way."""
     from scapy.sendrecv import AsyncSniffer
 
@@ -177,7 +191,19 @@ def _run_live_monitor(session, iface, packet_count, duration, bpf_filter,
 
     try:
         while True:
-            time.sleep(window_seconds)
+            # Slept in short steps rather than one long sleep, so a stop
+            # request is honoured in about a second instead of being sat on
+            # for the rest of a five-minute window. The window itself is
+            # unchanged — only the responsiveness of the stop.
+            waited = 0.0
+            while waited < window_seconds:
+                if should_stop and should_stop():
+                    break
+                step = min(1.0, window_seconds - waited)
+                time.sleep(step)
+                waited += step
+
+            stopping = bool(should_stop and should_stop())
             windows += 1
 
             flows, dns_records = aggregator.finalize()
@@ -206,6 +232,8 @@ def _run_live_monitor(session, iface, packet_count, duration, bpf_filter,
                     'alerts': [d.as_dict() for d in deliveries],
                 })
 
+            if stopping:
+                break
             if duration and (time.monotonic() - started) >= duration:
                 break
             if packet_count and aggregator.total_packets >= packet_count:

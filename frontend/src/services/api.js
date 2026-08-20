@@ -13,6 +13,23 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // A file upload is not JSON.
+  //
+  // The instance default above sets Content-Type: application/json on every
+  // request, which is right for all but one of them. On a FormData body it is
+  // actively wrong: the browser has to write
+  // `multipart/form-data; boundary=…`, and a header set by hand has no
+  // boundary token, so the server receives a body it cannot split. Django
+  // answered 415 "Unsupported media type" and the officer was told their
+  // capture was the wrong sort of file when it was the request that was
+  // malformed.
+  //
+  // Deleting the header rather than naming the type: only the browser knows
+  // the boundary it is about to generate.
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 

@@ -285,6 +285,113 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
     # downstream mistakes the aggregate circle for a host.
     COLLAPSED_ID = 'other-hosts'
 
+    @action(detail=False, methods=['get', 'post'], url_path='monitor')
+    def monitor(self, request):
+        """
+        Watch an interface as traffic happens, from the browser.
+
+        GET returns what the monitor is doing. POST with `{"action": "start"}`
+        begins one; `{"action": "stop"}` ends it at the close of the current
+        window.
+
+        This endpoint is the whole point of the bonus objective. The monitoring
+        loop already existed and was reachable only through
+        `manage.py capture_live --window N`, so "real-time alerting" was true of
+        the software and false of the product: the officers this is built for
+        get a browser, not a shell on the forensic workstation.
+
+        Reading is open to any approved account — knowing whether the box is
+        watching is not privileged. Starting and stopping is not: a capture
+        writes evidence, so it takes Investigator clearance like every other
+        act that does.
+        """
+        from . import monitor as live
+
+        if request.method == 'GET':
+            return Response(live.status())
+
+        if not IsInvestigatorOrReadOnly().has_permission(request, self):
+            return Response(
+                {'detail': 'Starting or stopping a capture requires '
+                           'Investigator clearance.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        action_name = (request.data.get('action') or '').strip().lower()
+
+        if action_name == 'stop':
+            log_action(
+                request, AuditLog.Action.ANALYSE_SESSION, user=request.user,
+                username_attempted=request.user.username,
+                detail='Live monitor stop requested',
+            )
+            return Response(live.stop())
+
+        if action_name != 'start':
+            return Response(
+                {'detail': "action must be 'start' or 'stop'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        interface = (request.data.get('interface') or '').strip()
+        if not interface:
+            return Response(
+                {'detail': 'Name the interface to watch.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            state = live.start(
+                interface=interface,
+                window_seconds=request.data.get('window_seconds')
+                or live.DEFAULT_WINDOW,
+                home_net=(request.data.get('home_net') or '').strip(),
+                bpf_filter=(request.data.get('bpf_filter') or '').strip(),
+                user=request.user,
+                name=(request.data.get('name') or '').strip(),
+            )
+        except live.MonitorBusy as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_409_CONFLICT)
+        except live.MonitorRefused as exc:
+            # Not a server error. The box cannot capture — almost always a
+            # missing CAP_NET_RAW — and the officer needs the reason, because
+            # scapy without it sniffs nothing and reports no error at all.
+            return Response({'detail': str(exc)},
+                            status=status.HTTP_412_PRECONDITION_FAILED)
+
+        log_action(
+            request, AuditLog.Action.ANALYSE_SESSION, user=request.user,
+            username_attempted=request.user.username,
+            detail=(f'Live monitor started on {interface}, '
+                    f'{state.get("window_seconds")}s window'),
+        )
+        return Response(state, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='interfaces')
+    def interfaces(self, request):
+        """
+        What this machine could watch, and whether it is allowed to.
+
+        Offered as a list because an officer at a browser cannot run `ip link`,
+        and a free-text interface box on a forensic workstation is a way to
+        mistype `eth0` and be told nothing is happening.
+        """
+        from .privileges import can_capture
+
+        ok, reason = can_capture()
+        names = []
+        try:
+            from scapy.arch import get_if_list
+            names = sorted(get_if_list())
+        except Exception as exc:
+            reason = reason or f'Interfaces could not be listed: {exc}'
+
+        return Response({
+            'interfaces': names,
+            'can_capture': ok,
+            'reason': reason,
+        })
+
     @action(detail=True, methods=['get'])
     def scenario(self, request, pk=None):
         """

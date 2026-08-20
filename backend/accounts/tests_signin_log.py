@@ -89,6 +89,25 @@ class SignInLogTests(TestCase):
         self.assertFalse(rows[0]['account_exists'])
         self.assertIn('no such account', rows[0]['detail'])
 
+    def test_a_real_account_mistyping_a_password_is_not_marked_unknown(self):
+        """
+        `account_exists` was derived from the audit row's user FK, which a
+        failed sign-in never has — so every failure printed "NO SUCH ACCOUNT",
+        including a serving officer who mistyped. That inverts the one signal
+        the column exists for.
+        """
+        APIClient().post('/api/auth/login/',
+                         {'username': 'officer', 'password': 'wrong'}, format='json')
+        APIClient().post('/api/auth/login/',
+                         {'username': 'nobody-here', 'password': 'wrong'}, format='json')
+
+        rows = self._admin().get(
+            '/api/auth/sign-in-attempts/?outcome=failed').json()['attempts']
+        by_name = {r['username_attempted']: r for r in rows}
+
+        self.assertTrue(by_name['officer']['account_exists'])
+        self.assertFalse(by_name['nobody-here']['account_exists'])
+
     def test_a_successful_sign_in_is_recorded_too(self):
         APIClient().post('/api/auth/login/',
                          {'username': 'officer', 'password': 'Netforensiq@2026'},

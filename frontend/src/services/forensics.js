@@ -51,6 +51,31 @@ export const getSessionScenario = (id, { minFindings } = {}) =>
     params: minFindings ? { min_findings: minFindings } : {},
   }).then((r) => r.data);
 
+/**
+ * Live monitoring, from the browser.
+ *
+ * The loop behind these has always existed; until now it could only be reached
+ * with `manage.py capture_live`, which meant "real-time alerting" was true of
+ * the software and false of the product — the officers this is built for get a
+ * browser, not a shell on the forensic workstation.
+ */
+export const getMonitorStatus = () =>
+  api.get('/sessions/monitor/').then((r) => r.data);
+
+export const startMonitor = (payload) =>
+  api.post('/sessions/monitor/', { action: 'start', ...payload })
+    .then((r) => r.data);
+
+export const stopMonitor = () =>
+  // No timeout: stopping waits for the current window to finish rather than
+  // interrupting a pass halfway and leaving a session holding flows nothing
+  // has been analysed against.
+  api.post('/sessions/monitor/', { action: 'stop' }, { timeout: 0 })
+    .then((r) => r.data);
+
+export const listInterfaces = () =>
+  api.get('/sessions/interfaces/').then((r) => r.data);
+
 export const analyseSession = (id) =>
   api.post(`/sessions/${id}/analyse/`).then((r) => r.data);
 

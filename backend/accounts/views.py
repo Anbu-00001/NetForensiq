@@ -394,6 +394,24 @@ class SignInAttemptsView(APIView):
         window = timezone.now() - timedelta(hours=24)
         counted = AuditLog.objects.filter(action__in=self.SIGN_IN_ACTIONS)
 
+        # Whether the username exists, resolved by *looking it up*.
+        #
+        # This was `bool(row.user_id)`, which is false for every failed sign-in
+        # — a failure never attaches a user, because authentication is the
+        # thing that failed. So the log printed "NO SUCH ACCOUNT" beside the
+        # username of a serving officer who had simply mistyped a password.
+        #
+        # The label exists to separate a mistyped password from a run of
+        # attempts against invented usernames, which is what credential
+        # stuffing looks like. Getting it backwards inverted the one signal the
+        # column was for.
+        page = list(rows.select_related('user')[:limit])
+        attempted = {row.username_attempted for row in page if row.username_attempted}
+        known = set(
+            User.objects.filter(username__in=attempted)
+            .values_list('username', flat=True)
+        ) if attempted else set()
+
         return Response({
             'attempts': [
                 {
@@ -412,12 +430,12 @@ class SignInAttemptsView(APIView):
                     # As typed. A run against a username that does not exist is
                     # the signature of credential stuffing.
                     'username_attempted': row.username_attempted,
-                    'account_exists': bool(row.user_id),
+                    'account_exists': row.username_attempted in known,
                     'ip_address': row.ip_address,
                     'user_agent': row.user_agent[:160],
                     'detail': row.detail,
                 }
-                for row in rows.select_related('user')[:limit]
+                for row in page
             ],
             'returned': min(limit, rows.count()),
             'total_matching': rows.count(),
