@@ -250,7 +250,7 @@ Paths the API owns still return real 404s rather than the app shell — a catch-
 Or piecemeal:
 
 ```bash
-# Backend: 395 tests
+# Backend: 430 tests
 cd backend && ./.venv/bin/python manage.py test
 
 # Frontend: 61 Playwright E2E tests
@@ -553,7 +553,7 @@ This validation found six defects that were invisible to the synthetic corpus. F
 
 ## Test Coverage
 
-- **395 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper detection, custody-chain breakage, certificate refusal on failed integrity, AES-256 GCM encryption, evidence posture calculation.
+- **430 backend tests** — feature maths, timestamp fidelity, all attack types, benign-traffic false-positive guard, DNS aggregation, threshold provenance, IPv6, hashing, tamper detection, custody-chain breakage, certificate refusal on failed integrity, AES-256 GCM encryption, evidence posture calculation.
 - **61 Playwright E2E tests** — auth guard, dashboard figures matching the API, absence of placeholder strings, threshold inspection, triage round-trip, custody verdict, certificate download, air-gap network request abortion.
 
 ---

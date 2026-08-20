@@ -450,3 +450,112 @@ class IOCIndicator(models.Model):
 
     def __str__(self):
         return f'{self.kind}:{self.value}'
+
+
+class LiveMonitorState(models.Model):
+    """
+    What the live monitor is doing, held where every worker can see it.
+
+    Why this is a table and not a module variable
+    ============================================
+    It was a module variable, and that worked perfectly in development and not
+    at all in the container. The application runs under gunicorn with three
+    workers: `start` spawned its capture thread inside one process, and the
+    next `status` request was balanced onto a different one, which had never
+    heard of it. The monitor ran, found traffic and raised alerts, while the
+    dashboard reported that nothing had ever been started — the exact failure
+    the panel exists to prevent, reproduced by the panel itself.
+
+    Shared state between processes has to live somewhere both can reach, and
+    the database is already there. One row, `pk=1`, rewritten at the end of
+    each window.
+
+    How stopping crosses the process boundary
+    =========================================
+    The same way, in reverse. `stop()` sets `stop_requested` on the row; the
+    capture thread — wherever it is running — reads that field between windows
+    and finishes cleanly. No signals, no shared memory, no message broker to
+    install on a machine with no network.
+
+    How a dead worker is told from a quiet one
+    =========================================
+    `last_heartbeat_at` is written every window. A row that says `running` with
+    a heartbeat older than a few windows means the process holding the thread
+    died — a restart, an OOM kill — and `is_stale` says so instead of leaving
+    a permanently "running" monitor that is watching nothing. A capture that
+    stopped without saying so is the failure mode this whole panel is built
+    around, and it must not be the panel's own failure mode.
+    """
+
+    # How many windows may pass with no heartbeat before the row is not to be
+    # believed. Three rather than one: a busy window on a large session can
+    # overrun, and calling that dead would cry wolf.
+    STALE_AFTER_WINDOWS = 3
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+
+    running = models.BooleanField(default=False)
+    stop_requested = models.BooleanField(default=False)
+
+    interface = models.CharField(max_length=64, blank=True)
+    window_seconds = models.PositiveIntegerField(default=30)
+    home_net = models.CharField(max_length=200, blank=True)
+    bpf_filter = models.CharField(max_length=200, blank=True)
+
+    session = models.ForeignKey(
+        CaptureSession, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    started_by = models.ForeignKey(
+        'accounts.User', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    last_window_at = models.DateTimeField(null=True, blank=True)
+    last_heartbeat_at = models.DateTimeField(null=True, blank=True)
+
+    error = models.TextField(blank=True)
+
+    windows = models.PositiveIntegerField(default=0)
+    packets = models.BigIntegerField(default=0)
+    flows = models.PositiveIntegerField(default=0)
+    findings_total = models.PositiveIntegerField(default=0)
+    findings_new_total = models.PositiveIntegerField(default=0)
+    alerts_attempted = models.PositiveIntegerField(default=0)
+    alerts_delivered = models.PositiveIntegerField(default=0)
+
+    # Bounded lists, so one long-running monitor cannot grow the row without
+    # limit. The window history is what the activity strip draws.
+    recent = models.JSONField(default=list, blank=True)
+    newest_findings = models.JSONField(default=list, blank=True)
+    deliveries = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        verbose_name = 'live monitor state'
+        verbose_name_plural = 'live monitor state'
+
+    @classmethod
+    def load(cls):
+        """The single row, created on first use."""
+        state, _ = cls.objects.get_or_create(pk=1)
+        return state
+
+    @property
+    def is_stale(self):
+        """
+        Claims to be running, but nothing has checked in for too long.
+
+        This is how the process that held the capture thread dying is told from
+        a network with nothing on it.
+        """
+        if not self.running:
+            return False
+        if self.last_heartbeat_at is None:
+            return False
+        from django.utils import timezone as _tz
+        silence = (_tz.now() - self.last_heartbeat_at).total_seconds()
+        return silence > self.window_seconds * self.STALE_AFTER_WINDOWS
+
+    def __str__(self):
+        return f"monitor on {self.interface or '-'} ({'running' if self.running else 'idle'})"

@@ -120,6 +120,35 @@ else:
             # Overridable so a clean-start check, or a second demo dataset, can
             # run without clobbering the database you have been working in.
             'NAME': os.getenv('SQLITE_NAME') or (BASE_DIR / 'netforensiq.sqlite3'),
+            'OPTIONS': {
+                # SQLite serialises writers, and this application has two that
+                # run for minutes at a time: analysing a capture, and the live
+                # monitor writing its state at the end of every window. With
+                # the defaults, any request that needed to write during one of
+                # those got `database is locked` **immediately**, with no
+                # retry.
+                #
+                # That is not hypothetical. Analysing a 166,000-flow capture
+                # held the write lock, three sign-ins by a legitimate officer
+                # raised OperationalError, and the audit log recorded three
+                # credential rejections that never happened — a false statement
+                # about a named officer, in the record that goes to a court.
+                #
+                # `timeout` makes a blocked writer wait and retry for up to
+                # thirty seconds instead of failing on the spot. Thirty rather
+                # than five because the competing writer is a long analysis
+                # pass, not a quick insert.
+                'timeout': int(os.getenv('SQLITE_TIMEOUT', '30')),
+                # Write-ahead logging lets readers carry on while a write is in
+                # progress, which is most of what the interface does: polling
+                # posture, drawing a graph, listing findings. Without it every
+                # reader blocks behind the analysis too.
+                'init_command': (
+                    'PRAGMA journal_mode=WAL;'
+                    'PRAGMA synchronous=NORMAL;'
+                ),
+                'transaction_mode': 'IMMEDIATE',
+            },
         }
     }
 

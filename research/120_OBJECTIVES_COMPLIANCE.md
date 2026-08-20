@@ -131,7 +131,7 @@ filename or the content. Seven tests.
 | Sub-item | State | Where |
 |---|---|---|
 | Integration with CCB databases | ❌ | No such integration; none is publicly documented to build against |
-| **SIEM integration** (bonus) | ✅ | `capture/siem.py`, `/api/sessions/{id}/siem/?fmt=` — ECS, CEF and RFC 5424, streamed |
+| Integration with SIEM systems | ✅ | `capture/siem.py` — **ECS 8.11**, **CEF 0** and **RFC 5424** (RFC 6587 octet-counted on TCP), streamed line by line. Plus a shipped **Wazuh decoder and ruleset** — `integrations/wazuh/` — which is what makes this integration rather than export. See the honesty note below |
 | Linking network evidence with reported cases | 🟡 | FIR number + police station recorded on the exhibit and printed on the certificate |
 | Support for digital forensic workflows | ✅ | Seize → seal → analyse → triage → certify |
 | API-based integration | ✅ | Full DRF API, JWT, documented |
@@ -185,12 +185,59 @@ Everything on the previous list has landed. What genuinely remains:
 
 | Bonus item | State | Where |
 |---|---|---|
-| Real-time alerting for active threats | ✅ | `capture/alerting.py` — RFC 5424 syslog over UDP/TCP and ECS webhooks, fired after findings persist. Plus a live capture heartbeat in the operator strip |
-| Integration with SIEM systems | ✅ | `capture/siem.py` — **ECS**, **CEF 0** and **RFC 5424**, streamed line-by-line so a session with thousands of findings does not have to be held in memory. Nine tests, including one asserting the CEF header keeps exactly seven fields and one asserting the FIR number never leaves the case file |
+| Real-time alerting for active threats | ✅ | **Monitor mode, now reachable from the browser** — `POST /api/sessions/monitor/`, `capture/monitor.py`. Every window the platform re-analyses everything seen so far and pushes findings that are *new* to a configured syslog or webhook sink, so alert latency is bounded by the window rather than by when the capture ends. A finding is announced once per rule-and-subject and never re-announced while it persists. See the honesty note below |
+| Integration with SIEM systems | ✅ | `capture/siem.py` — **ECS 8.11**, **CEF 0** and **RFC 5424** (RFC 6587 octet-counted on TCP), streamed line by line so a session with thousands of findings need not be held in memory. Plus a shipped **Wazuh decoder and ruleset**, `integrations/wazuh/`. See the honesty note below |
 | Encrypted traffic analysis without decryption | ✅ | **JA4** TLS client fingerprinting — `capture/tls_fingerprint.py`, verified against FoxIO's published reference values. Plus SNI, timing, volume and DNS. Nothing is decrypted and nothing claims to be |
 | Automated attack classification | ✅ | **MITRE ATT&CK** technique mapping — `capture/attack_mapping.py`, every identifier checked against attack.mitre.org and carrying its URL. Rendered on each finding and assembled into a stage sequence. Two of eleven rules map to **nothing**, deliberately, and print the reason |
 | Multi-language support for reports | 🟡 | Gujarati glossary renders in the interface. The PDF path cannot yet shape Gujarati correctly — ReportLab places glyphs in codepoint order, which mangles the script. Documented in `i18n/gujarati.js`; a real fix needs a shaping engine |
 | Cloud-based scalable deployment | ✅ | `Dockerfile` + `docker-compose.yml` — multi-stage build, non-root uid 10001, healthcheck, tini as PID 1, Postgres with a real readiness probe, named volumes, port bound to loopback. **Image builds and runs; verified healthy and serving.** Coexists with the air-gapped path via `docker save`/`docker load` |
+
+
+### Two honesty notes on the bonus claims
+
+**On "real-time".** The mechanism is specific and worth stating instead of the
+word. In monitor mode the platform re-derives the whole session every window,
+runs every rule over it, and pushes to the configured sink only the findings
+that were not there last window; latency to an alert is one window, not the
+length of the capture. It is on-box, single-workstation alerting suited to an
+air-gapped laboratory — not a continuously watched network pushing
+notifications to a browser. That trade is deliberate, and the specific claim
+survives the question "real-time compared to what?", which the unqualified
+word does not.
+
+It used to be worse than that: monitor mode was reachable only from a shell
+(`manage.py capture_live --window N`), so the capability was true of the
+software and false of the product, because the officers this is built for get
+a browser and not a shell account. `capture/monitor.py` and
+`POST /api/sessions/monitor/` close that, and the dashboard's **Live watch**
+panel draws the pipeline — interface, packets, windows, findings, delivery —
+with the delivered-versus-attempted count kept apart, because an alert nobody
+received that the system believes it sent is worse than no alerting at all.
+
+**We do not cite CERT-In's 6-hour rule as the basis for this feature.** The
+28 April 2022 Directions under s.70B require reporting an incident *to
+CERT-In* within six hours of noticing it. That is a reporting deadline, not a
+mandate to run real-time detection: an organisation with no automated
+detection whatsoever complies if a human notices and reports in time. Citing
+it here would be citing the wrong clause for what it says. (Clause (iv) of the
+same Directions — 180-day log retention within Indian jurisdiction — *is*
+squarely relevant to this platform, but to its evidence retention and custody,
+not to its alerting.)
+
+**On "SIEM integration".** Three paths exist and they are not equally strong,
+so they are named separately. The **syslog push** is genuine integration:
+RFC 5424 framed, RFC 6587 octet-counted on TCP, and consumable by any
+syslog-receiving SIEM with nothing to write on either side. The **webhook**
+and the **pull API** are export in an ingestible format — a receiver still has
+to unwrap them, and there is no packaged connector in any vendor's catalogue.
+
+`integrations/wazuh/` is what closes the gap for the one SIEM most likely to
+sit in a police laboratory: a decoder and a ruleset that turn a line Wazuh can
+receive into one it can search, alert on and group by, with our ATT&CK
+identifiers landing in Wazuh's own coverage view. Those files are held by
+`capture/tests_wazuh.py`, which reads *them* and runs their regex against live
+output — a decoder that has drifted from its emitter installs cleanly, matches
+nothing, and reports zero alerts, which looks exactly like a quiet network.
 
 ## Deliverables
 

@@ -21,20 +21,21 @@ feature is honest:
 
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
 
 from . import monitor
+from .models import LiveMonitorState
 
 
-class MonitorSupervisorTests(TestCase):
+class MonitorSupervisorTests(TransactionTestCase):
     def setUp(self):
-        monitor._state = None
+        LiveMonitorState.objects.all().delete()
 
     def tearDown(self):
-        monitor._state = None
+        LiveMonitorState.objects.all().delete()
 
     def test_a_box_that_cannot_capture_is_refused_with_the_reason(self):
         with patch('capture.privileges.can_capture',
@@ -48,6 +49,14 @@ class MonitorSupervisorTests(TestCase):
         self.assertFalse(state['running'])
         self.assertFalse(state['ever_run'])
         self.assertIn('No live monitor has been started', state['note'])
+
+    def test_where_alerts_would_go_is_visible_before_anything_is_started(self):
+        """
+        Discovering an unconfigured sink from an empty inbox after the incident
+        is the failure the delivery-outcome design exists to prevent, and it
+        starts with being able to see the sink beforehand.
+        """
+        self.assertIn('sinks', monitor.status())
 
     def test_a_second_monitor_is_refused_while_one_runs(self):
         """
@@ -88,8 +97,8 @@ class MonitorSupervisorTests(TestCase):
              patch('capture.service.run_live_capture'):
             state = monitor.start(interface='eth0', window_seconds=1)
             self.assertEqual(state['window_seconds'], monitor.MIN_WINDOW)
-            monitor._state = None
 
+            LiveMonitorState.objects.filter(pk=1).update(running=False)
             state = monitor.start(interface='eth0', window_seconds=99999)
             self.assertEqual(state['window_seconds'], monitor.MAX_WINDOW)
 
@@ -157,7 +166,7 @@ class _FakeSession:
 
 class MonitorEndpointTests(TestCase):
     def setUp(self):
-        monitor._state = None
+        LiveMonitorState.objects.all().delete()
         self.officer = User.objects.create_user(
             username='io', password='x', badge_id='GJ-M1', department='Cyber',
             role=User.Role.INVESTIGATOR, is_approved=True,
@@ -168,7 +177,7 @@ class MonitorEndpointTests(TestCase):
         )
 
     def tearDown(self):
-        monitor._state = None
+        LiveMonitorState.objects.all().delete()
 
     def _client(self, user):
         client = APIClient()
@@ -217,3 +226,78 @@ class MonitorEndpointTests(TestCase):
         body = response.json()
         self.assertIn('interfaces', body)
         self.assertIn('can_capture', body)
+
+
+class MonitorSurvivesWorkersTests(TestCase):
+    """
+    The defect that made this state a table instead of a variable.
+
+    Under gunicorn the application runs three worker processes. `start` spawned
+    its capture thread inside one of them and the next `status` request was
+    balanced onto another, which had never heard of it — so the monitor ran,
+    saw traffic and raised findings while the dashboard reported that nothing
+    had ever been started.
+
+    There is no way to spawn a second gunicorn worker inside a test, so what is
+    checked here is the property that fixes it: every fact the panel draws is
+    read from the database rather than from the memory of whichever process
+    happens to serve the request.
+    """
+
+    def setUp(self):
+        LiveMonitorState.objects.all().delete()
+
+    def test_status_is_read_from_the_row_not_from_process_memory(self):
+        from django.utils import timezone
+
+        # Written as another process would write it — no thread in this one.
+        LiveMonitorState.objects.update_or_create(pk=1, defaults={
+            'running': True, 'interface': 'eth0', 'window_seconds': 30,
+            'started_at': timezone.now(), 'last_heartbeat_at': timezone.now(),
+            'last_window_at': timezone.now(),
+            'windows': 4, 'packets': 8123, 'flows': 91,
+            'findings_total': 5, 'findings_new_total': 2,
+            'alerts_attempted': 2, 'alerts_delivered': 2,
+        })
+
+        state = monitor.status()
+        self.assertTrue(state['running'])
+        self.assertEqual(state['packets'], 8123)
+        self.assertEqual(state['windows'], 4)
+
+    def test_a_worker_that_died_is_reported_as_not_running(self):
+        """
+        A row that says "running" with no heartbeat means the process holding
+        the thread went away. Reporting that as a live capture would leave a
+        permanently green panel watching nothing, which is the failure this
+        whole feature exists to catch.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        stale = timezone.now() - timedelta(seconds=30 * 5)
+        LiveMonitorState.objects.update_or_create(pk=1, defaults={
+            'running': True, 'interface': 'eth0', 'window_seconds': 30,
+            'started_at': stale, 'last_heartbeat_at': stale,
+            'last_window_at': stale, 'packets': 400,
+        })
+
+        state = monitor.status()
+        self.assertFalse(state['running'])
+        self.assertTrue(state['stale'])
+        self.assertIn('stopped without closing it down', state['error'])
+        # The last confirmed figures are still shown, and labelled as such.
+        self.assertEqual(state['packets'], 400)
+
+    def test_stop_crosses_the_process_boundary_through_the_row(self):
+        from django.utils import timezone
+
+        LiveMonitorState.objects.update_or_create(pk=1, defaults={
+            'running': True, 'interface': 'eth0', 'window_seconds': 5,
+            'started_at': timezone.now(), 'last_heartbeat_at': timezone.now(),
+        })
+        self.assertFalse(monitor._should_stop())
+
+        monitor.stop(timeout=0.5)
+        self.assertTrue(monitor._should_stop())
