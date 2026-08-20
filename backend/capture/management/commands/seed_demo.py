@@ -60,7 +60,13 @@ DEMO_ACCOUNTS = [
         'username': 'expert',
         'badge_id': 'DEMO-FSL-001',
         'department': 'Demonstration — Forensic Science Laboratory',
-        'role': 'investigator',
+        # A role of its own, not 'investigator'. This account used to hold
+        # exactly the investigator's permissions, which meant the four
+        # demonstration logins were three roles and a duplicate — and the
+        # s.63(4) separation of duties it was supposed to illustrate was
+        # satisfied by any second login rather than by the signatory being an
+        # examiner. See accounts.models.User.Role.EXPERT.
+        'role': 'expert',
     },
     {
         'username': 'commander',
@@ -232,6 +238,36 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(f"  · account {spec['username']} already present")
 
+    # The capacity each demonstration account holds on a case. The examiner is
+    # deliberately a different account from the investigating officer: BSA 2023
+    # s.63(4) requires two different people to sign the certificate, and a demo
+    # in which one account can sign both halves demonstrates the opposite of
+    # what the constraint is for.
+    SUPPORTING_CAPACITIES = {
+        'expert': CaseAssignment.Role.EXPERT,
+        'commander': CaseAssignment.Role.SUPERVISOR,
+        'viewer': CaseAssignment.Role.OBSERVER,
+    }
+
+    def _assign_supporting_officers(self, case, assigned_by):
+        """
+        Put the other demonstration accounts on the case in their own capacity.
+
+        Silently skips an account that does not exist, so this stays correct on
+        an installation seeded with a different set of users.
+        """
+        from django.contrib.auth import get_user_model
+
+        users = get_user_model().objects
+        for username, role in self.SUPPORTING_CAPACITIES.items():
+            officer = users.filter(username=username).first()
+            if officer is None:
+                continue
+            CaseAssignment.objects.get_or_create(
+                case=case, officer=officer,
+                defaults={'role': role, 'assigned_by': assigned_by},
+            )
+
     def _seed_cases(self, officer):
         """
         Two demonstration case files, so the docket in the sidebar has
@@ -246,6 +282,20 @@ class Command(BaseCommand):
         deadline indicator that has only ever been seen in its happy state has
         not been demonstrated. One case sits inside the ninety days; the other
         is past it, which is the condition the feature exists to catch.
+
+        Every demonstration account is put on both cases in the capacity its
+        role implies, for two reasons. The docket is scoped per officer — it
+        answers "which cases am *I* on" — so an account with no assignment
+        correctly shows an empty panel, and somebody signing in as the
+        supervisor to look around would conclude the feature was unfinished.
+
+        The second reason is the one that matters. BSA 2023 s.63(4) needs the
+        certificate signed by two **different** people, and `CaseAssignment`
+        allows one capacity per officer per case precisely so that requirement
+        is checkable before a certificate is drafted rather than at signing.
+        Seeding the investigating officer and the examiner as separate accounts
+        on the same case is what makes that constraint visible instead of
+        theoretical.
         """
         from datetime import timedelta
 
@@ -291,6 +341,7 @@ class Command(BaseCommand):
                 case=case, officer=officer,
                 defaults={'role': spec['role'], 'assigned_by': officer},
             )
+            self._assign_supporting_officers(case, officer)
             self.stdout.write(
                 f"  {'+' if created else '·'} case {case.case_number} "
                 f"(opened {case.opened_on})"

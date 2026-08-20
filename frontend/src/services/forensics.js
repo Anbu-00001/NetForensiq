@@ -5,6 +5,18 @@ import api from './api';
  * If a number appears on screen and is not traceable to this file, it is a bug.
  */
 
+/**
+ * Take a capture into evidence through the browser.
+ *
+ * No explicit Content-Type: the browser sets multipart/form-data with the
+ * boundary token, and naming it by hand produces a body the server cannot
+ * split. No timeout either — a 400 MB capture is sealed, hashed and fully
+ * parsed inside this request, and the default would abort a working import
+ * partway through.
+ */
+export const uploadCapture = (formData) =>
+  api.post('/capture/upload/', formData, { timeout: 0 }).then((r) => r.data);
+
 export const listSessions = () =>
   api.get('/sessions/').then((r) => r.data);
 
@@ -169,6 +181,16 @@ export const SEVERITY_COLOR = {
  */
 export const listPendingAccounts = () =>
   api.get('/auth/accounts/pending/').then((r) => r.data);
+
+/**
+ * The sign-in log. Administrators only — the server refuses anyone else.
+ *
+ * The log has always been written; until now there was no way to read it from
+ * inside the application, which made the promise on the sign-in page
+ * uncheckable.
+ */
+export const listSignInAttempts = (params = {}) =>
+  api.get('/auth/sign-in-attempts/', { params }).then((r) => r.data);
 
 export const decideAccount = (username, decision) =>
   api.post('/auth/accounts/pending/', { username, decision }).then((r) => r.data);

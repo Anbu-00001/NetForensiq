@@ -57,7 +57,7 @@ is written to the exhibit's chain of custody.
 
 | Sub-item | State | Where |
 |---|---|---|
-| Signature-based detection | 🟡 | Nine deterministic rules with cited thresholds; **no external IOC feed** (abuse.ch, SSLBL) wired in |
+| Signature-based detection | ✅ | Ten deterministic rules with cited thresholds, **plus an external indicator feed** — `capture/ioc.py`, `manage.py import_ioc_feed` |
 | Malware communication and botnets | ✅ | `C2_BEACON_PERIODIC`, `C2_BEACON_KEEPALIVE` — RITA methodology |
 | Data exfiltration | ✅ | `EXFIL_VOLUME_ASYMMETRY` |
 | Covert channels and tunnelling | ✅ | `DNS_TUNNEL_*`, `ICMP_TUNNEL_OVERSIZED`, `COVERT_CHANNEL_UNKNOWN_PORT` |
@@ -103,8 +103,8 @@ survives a colour-blind reader and a dim projector.
 | Sub-item | State | Where |
 |---|---|---|
 | Search and filter historical traffic | ✅ | Flow/detection/DNS filters, findings search |
-| Reconstruction of attack scenarios | 🟡 | `HOST_CORROBORATED` assembles multi-rule host stories; no explicit kill-chain view |
-| Timeline correlation of events | 🟡 | Per-session timeline exists; a Case now groups exhibits, but there is no cross-session correlation view |
+| Reconstruction of attack scenarios | ✅ | `capture/scenario.py`, `/api/sessions/{id}/scenario/` — findings per host in MITRE ATT&CK tactic order, with the ten tactics traffic cannot evidence named and every clock/order disagreement reported |
+| Timeline correlation of events | 🟡 | Per-session timeline; the scenario view now orders a host's findings on the packet clock across stages. No cross-**session** correlation view |
 | Case management for investigators | ✅ | `evidence.models.Case` + `CaseAssignment`, `/api/cases/` — exhibits, officers and status on one record |
 
 ## 7. Evidence Collection & Reporting
@@ -153,7 +153,7 @@ number is carried end to end.
 
 | Sub-item | State | Where |
 |---|---|---|
-| Encryption of captured data | ❌ | Evidence store is on the filesystem, unencrypted; relies on disk encryption |
+| Encryption of captured data | ✅ | AES-256-GCM in 1 MiB chunks, per-chunk nonce and tag, final-chunk flag so truncation is detectable — `evidence/crypto.py` |
 | Role-based access control | ✅ | Four roles, enforced server-side, tested |
 | Secure storage and access logs | ✅ | `AuditLog` — every read, verify, export and sign-in attempt, including rate-limited ones |
 | Compliance with digital evidence standards | ✅ | BSA 2023 §63(4) two-part certificate, THE SCHEDULE Parts A/B |
@@ -162,16 +162,21 @@ number is carried end to end.
 
 ## What is left, ranked
 
-1. **Investigator-friendly UI** (obj. 9). All four roles render an almost
-   identical dashboard; the new palette is defined but components still use
-   hardcoded colours. This is the gap most likely to cost the pitch.
-2. **Case management** (obj. 6). A Case object grouping exhibits, officers and
-   status. Also unlocks "linking evidence with reported cases" (obj. 8).
-3. **Encryption at rest** (obj. 10). Straightforward and currently absent.
-4. **Session reconstruction** (obj. 2) and **FTP/SMTP decoding**.
-5. **External IOC feed** (obj. 3) — abuse.ch SSLBL is offline-downloadable and
-   fits the air-gapped model.
-6. **Live dashboard streaming** (obj. 9).
+Everything on the previous list has landed. What genuinely remains:
+
+1. **Integration with Cyber Crime Branch databases** (obj. 8). Not built and
+   not buildable honestly — CCTNS/ICJS integration needs authorisation this
+   project does not have, and no public interface exists to build against.
+   Stated as a refusal rather than carried as a to-do.
+2. **Cross-session timeline correlation** (obj. 6). Within a capture, findings
+   are ordered on the packet clock; correlating *between* exhibits on one case
+   is not built.
+3. **Multi-language PDF reports** (bonus). Gujarati renders in the interface;
+   the PDF path cannot shape the script correctly and says so.
+4. **Dashboard streaming** (obj. 9). The dashboard polls while a capture runs
+   rather than pushing.
+5. **A formal throughput benchmark** (obj. 1). 166,093 flows from a week-long
+   capture parse and analyse; no published packets-per-second figure.
 
 
 ---
@@ -180,10 +185,10 @@ number is carried end to end.
 
 | Bonus item | State | Where |
 |---|---|---|
-| Real-time alerting for active threats | 🟡 | Live capture writes flows as it runs and rules can be run against a running session; no push/webhook delivery yet |
+| Real-time alerting for active threats | ✅ | `capture/alerting.py` — RFC 5424 syslog over UDP/TCP and ECS webhooks, fired after findings persist. Plus a live capture heartbeat in the operator strip |
 | Integration with SIEM systems | ✅ | `capture/siem.py` — **ECS**, **CEF 0** and **RFC 5424**, streamed line-by-line so a session with thousands of findings does not have to be held in memory. Nine tests, including one asserting the CEF header keeps exactly seven fields and one asserting the FIR number never leaves the case file |
 | Encrypted traffic analysis without decryption | ✅ | **JA4** TLS client fingerprinting — `capture/tls_fingerprint.py`, verified against FoxIO's published reference values. Plus SNI, timing, volume and DNS. Nothing is decrypted and nothing claims to be |
-| Automated attack classification | 🟡 | Findings carry rule, category and severity; **MITRE ATT&CK technique mapping is the missing piece** and is being researched before any identifier goes on a slide |
+| Automated attack classification | ✅ | **MITRE ATT&CK** technique mapping — `capture/attack_mapping.py`, every identifier checked against attack.mitre.org and carrying its URL. Rendered on each finding and assembled into a stage sequence. Two of eleven rules map to **nothing**, deliberately, and print the reason |
 | Multi-language support for reports | 🟡 | Gujarati glossary renders in the interface. The PDF path cannot yet shape Gujarati correctly — ReportLab places glyphs in codepoint order, which mangles the script. Documented in `i18n/gujarati.js`; a real fix needs a shaping engine |
 | Cloud-based scalable deployment | ✅ | `Dockerfile` + `docker-compose.yml` — multi-stage build, non-root uid 10001, healthcheck, tini as PID 1, Postgres with a real readiness probe, named volumes, port bound to loopback. **Image builds and runs; verified healthy and serving.** Coexists with the air-gapped path via `docker save`/`docker load` |
 

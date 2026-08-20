@@ -144,8 +144,13 @@ class CertificateTests(TestCase):
         self.officer = User.objects.create_user(
             username='officer', password='x', badge_id='GJ-1', department='Cyber',
         )
+        # role='expert', not the default. Part B is the examiner's attestation
+        # and the service refuses anyone without examiner standing — a fixture
+        # that quietly used an investigator here would be testing the rule the
+        # code used to have.
         self.expert = User.objects.create_user(
             username='expert', password='x', badge_id='GJ-2', department='FSL',
+            role=User.Role.EXPERT,
         )
 
     def test_certificate_freezes_the_verified_hash(self):
@@ -224,8 +229,13 @@ class CertificatePdfTests(TestCase):
         self.officer = User.objects.create_user(
             username='officer', password='x', badge_id='GJ-1', department='Cyber',
         )
+        # role='expert', not the default. Part B is the examiner's attestation
+        # and the service refuses anyone without examiner standing — a fixture
+        # that quietly used an investigator here would be testing the rule the
+        # code used to have.
         self.expert = User.objects.create_user(
             username='expert', password='x', badge_id='GJ-2', department='FSL',
+            role=User.Role.EXPERT,
         )
 
     @staticmethod

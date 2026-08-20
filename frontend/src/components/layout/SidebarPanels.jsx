@@ -366,4 +366,69 @@ export function CaptureHealth() {
   );
 }
 
+/**
+ * Which indicator feeds this machine holds, and how old they are.
+ *
+ * A feed going stale is invisible without this. Detection keeps running,
+ * findings keep appearing, and nothing distinguishes "the lists we hold say
+ * this traffic is clean" from "the lists we hold are a year old and would not
+ * know". The number that matters is therefore the age, not the entry count.
+ *
+ * The empty state is stated plainly rather than warned about. A workstation
+ * nobody has carried a feed to is correctly configured — none of this tool's
+ * own rules depend on one — and an amber badge there would train an officer to
+ * ignore the badge that matters.
+ */
+export function IntelFeeds() {
+  const posture = usePosture();
+  if (!posture) return null;
+
+  const feeds = posture.feeds;
+  if (!feeds) return null;
+
+  if (!feeds.loaded) {
+    return (
+      <PanelShell title="INDICATOR FEEDS">
+        <Typography sx={{ fontSize: 10.5, color: GREY, lineHeight: 1.45 }}>
+          {feeds.note}
+        </Typography>
+      </PanelShell>
+    );
+  }
+
+  const tone = { stale: CRITICAL, ageing: MEDIUM, current: INTACT }[feeds.level]
+    ?? GREY_MUTED;
+
+  return (
+    <PanelShell title={`INDICATOR FEEDS · ${feeds.loaded}`}>
+      {feeds.feeds.map((feed) => (
+        <Box key={feed.name} sx={{ mb: 0.9, '&:last-of-type': { mb: 0 } }}>
+          <Typography sx={{
+            fontSize: 10.5, color: INK_SOFT, fontWeight: 600, lineHeight: 1.3,
+          }}>
+            {feed.name}
+          </Typography>
+          <Typography sx={{ fontSize: 9.5, fontFamily: MONO, color: GREY }}>
+            {feed.entry_count.toLocaleString()} indicators
+          </Typography>
+          <Typography sx={{
+            fontSize: 9.5, lineHeight: 1.35,
+            color: feeds.level === 'current' ? GREY : tone,
+            fontWeight: feeds.level === 'current' ? 400 : 700,
+          }}>
+            obtained {feed.age_days === 0 ? 'today' : `${feed.age_days} day${
+              feed.age_days === 1 ? '' : 's'} ago`}
+          </Typography>
+        </Box>
+      ))}
+      {feeds.level === 'stale' && (
+        <Typography sx={{ fontSize: 9, color: CRITICAL, lineHeight: 1.35, mt: 0.5 }}>
+          Older than 90 days. Addresses get reassigned; a match this far from
+          the traffic needs confirming.
+        </Typography>
+      )}
+    </PanelShell>
+  );
+}
+
 export default DutyBoard;

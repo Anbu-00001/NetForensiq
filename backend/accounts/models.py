@@ -8,6 +8,17 @@ class User(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
         INVESTIGATOR = 'investigator', 'Investigator'
+        # The examiner. A separate role and not a flavour of investigator,
+        # because BSA 2023 s.63(4) needs the person in charge of the device and
+        # the expert to be *different people*, and a rule that two usernames
+        # must differ is not that — two investigators are interchangeable, so
+        # the guarantee reduces to "somebody remembered to use a second login".
+        #
+        # Giving the examiner its own role makes the separation structural: an
+        # investigator cannot countersign at all, and an examiner cannot triage
+        # a finding or seal an exhibit. The two halves of the certificate are
+        # then signed by two people who could not have done each other's job.
+        EXPERT = 'expert', 'FSL / Examiner'
         VIEWER = 'viewer', 'Viewer'
 
     role = models.CharField(
@@ -48,6 +59,12 @@ class AuditLog(models.Model):
         # these entries records the moment a finding was confirmed.
         LOGIN_SUCCESS = 'login_success', 'Login Success'
         LOGIN_FAILED = 'login_failed', 'Login Failed'
+        # A sign-in that failed for a reason that is not the credentials —
+        # the database was locked, a dependency was down. Kept distinct
+        # because recording a server fault as "credentials rejected" puts a
+        # false statement about an officer into the permanent record, and the
+        # record is the artefact that goes to court.
+        LOGIN_ERROR = 'login_error', 'Sign-in Failed — Server Fault'
         LOGOUT = 'logout', 'Logout'
         REGISTER = 'register', 'Registration Submitted'
         APPROVE_USER = 'approve_user', 'User Approved'

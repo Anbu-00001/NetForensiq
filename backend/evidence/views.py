@@ -10,7 +10,7 @@ from rest_framework.serializers import (
 )
 
 from accounts.models import AuditLog
-from accounts.permissions import IsInvestigatorOrReadOnly
+from accounts.permissions import IsExaminer, IsInvestigatorOrReadOnly
 from accounts.utils import get_client_ip, log_action
 
 from .certificate_pdf import render_certificate_pdf
@@ -295,6 +295,7 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
             'store': operator_posture.store_headroom(),
             'capture': operator_posture.capture_heartbeat(),
             'custody': operator_posture.custody_reconciliation(),
+            'feeds': operator_posture.intel_feeds(),
         })
 
     @action(detail=False, methods=['get'], url_path='store-status')
@@ -468,7 +469,8 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Section63Certificate.objects.select_related('evidence')
     serializer_class = Section63CertificateSerializer
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'],
+            permission_classes=[IsExaminer])
     def sign(self, request, pk=None):
         """
         Countersign Part B as the expert.
@@ -477,6 +479,13 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
         the person in charge of the device, and an expert. Collapsing them into
         one call would let a single account produce a complete certificate,
         which is precisely the thing the two-part form exists to prevent.
+
+        Gated on `IsExaminer` rather than the viewset's default so an
+        investigator is refused at the door with a sentence explaining why,
+        instead of reaching the service layer and being refused there. The
+        service check stays regardless — it is the one that runs for the CLI
+        and for anything else that calls `sign_part_b` directly, and a rule
+        enforced only at the HTTP edge is a rule with a way around it.
         """
         certificate = self.get_object()
         try:

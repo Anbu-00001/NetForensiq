@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.utils import timezone
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework import generics, status, serializers
@@ -8,7 +10,11 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
+from rest_framework_simplejwt.exceptions import InvalidToken
+
 from .serializers import RegisterSerializer, UserSerializer
+
 from .models import User, AuditLog
 from .permissions import IsAdministrator
 from .utils import log_action, get_client_ip
@@ -104,7 +110,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         username = request.data.get('username', '')
         try:
             response = super().post(request, *args, **kwargs)
-        except Exception:
+        except (AuthenticationFailed, InvalidToken, TokenError, ValidationError):
             # The counter is on the account, not on the request, so it survives
             # an attacker changing source address. It was previously reset to
             # zero on success and never incremented anywhere — a field that
@@ -121,6 +127,34 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     f'Credentials rejected; {attempted.failed_login_attempts} '
                     f'consecutive failures for this account'
                 ) if attempted else 'Credentials rejected; no such account',
+            )
+            raise
+        except Exception as exc:
+            # Everything that is not the password being wrong.
+            #
+            # This used to be caught by the same `except Exception` above, which
+            # meant a locked database or a dead dependency was written into the
+            # permanent record as "Credentials rejected" *and* counted against
+            # the officer's consecutive-failure total. It happened: a long
+            # analysis held SQLite's write lock, three sign-ins by a legitimate
+            # commander raised OperationalError, and the audit log recorded
+            # three credential rejections that never occurred.
+            #
+            # That is the worst kind of defect this system can have. The audit
+            # log is the artefact that goes to a court, and it was making a
+            # false statement about a named officer while the screen in front of
+            # them correctly said the fault was the server's. The counter is
+            # also a lockout mechanism, so a busy database could have locked out
+            # the person trying to use it.
+            #
+            # So: distinct action, no counter increment, and the reason recorded.
+            log_action(
+                request, AuditLog.Action.LOGIN_ERROR,
+                username_attempted=username,
+                detail=(
+                    f'Sign-in could not be completed: {type(exc).__name__}: {exc}. '
+                    f'This is not a statement about the credentials offered.'
+                ),
             )
             raise
 
@@ -295,3 +329,113 @@ class PendingAccountsView(APIView):
             )
 
         return Response(UserSerializer(account).data)
+
+
+class SignInAttemptsView(APIView):
+    """
+    Who tried to sign in, when, from where, and whether it worked.
+
+    Why this exists
+    ---------------
+    The sign-in page tells every officer that their attempts are recorded with
+    a timestamp, a username and a source address. That was true — the rows were
+    written faithfully — and there was no way to read them from inside the
+    application. A promise nobody can check is a promise on a poster.
+
+    It also closes an objective the problem statement names outright: "secure
+    storage and **access logs**". An access log that only a Django superuser
+    with shell access can read is not an access log an investigating agency can
+    produce.
+
+    What it deliberately does not do
+    --------------------------------
+    It never shows a password, a token, or the body of any attempt — only what
+    the AuditLog already holds. Failed attempts are shown with the username as
+    it was typed, which is the point: a run of attempts against a username that
+    does not exist is what a credential-stuffing attempt looks like, and hiding
+    the string would hide the attack.
+
+    Administrators only. This names officers and source addresses, and it is
+    the one view where a viewer account could learn which usernames are real.
+    """
+
+    permission_classes = [IsAdministrator]
+
+    # Enough to see a pattern without turning the page into a data dump.
+    DEFAULT_LIMIT = 100
+    MAX_LIMIT = 500
+
+    SIGN_IN_ACTIONS = (
+        AuditLog.Action.LOGIN_SUCCESS,
+        AuditLog.Action.LOGIN_FAILED,
+        AuditLog.Action.LOGIN_ERROR,
+        AuditLog.Action.LOGOUT,
+    )
+
+    def get(self, request):
+        try:
+            limit = int(request.query_params.get('limit', self.DEFAULT_LIMIT))
+        except (TypeError, ValueError):
+            limit = self.DEFAULT_LIMIT
+        limit = max(1, min(limit, self.MAX_LIMIT))
+
+        outcome = (request.query_params.get('outcome') or '').strip()
+        rows = AuditLog.objects.filter(action__in=self.SIGN_IN_ACTIONS)
+        if outcome == 'failed':
+            rows = rows.filter(action__in=(AuditLog.Action.LOGIN_FAILED,
+                                           AuditLog.Action.LOGIN_ERROR))
+        elif outcome in dict(AuditLog.Action.choices):
+            rows = rows.filter(action=outcome)
+
+        username = (request.query_params.get('username') or '').strip()
+        if username:
+            rows = rows.filter(username_attempted__icontains=username)
+
+        window = timezone.now() - timedelta(hours=24)
+        counted = AuditLog.objects.filter(action__in=self.SIGN_IN_ACTIONS)
+
+        return Response({
+            'attempts': [
+                {
+                    'id': row.id,
+                    'timestamp': row.timestamp.isoformat(),
+                    'action': row.action,
+                    'action_label': row.get_action_display(),
+                    # Whether it worked, as one word, so a reader does not have
+                    # to know the action vocabulary to scan the column.
+                    'outcome': (
+                        'success' if row.action == AuditLog.Action.LOGIN_SUCCESS
+                        else 'signed out' if row.action == AuditLog.Action.LOGOUT
+                        else 'server fault' if row.action == AuditLog.Action.LOGIN_ERROR
+                        else 'refused'
+                    ),
+                    # As typed. A run against a username that does not exist is
+                    # the signature of credential stuffing.
+                    'username_attempted': row.username_attempted,
+                    'account_exists': bool(row.user_id),
+                    'ip_address': row.ip_address,
+                    'user_agent': row.user_agent[:160],
+                    'detail': row.detail,
+                }
+                for row in rows.select_related('user')[:limit]
+            ],
+            'returned': min(limit, rows.count()),
+            'total_matching': rows.count(),
+            'last_24h': {
+                'success': counted.filter(
+                    action=AuditLog.Action.LOGIN_SUCCESS,
+                    timestamp__gte=window).count(),
+                'refused': counted.filter(
+                    action=AuditLog.Action.LOGIN_FAILED,
+                    timestamp__gte=window).count(),
+                'server_fault': counted.filter(
+                    action=AuditLog.Action.LOGIN_ERROR,
+                    timestamp__gte=window).count(),
+            },
+            # Named so a reader knows the list is not the whole story where the
+            # store has been trimmed.
+            'retention_note': (
+                'Every sign-in attempt this installation has recorded is held; '
+                'nothing here is aged out automatically.'
+            ),
+        })

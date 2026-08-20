@@ -340,3 +340,74 @@ def custody_reconciliation():
             stale += 1
 
     return {'mismatched_exhibits': stale}
+
+
+def intel_feeds():
+    """
+    Which threat-intelligence feeds are loaded, and how old they are.
+
+    This row was deliberately not built until there was a feed to describe —
+    an indicator of feed freshness on a system with no feed is chrome
+    describing a capability that does not exist. Now that
+    `capture/ioc.py` imports them, the state is worth an officer's eyeline for
+    one reason: **a feed silently going stale is invisible.** Detection keeps
+    running, findings keep appearing, and nothing on screen distinguishes "the
+    lists we hold say this traffic is clean" from "the lists we hold are
+    fourteen months old and would not know".
+
+    Age is measured from `retrieved_on`, which the importing officer stated,
+    not from a file timestamp — see `IOCFeed`.
+
+    The empty case is reported as a fact rather than as a warning. An
+    air-gapped workstation nobody has carried a feed to is correctly
+    configured, and the detection engine's own rules do not depend on one.
+    """
+    from datetime import date
+
+    from capture.models import IOCFeed
+
+    feeds = list(IOCFeed.objects.all()[:5])
+    if not feeds:
+        return {
+            'loaded': 0,
+            'feeds': [],
+            'oldest_days': None,
+            'level': 'none',
+            'note': (
+                'No indicator feed has been imported. Findings rest on this '
+                'tool\'s own measured thresholds, which do not need one.'
+            ),
+        }
+
+    today = date.today()
+    rows = []
+    for feed in feeds:
+        age = (today - feed.retrieved_on).days
+        rows.append({
+            'name': feed.name,
+            'entry_count': feed.entry_count,
+            'retrieved_on': feed.retrieved_on.isoformat(),
+            'age_days': age,
+        })
+
+    oldest = max(row['age_days'] for row in rows)
+    # Judgement, not statute, and labelled as such wherever it is shown.
+    # A blocklist a month old is ordinary; one past a quarter is describing an
+    # internet that has moved on.
+    if oldest > 90:
+        level = 'stale'
+    elif oldest > 30:
+        level = 'ageing'
+    else:
+        level = 'current'
+
+    return {
+        'loaded': len(rows),
+        'feeds': rows,
+        'oldest_days': oldest,
+        'level': level,
+        'note': (
+            'Age is measured from the date the importing officer stated the '
+            'file was obtained.'
+        ),
+    }

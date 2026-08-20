@@ -7,9 +7,11 @@ import RuleFolderOutlinedIcon from '@mui/icons-material/RuleFolderOutlined';
 import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
+import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
+import FingerprintOutlinedIcon from '@mui/icons-material/FingerprintOutlined';
 
 import EvidencePosture from './EvidencePosture';
-import { DutyBoard, CaseDocket, CaptureHealth } from './SidebarPanels';
+import { DutyBoard, CaseDocket, CaptureHealth, IntelFeeds } from './SidebarPanels';
 import { listSessions, unwrap } from '../../services/forensics';
 import { PANEL, RULE, RULE_STRONG, CYAN, INK, GREY, PAPER } from '../../theme/tokens';
 import { useCurrentUser } from '../../services/session';
@@ -20,6 +22,16 @@ const navItems = [
   { label: 'Dashboard', icon: <InsightsOutlinedIcon />, path: '/dashboard' },
   { label: 'Findings', icon: <RuleFolderOutlinedIcon />, path: '/detections' },
   { label: 'Evidence', icon: <GavelOutlinedIcon />, path: '/evidence' },
+  { label: 'Import capture', icon: <UploadFileOutlinedIcon />, path: '/import' },
+  // The access log the sign-in page promises. Administrators only, because it
+  // names officers and source addresses — and because it is the one view where
+  // a viewer account could learn which usernames are real.
+  {
+    label: 'Sign-in log',
+    icon: <FingerprintOutlinedIcon />,
+    path: '/sign-in-log',
+    adminOnly: true,
+  },
   // Administrators only. Shown to nobody else, because a navigation entry
   // leading to "you are not cleared for this" is a worse answer than no entry.
   {
@@ -236,6 +248,7 @@ function Sidebar() {
           which cases         — and in what capacity, which decides who may
                                 sign what;
           what is recording   — and whether there is room left to record into;
+          what we know         — the indicator feeds, and how old they are;
           the capture window  — a detail about the exhibit on screen.
 
         A broken seal outranks a timestamp, and an overdue statutory duty
@@ -246,6 +259,7 @@ function Sidebar() {
         <EvidencePosture />
         <CaseDocket />
         <CaptureHealth />
+        <IntelFeeds />
         <CaptureWindow />
       </Box>
 

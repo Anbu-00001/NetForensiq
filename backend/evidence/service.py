@@ -12,7 +12,8 @@ from django.utils import timezone
 
 from . import crypto
 from .models import (
-    Case, CustodyEvent, EvidenceRecord, Section63Certificate, hash_file,
+    Case, CaseAssignment, CustodyEvent, EvidenceRecord, Section63Certificate,
+    hash_file,
 )
 
 
@@ -360,6 +361,41 @@ def issue_certificate(
     return certificate
 
 
+def _is_examiner_for(user, evidence):
+    """
+    Whether this account may sign Part B for this exhibit.
+
+    Two ways to qualify, and both are deliberate:
+
+      the **account role** is FSL / Examiner — the ordinary case, an officer
+      posted to the laboratory rather than to the investigation;
+
+      or they hold the **EXPERT capacity on the case** this exhibit is filed
+      under — which is how a qualified officer seconded to one matter is
+      handled without changing what they are on every other matter.
+
+    Administrators and Django superusers qualify because somebody has to be
+    able to finish a certificate on a single-officer installation. That is a
+    deliberate loosening and it is visible here rather than buried: an
+    administrator signing Part B is recorded as an administrator signing Part B.
+    """
+    from accounts.models import User
+
+    if user is None:
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    if getattr(user, 'role', None) in (User.Role.EXPERT, User.Role.ADMIN):
+        return True
+
+    case = getattr(evidence, 'case', None)
+    if case is None:
+        return False
+    return case.assignments.filter(
+        officer=user, role=CaseAssignment.Role.EXPERT,
+    ).exists()
+
+
 def sign_part_b(certificate, user, name='', designation='', organisation='',
                 qualification='', actor_ip=None):
     """
@@ -386,6 +422,28 @@ def sign_part_b(certificate, user, name='', designation='', organisation='',
             f"'{getattr(user, 'username', user)}'. Section 63(4) requires the person in "
             f"charge of the device and an expert to be different people; a certificate "
             f"signed twice by one account attests to nothing."
+        )
+
+    # Two *different accounts* was the whole check, and it is not enough.
+    #
+    # Any two investigators satisfy it, and investigators are interchangeable —
+    # so the guarantee reduced to "somebody remembered to use a second login".
+    # The statute asks for the person in charge of the device and an expert,
+    # which is a claim about what the second signatory *is*, not about their
+    # session. So the countersignatory has to hold examiner standing: the
+    # account role, or the EXPERT capacity on the case this exhibit is filed
+    # under.
+    #
+    # The per-case capacity is honoured because a real FSL examiner is assigned
+    # to a matter, and because it makes the assignment in the case file mean
+    # something rather than being a label in a sidebar.
+    if not _is_examiner_for(user, certificate.evidence):
+        raise ValueError(
+            f"Refusing to countersign {certificate.reference}: "
+            f"'{getattr(user, 'username', user)}' does not hold examiner "
+            f"standing. Part B is the expert's attestation — the signatory "
+            f"must hold the FSL / Examiner role, or be assigned to this case "
+            f"as its examiner."
         )
 
     ok, computed = certificate.evidence.verify()

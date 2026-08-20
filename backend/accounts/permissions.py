@@ -70,6 +70,40 @@ class IsInvestigatorOrReadOnly(BasePermission):
         )
 
 
+class IsExaminer(BasePermission):
+    """
+    The FSL examiner, or an administrator.
+
+    Countersigning Part B of a s.63(4) certificate is the one act reserved to
+    this role. An investigator is refused here for the same reason an examiner
+    is refused a triage decision: the statute wants two people who did
+    different jobs, and a separation that any investigator can satisfy from
+    either side is not a separation.
+
+    Administrators are admitted because somebody has to be able to act on a
+    single-officer installation, and because the alternative — an account that
+    can approve users but cannot complete a certificate — produces a system
+    that deadlocks the first time an examiner leaves.
+    """
+
+    message = (
+        'Countersigning Part B requires FSL / Examiner clearance. Section '
+        '63(4) requires the person in charge of the device and the expert to '
+        'be different people.'
+    )
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if not (user.is_superuser or getattr(user, 'is_approved', False)):
+            return False
+        return (
+            user.is_superuser
+            or getattr(user, 'role', None) in (User.Role.ADMIN, User.Role.EXPERT)
+        )
+
+
 class IsAdministrator(BasePermission):
     """
     Administrators only.
@@ -117,7 +151,12 @@ class CanReadCommunicationContent(BasePermission):
             return False
         if not (user.is_superuser or getattr(user, 'is_approved', False)):
             return False
+        # The examiner is admitted: they are the person whose job is to read
+        # the reconstructed session and speak to it. Withholding the content
+        # from the expert who has to certify it would be an odd reading of the
+        # word "expert".
         return (
             user.is_superuser
-            or getattr(user, 'role', None) in (User.Role.ADMIN, User.Role.INVESTIGATOR)
+            or getattr(user, 'role', None) in (
+                User.Role.ADMIN, User.Role.INVESTIGATOR, User.Role.EXPERT)
         )

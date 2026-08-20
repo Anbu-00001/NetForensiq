@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     ApprovalStatusView, CustomTokenObtainPairView, LogoutView, MeView,
-    PendingAccountsView, RegisterView,
+    PendingAccountsView, RegisterView, SignInAttemptsView,
 )
 
 urlpatterns = [
@@ -15,4 +15,6 @@ urlpatterns = [
     # act that decides who may touch evidence.
     path('accounts/pending/', PendingAccountsView.as_view(), name='pending-accounts'),
     path('status/', ApprovalStatusView.as_view(), name='approval-status'),
+    # The access log the sign-in page promises. Administrators only.
+    path('sign-in-attempts/', SignInAttemptsView.as_view(), name='sign-in-attempts'),
 ]
