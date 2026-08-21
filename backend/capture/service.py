@@ -102,6 +102,37 @@ def _read_into(aggregator, path):
             aggregator.process(pkt)
 
 
+def _analyse_after_ingest(session):
+    """
+    Run the detection rules over a session that has just been ingested.
+
+    Why this is called from every ingest path
+    ========================================
+    It was called from only one — the windowed monitor loop — and the gap was
+    invisible in the demo, because `seed_demo` analyses each reference capture
+    itself after importing it. Every other route in (the browser upload,
+    `manage.py import_pcap`, and a one-shot live capture) produced a session
+    holding flows and DNS records and **zero findings**, with nothing on
+    screen to separate "this capture is clean" from "this capture has never
+    been examined".
+
+    For a tool whose output is meant to be evidence those are opposite
+    claims, and the reassuring one was the default. An officer would have
+    uploaded a capture, seen no findings, and drawn a conclusion the system
+    had done no work to support.
+
+    Why alerts are not dispatched
+    =============================
+    An import describes traffic that already happened, sometimes years ago.
+    Paging a duty officer the moment a 2015 capture is loaded would be an
+    alert about the act of importing, not about the network — so findings are
+    recorded and shown, and the alert sinks are left for the live monitor,
+    which is the only path watching something that is still happening.
+    """
+    from .detection import analyse_session
+    return analyse_session(session, dispatch_alerts=False)
+
+
 def _fail(session, exc):
     session.state = CaptureSession.State.FAILED
     session.error_message = str(exc)
@@ -191,7 +222,9 @@ def run_live_capture(interface, packet_count=0, duration=0, bpf_filter='',
         raise
 
     flows, dns_records = aggregator.finalize()
-    return session, persist_results(session, flows, dns_records, aggregator)
+    counts = persist_results(session, flows, dns_records, aggregator)
+    _analyse_after_ingest(session)
+    return session, counts
 
 
 def _fingerprint(finding):
@@ -339,4 +372,6 @@ def _import_from(plaintext_path, recorded_path, name, user, session, home_net,
         raise
 
     flows, dns_records = aggregator.finalize()
-    return session, persist_results(session, flows, dns_records, aggregator)
+    counts = persist_results(session, flows, dns_records, aggregator)
+    _analyse_after_ingest(session)
+    return session, counts

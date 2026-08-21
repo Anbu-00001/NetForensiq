@@ -55,6 +55,9 @@ backend/static_collected/
 backend/.env
 backend/.env.*
 !backend/.env.example
+*.key
+.evidence.key
+backend/.evidence.key
 
 # ──────────────────────────────────────────────────────────────
 # Node / JavaScript

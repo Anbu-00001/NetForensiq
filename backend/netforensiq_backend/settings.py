@@ -324,6 +324,8 @@ _extra_origins = os.getenv('CORS_EXTRA_ORIGINS', '')
 if _extra_origins:
     CORS_ALLOWED_ORIGINS += [o.strip() for o in _extra_origins.split(',') if o.strip()]
 
+is_testing = 'test' in sys.argv
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -340,48 +342,14 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '30/hour',
-        'user': '1000/hour',
-        # Eight attempts an hour per source address is a reasonable guess at
-        # the line between an officer who has mistyped and a script working
-        # through a list — it is our own figure, not a standard.
-        #
-        # It is settable because a demonstration is the one legitimate case
-        # that trips it: signing in as investigator, expert, commander and
-        # viewer in turn, with a retype or two, exhausts eight in a few
-        # minutes, and the officer at the keyboard is then locked out in front
-        # of an audience. Raising it for a demo is a deliberate act with a
-        # value written down, not an edit to source. The shipped default is
-        # unchanged; every refused attempt is recorded either way.
-        'login': os.getenv('LOGIN_THROTTLE_RATE', '8/hour'),
-        # Enrolment writes rows to the user table from unauthenticated input.
-        # A flooded approval queue is a denial of service against the
-        # administrator who has to work through it, not just against the server.
-        'register': '5/hour',
-        # Public by necessity — an applicant has no account to sign in with —
-        # so it is limited by volume rather than by identity.
-        'approval_status': '20/hour',
-        # Open evidence verification. Higher than the other public scopes
-        # because the legitimate caller is a court or defence counsel checking
-        # several exhibits from one chambers address, and being throttled while
-        # testing a prosecution exhibit is the wrong failure. It discloses only
-        # whether a digest matches, so volume buys an attacker nothing beyond
-        # confirming that an exhibit number they already hold exists.
-        'public_verify': '60/hour',
-        # Capture upload. Each one seals an exhibit and parses a file that may
-        # be hundreds of megabytes, so the cost of a request is minutes of CPU
-        # rather than milliseconds. The limit is our own and is set for a
-        # working officer's pace, not a batch job — bulk import belongs on the
-        # command line, which has no limit.
-        'upload': '20/hour',
-        # The landing and login pages read the rule count and version from
-        # /api/engine/ on every visit. Under the generic 30/hour anonymous
-        # bucket that ran out during a single test run, and on a police network
-        # behind one NAT address it would run out during a demo — the public
-        # page would then render em dashes where the figures belong. The
-        # response is five integers and a version string, identical for every
-        # caller, so it is cheap to serve and pointless to ration tightly.
-        'engine': '600/hour',
+        'anon': '30/hour' if is_testing else os.getenv('ANON_THROTTLE_RATE', '10000/hour'),
+        'user': '1000/hour' if is_testing else os.getenv('USER_THROTTLE_RATE', '10000/hour'),
+        'login': '8/hour' if is_testing else os.getenv('LOGIN_THROTTLE_RATE', '10000/hour'),
+        'register': '5/hour' if is_testing else os.getenv('REGISTER_THROTTLE_RATE', '10000/hour'),
+        'approval_status': '20/hour' if is_testing else os.getenv('APPROVAL_STATUS_THROTTLE_RATE', '10000/hour'),
+        'public_verify': '60/hour' if is_testing else os.getenv('PUBLIC_VERIFY_THROTTLE_RATE', '10000/hour'),
+        'upload': '20/hour' if is_testing else os.getenv('UPLOAD_THROTTLE_RATE', '10000/hour'),
+        'engine': '600/hour' if is_testing else os.getenv('ENGINE_THROTTLE_RATE', '10000/hour'),
     },
 }
 

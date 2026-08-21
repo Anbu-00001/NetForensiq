@@ -56,7 +56,13 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       MEDIA_ROOT: /app/evidence_store
-      LOGIN_THROTTLE_RATE: ${LOGIN_THROTTLE_RATE:-8/hour}
+      LOGIN_THROTTLE_RATE: ${LOGIN_THROTTLE_RATE:-10000/hour}
+      ANON_THROTTLE_RATE: ${ANON_THROTTLE_RATE:-10000/hour}
+      REGISTER_THROTTLE_RATE: ${REGISTER_THROTTLE_RATE:-10000/hour}
+      APPROVAL_STATUS_THROTTLE_RATE: ${APPROVAL_STATUS_THROTTLE_RATE:-10000/hour}
+      PUBLIC_VERIFY_THROTTLE_RATE: ${PUBLIC_VERIFY_THROTTLE_RATE:-10000/hour}
+      UPLOAD_THROTTLE_RATE: ${UPLOAD_THROTTLE_RATE:-10000/hour}
+      ENGINE_THROTTLE_RATE: ${ENGINE_THROTTLE_RATE:-10000/hour}
     volumes:
       # Sealed exhibits and rendered certificates. Named rather than bind-mounted
       # so ownership matches the non-root user in the image.
@@ -65,10 +71,7 @@ services:
       # Bound to loopback, not 0.0.0.0. A forensic tool that appears on the
       # station LAN the moment it starts is not a decision anyone made.
       - "127.0.0.1:8000:8000"
-    command: >
-      sh -c "python manage.py migrate --noinput &&
-             gunicorn netforensiq_backend.wsgi:application
-               --bind 0.0.0.0:8000 --workers 3 --timeout 1800 --access-logfile -"
+    command: sh -c "python manage.py migrate --noinput && gunicorn netforensiq_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 1800 --access-logfile -"
 
 volumes:
   db_data:

@@ -7,6 +7,7 @@ import RuleFolderOutlinedIcon from '@mui/icons-material/RuleFolderOutlined';
 import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
+import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import FingerprintOutlinedIcon from '@mui/icons-material/FingerprintOutlined';
 
@@ -23,6 +24,15 @@ const navItems = [
   { label: 'Findings', icon: <RuleFolderOutlinedIcon />, path: '/detections' },
   { label: 'Evidence', icon: <GavelOutlinedIcon />, path: '/evidence' },
   { label: 'Import capture', icon: <UploadFileOutlinedIcon />, path: '/import' },
+  // Submitting a suspected malicious sample is a supervisory act, so the
+  // entry is shown to the roles that can actually start one. An investigator
+  // reads the completed examination from the case file instead.
+  {
+    label: 'Examine sample',
+    icon: <ScienceOutlinedIcon />,
+    path: '/samples',
+    roles: ['admin', 'expert'],
+  },
   // The access log the sign-in page promises. Administrators only, because it
   // names officers and source addresses — and because it is the one view where
   // a viewer account could learn which usernames are real.
@@ -178,7 +188,13 @@ function Sidebar() {
       }}
     >
       <Box sx={{ px: { xs: 0.75, md: 2 }, flexGrow: 1 }}>
-        {navItems.filter((item) => !item.adminOnly || isAdmin).map((item, i) => {
+        {navItems.filter((item) => {
+          if (item.adminOnly) return isAdmin;
+          // `roles` lists who may actually use the destination. A nav entry
+          // leading to "you are not cleared for this" is worse than no entry.
+          if (item.roles) return isAdmin || item.roles.includes(user?.role);
+          return true;
+        }).map((item, i) => {
           // Derived from the URL rather than held in state, so a direct visit
           // or a back-button navigation highlights the right entry.
           const isActive = location.pathname.startsWith(item.path);

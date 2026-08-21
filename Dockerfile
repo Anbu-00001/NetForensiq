@@ -106,6 +106,40 @@ RUN python manage.py collectstatic --noinput
 RUN useradd --create-home --uid 10001 netforensiq \
     && mkdir -p /app/evidence_store /app/data \
     && chown -R netforensiq:netforensiq /app
+
+# Raw-socket access for live capture, granted to the interpreter itself.
+#
+# The container runs as a non-root user, so `--cap-add=NET_RAW` on `docker
+# run` is necessary but not sufficient: it puts the capability in the
+# container's bounding set, and an unprivileged process still has to inherit
+# it from somewhere. A file capability on the interpreter is that somewhere.
+#
+# Without this, live capture fails in the worst possible way — scapy opens no
+# socket, reports no error, and the session completes claiming zero packets,
+# which is indistinguishable from a quiet network. `/api/sessions/interfaces/`
+# checks for the capability up front and refuses rather than pretending, but
+# refusing is not the outcome anyone wants at a demonstration.
+#
+# It was previously applied by hand inside a running container, which meant it
+# vanished the next time the container was recreated. Baking it into the image
+# is the difference between "worked when we tried it" and "works".
+#
+# Narrower than running as root: it permits packet capture and nothing else.
+# Reading a stored .pcap has never needed it.
+# p7zip reads compression methods the standard library does not (Deflate64
+# above all), which Android packers use specifically to break naive parsers.
+# Kept installed, unlike libcap2-bin, because it is needed at run time.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends p7zip-full \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libcap2-bin \
+    && setcap cap_net_raw,cap_net_admin=eip "$(readlink -f "$(command -v python3)")" \
+    && apt-get purge -y libcap2-bin \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 USER netforensiq
 
 EXPOSE 8000
@@ -119,14 +153,18 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/engine/', timeout=4).status==200 else 1)"
 
 # --timeout is the ceiling on one synchronous request, and browser-uploaded
-# PCAP import is the longest one there is: scapy dissects and flow-aggregates
-# every packet in-process, with no queue to hand it off to. Measured against a
-# real 200MB / 2.27M-packet capture, that took ~530s end to end — a 512MB
-# upload (the browser path's own cap) is comfortably past the old 300s, which
-# is why gunicorn's own idle-worker abort was killing large-but-legitimate
-# imports mid-parse rather than the code doing anything wrong. 1800s covers
-# the full upload cap with headroom; imports larger than that are already
-# routed to `manage.py import_pcap`, which has no timeout at all.
+# PCAP import is the longest one there is: the file is hashed, sealed, parsed
+# and flow-aggregated in-process, with no queue to hand it off to.
+#
+# The default 300s was killing large-but-legitimate imports mid-parse — a real
+# 200MB / 2.27M-packet capture took ~530s, so gunicorn aborted the worker and
+# the officer saw "the upload failed" for a file that was perfectly good.
+# `capture/fastparse.py` has since cut the parse to a fraction of that, but the
+# ceiling stays high deliberately: it is a backstop for the largest file the
+# browser path accepts (512MB), not a target, and a timeout tuned to the
+# machine that happened to be measured is a timeout that fails on a slower one.
+# Imports beyond the upload cap are routed to `manage.py import_pcap`, which
+# has no timeout at all.
 CMD ["gunicorn", "netforensiq_backend.wsgi:application", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "3", \

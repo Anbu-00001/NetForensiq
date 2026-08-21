@@ -233,9 +233,21 @@ def parse(data, linktype=DLT_ETHERNET):
         if toff + 20 > n:
             return None
         sport, dport = unpack_from('!HH', data, toff)
+
+        # A data offset below 5 words is malformed — RFC 9293 s.3.1 fixes the
+        # minimum TCP header at 20 octets — but malformed packets are exactly
+        # what a forensic capture is full of, and dropping one silently would
+        # make the packet count depend on which reader ran.
+        #
+        # Real example, found by the equivalence check rather than by reading
+        # the spec: one frame in a 2,274,747-packet ICS capture declares
+        # dataofs=0. The dissector reads it as a plain 20-octet header and
+        # keeps the packet; refusing it here lost one packet, one flow and 62
+        # bytes against the old numbers. Clamping reproduces the dissector's
+        # reading exactly, payload included.
         doff = (data[toff + 12] >> 4) * 4
         if doff < 20:
-            return None
+            doff = 20
         flags = data[toff + 13]
         start = toff + doff
         return src, dst, 'TCP', sport, dport, flags, (
@@ -244,17 +256,24 @@ def parse(data, linktype=DLT_ETHERNET):
     if proto == _PROTO_UDP:
         if toff + 8 > n:
             return None
-        sport, dport, ulen = unpack_from('!HHH', data, toff)
+        sport, dport = unpack_from('!HH', data, toff)
         start = toff + 8
-        # The UDP length field covers header+payload. Trusting it blindly on a
-        # truncated capture would read past the captured bytes, so it is
-        # clamped to what was actually recorded.
-        if ulen >= 8:
-            end = min(n, start + (ulen - 8))
-        else:
-            end = n
+        # Everything after the header, NOT clamped to the UDP length field.
+        #
+        # Clamping looks more correct and is not what the dissector does. In
+        # scapy the trailing bytes become a `Padding` layer rather than being
+        # discarded, and `bytes(udp.payload)` rebuilds the whole remaining
+        # chain — payload and padding together. Measured over 40,000 real UDP
+        # packets, the dissector's payload was the bytes to the end of the
+        # frame every single time.
+        #
+        # Trimming here instead changed `payload_entropy` on four flows of
+        # 946,238, which is exactly the kind of quiet divergence this reader
+        # must not introduce. Matching the dissector matters more than
+        # matching the RFC, because the recorded findings were derived with
+        # the dissector's reading.
         return src, dst, 'UDP', sport, dport, 0, (
-            data[start:end] if start < end else b'')
+            data[start:] if start < n else b'')
 
     if proto == _PROTO_ICMP:
         if toff + 4 > n:

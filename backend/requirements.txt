@@ -38,3 +38,4 @@ gunicorn==23.0.0
 # --- testing ---
 pytest==8.4.2
 pytest-django==4.11.1
+pyzipper==0.3.6

@@ -229,3 +229,6 @@ export const decideAccount = (username, decision) =>
  */
 export const getEvidencePosture = () =>
   api.get('/evidence/posture/').then((r) => r.data);
+
+export const examineSample = (formData) =>
+  api.post('/samples/examine/', formData, { timeout: 0 }).then((r) => r.data);

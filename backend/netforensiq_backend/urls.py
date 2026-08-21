@@ -10,6 +10,7 @@ from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
 
 from capture.upload import CaptureUploadView
+from capture.apk_views import APKExaminationView
 from capture.views import (
     CaptureSessionViewSet, DNSRecordViewSet, DetectionViewSet, FlowViewSet,
     engine_info,
@@ -41,6 +42,7 @@ urlpatterns = [
     # Take a capture into evidence from the browser, so an officer handed a
     # USB stick does not need a shell prompt.
     path('api/capture/upload/', CaptureUploadView.as_view(), name='capture-upload'),
+    path('api/samples/examine/', APKExaminationView.as_view(), name='sample-examine'),
 
     path('api/verify/<str:exhibit_number>/', PublicVerifyView.as_view(),
          name='public-verify'),

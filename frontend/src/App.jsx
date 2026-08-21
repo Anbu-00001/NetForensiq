@@ -9,6 +9,7 @@ import EvidencePage from './pages/EvidencePage';
 import ApprovalsPage from './pages/ApprovalsPage';
 import ImportPage from './pages/ImportPage';
 import SignInLogPage from './pages/SignInLogPage';
+import SamplePage from './pages/SamplePage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -16,6 +17,14 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route
+          path="/samples"
+          element={(
+            <ProtectedRoute>
+              <SamplePage />
+            </ProtectedRoute>
+          )}
+        />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/status" element={<StatusPage />} />
