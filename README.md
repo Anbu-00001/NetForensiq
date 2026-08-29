@@ -33,9 +33,9 @@ graph TD
         G["BSA §63 Statutory Certificate PDF (Schedule)"]
     end
 
-    C -- "falls between (no scene video)" --> A
-    C -- "falls between (no physical malkhana log)" --> B
-    C ==> "sealed, tracked & certified by" ==> D
+    C -->|"falls between (no scene video)"| A
+    C -->|"falls between (no physical malkhana log)"| B
+    C == "sealed, tracked & certified by" ==> D
     D --> E --> F --> G
 ```
 
@@ -58,20 +58,20 @@ graph TB
         FP["Landing Page<br/>(HeroWeave + GlassPanel components)"]
         FS["Sidebar Panels<br/>(Quick Tools, Capture Status, Compliance)"]
         FA["Attack Scenario Runner<br/>(Interactive attack simulation)"]
-        FT[Transcript Viewer]
+        FT["Transcript Viewer"]
         API["API Service Layer<br/>(forensics.js, posture.js, auth.js)"]
     end
 
     subgraph Backend ["Backend (Django 6.0 + DRF + Scapy)"]
         subgraph Capture ["capture app"]
-            PR[Streaming Packet Processor]
-            FX[Feature Extractor]
-            TR[TCP Stream Reassembly]
-            PD[Protocol Decoders: FTP, HTTP, SMTP, TLS]
-            JA4[JA4 TLS Client Fingerprinter]
+            PR["Streaming Packet Processor"]
+            FX["Feature Extractor"]
+            TR["TCP Stream Reassembly"]
+            PD["Protocol Decoders: FTP, HTTP, SMTP, TLS"]
+            JA4["JA4 TLS Client Fingerprinter"]
             DE["Detection Engine<br/>11 rules"]
-            MA[MITRE ATT&CK Mapper]
-            SY[Synthetic Scenario Engine]
+            MA["MITRE ATT&CK Mapper"]
+            SY["Synthetic Scenario Engine"]
             PRIV["OS Capability Checker<br/>(privileges.py)"]
         end
         subgraph Evidence ["evidence app"]
@@ -81,17 +81,17 @@ graph TB
             CR["AES-256 GCM Encryption<br/>(crypto.py)"]
             CP["Certificate PDF Engine<br/>(BSA s.63 Schedule Renderer)"]
             SIEM["SIEM Exporter<br/>(CEF & Syslog)"]
-            FSL[FSL Forwarding Builder]
+            FSL["FSL Forwarding Builder"]
         end
         subgraph Auth ["accounts app"]
             AU["JWT Auth & RBAC<br/>(Admin, Investigator, Analyst)"]
-            AP[Pending Accounts Queue]
-            AL[Audit Log Logger]
+            AP["Pending Accounts Queue"]
+            AL["Audit Log Logger"]
         end
     end
 
     subgraph Storage ["Forensic Storage & Security"]
-        DB[(SQLite / PostgreSQL<br/>Encrypted Metadata)]
+        DB[("SQLite / PostgreSQL<br/>Encrypted Metadata")]
         ES["Evidence Store<br/>(Sealed PCAPs + .manifest.json)"]
     end
 
@@ -105,7 +105,10 @@ graph TB
     API --> Evidence
     API --> Auth
 
-    PR --> TR --> PD --> FX --> DE
+    PR --> TR
+    TR --> PD
+    PD --> FX
+    FX --> DE
     FX --> JA4
     DE --> MA
     PR --> DB
@@ -270,7 +273,7 @@ Every number in this file that describes the code is checked by `scripts/check_d
 
 ```mermaid
 flowchart LR
-    A[PCAP File / Live Stream] --> B["import_pcap<br/>management command"]
+    A["PCAP File / Live Stream"] --> B["import_pcap<br/>management command"]
     B --> C["SHA-256 + MD5<br/>computed at ingest<br/>(streamed, one pass)"]
     C --> D["Sealed copy in<br/>evidence_store/"]
     C --> E["Sidecar manifest written<br/>(.manifest.json)"]
@@ -282,7 +285,7 @@ flowchart LR
     C --> H["CustodyEvent #1<br/>ACQUIRED (Hash-Chained)"]
     B --> I["Packet Processor<br/>(Scapy streaming parser)"]
     I --> J["Flow Assembly & Decodes<br/>(TCP, HTTP, FTP, SMTP, TLS)"]
-    J --> K[(Encrypted Database)]
+    J --> K[("Encrypted Database")]
 ```
 
 The PCAP is hashed the moment it enters the system using streamed SHA-256 and MD5 passes. The sealed copy is never modified. Every subsequent access — verification, export, certificate generation — is logged as a `CustodyEvent`, and each event digests its predecessor so that altering any past entry breaks every link after it.
@@ -320,7 +323,7 @@ Rules first, model second. A police panel will ask "why did it flag this?" — a
 
 ```mermaid
 flowchart TD
-    S[Capture Session] --> A[Flow & Packet Features]
+    S["Capture Session"] --> A["Flow & Packet Features"]
 
     subgraph Rules ["11 Explainable Detection Rules"]
         R1["C2_BEACON_PERIODIC<br/>RITA MADM Model"]
@@ -335,15 +338,34 @@ flowchart TD
         R10["ANOMALY_STATISTICAL<br/>IsolationForest (Z-Score Explained)"]
     end
 
-    A --> R1 & R2 & R3 & R4 & R5 & R6 & R7 & R8 & R9 & R10
+    A --> R1
+    A --> R2
+    A --> R3
+    A --> R4
+    A --> R5
+    A --> R6
+    A --> R7
+    A --> R8
+    A --> R9
+    A --> R10
 
-    R1 & R2 & R3 & R4 & R5 & R6 & R7 & R8 & R9 & R10 --> M["MITRE ATT&CK Mapping<br/>(T1071, T1043, T1095, T1048, T1046)"]
-    M --> F[Findings Queue]
+    R1 --> M["MITRE ATT&CK Mapping<br/>(T1071, T1043, T1095, T1048, T1046)"]
+    R2 --> M
+    R3 --> M
+    R4 --> M
+    R5 --> M
+    R6 --> M
+    R7 --> M
+    R8 --> M
+    R9 --> M
+    R10 --> M
+
+    M --> F["Findings Queue"]
     F --> X["HOST_CORROBORATED<br/>One Address, 3+ Rules Implicated"]
     X --> F
 
     F --> T{"Analyst Triage<br/>Confirm / Dismiss / Escalate"}
-    T --> D[(Hash-Chained Audit Ledger<br/>+ Reviewer Identity)]
+    T --> D[("Hash-Chained Audit Ledger<br/>+ Reviewer Identity")]
 ```
 
 `HOST_CORROBORATED` is an 11th detector. It takes no measurement of its own and can only restate what the rules already found — which is exactly why it is the one thing in the engine allowed to say **CRITICAL**. One rule firing is a prompt to look; the same address turning up under three unrelated rules is the shape of an incident, and an officer working three hundred findings should not have to spot that by eye.
@@ -388,7 +410,7 @@ flowchart TD
     J --> L["Annexure 2: Hash-Chained Custody Ledger"]
     J --> M["Annexure 3: Analyst Findings<br/>(Labelled as Opinion, Not Evidence)"]
 
-    J --> N["Export Options:<br/>• FSL Official Forwarding Letter<br/>• SIEM CEF & Syslog Export"]
+    J --> N["Export Options:<br/>- FSL Official Forwarding Letter<br/>- SIEM CEF & Syslog Export"]
 ```
 
 The certificate PDF reproduces **THE SCHEDULE** to the Bharatiya Sakshya Adhiniyam 2023 verbatim — the same wording, field order, and tick-boxes that appear in the bare Act. Two rules govern the renderer:
