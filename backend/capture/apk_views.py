@@ -30,12 +30,18 @@ from accounts.models import AuditLog, User
 from accounts.utils import get_client_ip, log_action
 from evidence.models import EvidenceRecord
 
-from .apk import analyse_apk, classify, correlate_with_captures
+from apk_engine.container import DEFAULT_MAX_EXTRACT_BYTES, inspect_archive
+from apk_engine.report import unexaminable
 
-# A submitted sample is untrusted input that is about to be unzipped, so the
-# ceiling is on the compressed file. Decompression itself is bounded inside
-# the analyser, which reads a fixed byte budget of DEX and nothing else.
+from .apk_correlation import correlate_with_captures
+from .apk_runner import run_examination
+
+# A submitted sample is untrusted input that is about to be unzipped, so there
+# are two ceilings: one on the file as uploaded, and one on the bytes written
+# while unwrapping it, counted as they are written because the sizes an archive
+# declares are chosen by whoever built it.
 MAX_UPLOAD_BYTES = 256 * 1024 * 1024
+MAX_EXTRACT_BYTES = DEFAULT_MAX_EXTRACT_BYTES
 CHUNK_BYTES = 1024 * 1024
 
 # ZIP and APK share a magic number; an APK is a ZIP. Checked rather than
@@ -55,6 +61,24 @@ CONVENTIONAL_PASSWORDS = ('infected', 'malware', 'virus', 'sample', 'password')
 
 class _NeedsPassword(Exception):
     """The archive is encrypted and no working password was found."""
+
+
+class _TooLarge(Exception):
+    """Unwrapping wrote more than MAX_EXTRACT_BYTES; the partial file is discarded."""
+
+
+def _copy_bounded(src, dst):
+    written = 0
+    while True:
+        block = src.read(CHUNK_BYTES)
+        if not block:
+            return written
+        written += len(block)
+        if written > MAX_EXTRACT_BYTES:
+            raise _TooLarge(
+                f'Unwrapping stopped after {MAX_EXTRACT_BYTES:,} bytes — the archive '
+                f'expands beyond what this workstation will extract.')
+        dst.write(block)
 
 
 def _encryption_of(archive, member):
@@ -103,11 +127,7 @@ def _extract_member(archive, member, target, supplied='', zip_path=None):
 
     if scheme == 'none':
         with archive.open(member) as src, open(target, 'wb') as dst:
-            while True:
-                block = src.read(CHUNK_BYTES)
-                if not block:
-                    break
-                dst.write(block)
+            _copy_bounded(src, dst)
         return ''
 
     openers = []
@@ -128,12 +148,10 @@ def _extract_member(archive, member, target, supplied='', zip_path=None):
                 with factory() as handle:
                     handle.setpassword(password.encode())
                     with handle.open(member) as src, open(target, 'wb') as dst:
-                        while True:
-                            block = src.read(CHUNK_BYTES)
-                            if not block:
-                                break
-                            dst.write(block)
+                        _copy_bounded(src, dst)
                 return password
+            except _TooLarge:
+                raise
             except Exception:
                 continue
 
@@ -240,43 +258,91 @@ class APKExaminationView(APIView):
                 pass
 
     def _examine(self, request, tmp_path, original_name, provenance):
-        from evidence.service import ingest_evidence
-
         data = request.data
         analysed_path, analysed_name, unwrapped_from = tmp_path, original_name, ''
 
+        # Read the archive's structure before decompressing a byte of it.
+        container = inspect_archive(tmp_path, MAX_EXTRACT_BYTES)
+        if not container['readable']:
+            return self._refuse('That file is not a readable ZIP archive.')
+
         # A sample arriving in a ZIP is the norm, not the exception: mail
         # gateways strip .apk attachments, so samples are passed around zipped
-        # (often the judge's own copy). Unwrapping one layer here means the
-        # officer does not have to extract a hostile file by hand first, which
-        # is precisely the step you do not want performed on a workstation.
-        if not zipfile.is_zipfile(tmp_path):
-            return self._refuse('That file is not a readable ZIP archive.')
-        try:
-            with zipfile.ZipFile(tmp_path) as archive:
-                if 'AndroidManifest.xml' not in archive.namelist():
-                    inner = [n for n in archive.namelist() if n.lower().endswith('.apk')]
-                    if inner:
-                        supplied = (data.get('archive_password') or '').strip()
-                        target = os.path.join(os.path.dirname(tmp_path), '_inner.apk')
-                        try:
-                            _extract_member(archive, inner[0], target, supplied, tmp_path)
-                        except _NeedsPassword as exc:
-                            return self._refuse(str(exc))
-                        analysed_path = target
-                        analysed_name = os.path.basename(inner[0])
-                        unwrapped_from = original_name
-        except _NeedsPassword as exc:
-            return self._refuse(str(exc))
-        except Exception as exc:
-            return self._refuse(f'The archive could not be opened: {exc}')
+        # (the judge's copy was). Unwrapping one layer here means the officer
+        # does not have to extract a hostile file by hand, which is precisely
+        # the step you do not want performed on a workstation.
+        unsafe_reason = ''
+        if not container['has_manifest']:
+            if not container['apk_members']:
+                return self._refuse(
+                    'The archive contains no Android package: no AndroidManifest.xml '
+                    'and no .apk inside it.')
+            if not container['safe_to_extract']:
+                unsafe_reason = ('The archive was sealed but not opened: '
+                                 + ' '.join(f['title'] + '.' for f in container['safety']))
+            else:
+                supplied = (data.get('archive_password') or '').strip()
+                target = os.path.join(os.path.dirname(tmp_path), '_inner.apk')
+                try:
+                    with zipfile.ZipFile(tmp_path) as archive:
+                        _extract_member(archive, container['apk_members'][0], target,
+                                        supplied, tmp_path)
+                except _NeedsPassword as exc:
+                    return self._refuse(str(exc))
+                except _TooLarge as exc:
+                    unsafe_reason = f'The archive was sealed but not examined. {exc}'
+                except Exception as exc:
+                    return self._refuse(f'The archive could not be opened: {exc}')
+                else:
+                    analysed_path = target
+                    analysed_name = os.path.basename(container['apk_members'][0])
+                    unwrapped_from = original_name
 
+        record = self._seal(request, tmp_path, original_name, provenance)
+        if not isinstance(record, EvidenceRecord):
+            return record
+
+        if unsafe_reason:
+            report = unexaminable(unsafe_reason, container=container)
+        else:
+            report = run_examination(
+                analysed_path,
+                container_path=tmp_path if unwrapped_from else None,
+                original_name=analysed_name)
+        report['correlation'] = correlate_with_captures(report)
+
+        if len(container['apk_members']) > 1 and unwrapped_from:
+            report['errors'].append(
+                f'The archive holds {len(container["apk_members"])} packages; only '
+                f'{analysed_name} was examined. Submit the others separately.')
+
+        report['exhibit_number'] = record.exhibit_number
+        report['original_filename'] = original_name
+        report['analysed_filename'] = analysed_name
+        report['unwrapped_from'] = unwrapped_from
+        report['provenance'] = record.provenance
+        report['provenance_label'] = record.get_provenance_display()
+        report['sealed_sha256'] = record.sha256_hash
+
+        assessment = report['assessment']
+        log_action(
+            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=(f'Examined sample {original_name} -> exhibit {record.exhibit_number}: '
+                    f'tier {assessment["tier"]} ({assessment["label"]})'),
+        )
+        return Response(report, status=status.HTTP_201_CREATED)
+
+    def _seal(self, request, tmp_path, original_name, provenance):
+        from evidence.service import ingest_evidence
+
+        data = request.data
         try:
             with transaction.atomic():
                 # The exhibit is the file as received — the ZIP the officer was
                 # handed, not the .apk lifted out of it. The digest has to
                 # describe what was submitted, or it describes nothing.
-                record = ingest_evidence(
+                return ingest_evidence(
                     tmp_path,
                     original_filename=original_name,
                     collected_by=request.user,
@@ -293,34 +359,6 @@ class APKExaminationView(APIView):
         except Exception as exc:
             return self._refuse(f'The sample could not be sealed: {exc}',
                                 status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-        try:
-            report = analyse_apk(analysed_path)
-            report['families'] = classify(report)
-            report['correlation'] = correlate_with_captures(report)
-        except Exception as exc:
-            return self._refuse(
-                f'The sample was sealed as {record.exhibit_number} but could not '
-                f'be examined: {exc}',
-                status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-        report['exhibit_number'] = record.exhibit_number
-        report['original_filename'] = original_name
-        report['analysed_filename'] = analysed_name
-        report['unwrapped_from'] = unwrapped_from
-        report['provenance'] = record.provenance
-        report['provenance_label'] = record.get_provenance_display()
-        report['sealed_sha256'] = record.sha256_hash
-
-        top = report['families'][0]['family'] if report['families'] else 'no family matched'
-        log_action(
-            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
-            username_attempted=request.user.username,
-            detail=(f'Examined sample {original_name} -> exhibit '
-                    f'{record.exhibit_number}: score {report["score"]}, '
-                    f'{report["verdict"]}, {top}'),
-        )
-        return Response(report, status=status.HTTP_201_CREATED)
 
     @staticmethod
     def _refuse(detail, code=status.HTTP_400_BAD_REQUEST):

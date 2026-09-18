@@ -96,6 +96,14 @@ step "Downloading Python wheels"
   --requirement "$BACKEND/requirements.txt" \
   --dest "$STAGE/wheelhouse" \
   || die "wheel download failed — see --only-binary note above"
+
+# androguard is installed without its declared dependencies (see the note in
+# requirements.txt), so its wheel is downloaded the same way.
+"$PY" -m pip download \
+  --only-binary :all: --no-deps \
+  --requirement "$BACKEND/requirements-nodeps.txt" \
+  --dest "$STAGE/wheelhouse" \
+  || die "androguard wheel download failed"
 ok "$(find "$STAGE/wheelhouse" -name '*.whl' | wc -l) wheels"
 
 # pip itself must be present offline, or `python -m venv` on an old system

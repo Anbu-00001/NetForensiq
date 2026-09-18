@@ -1,0 +1,6 @@
+# Installed with --no-deps. See the note in requirements.txt: androguard's
+# declared dependencies include IPython, jedi and SQLAlchemy, none of which it
+# needs for static analysis. The imports it does need are pinned there.
+#
+#     pip install --no-deps -r requirements-nodeps.txt
+androguard==4.1.4

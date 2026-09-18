@@ -26,6 +26,25 @@ psycopg2-binary==2.9.12
 numpy==2.3.4
 scikit-learn==1.7.2
 
+# --- APK examination engine ---
+# Runs as a separate process (see apk_engine/__init__.py): androguard and
+# apkInspector are Apache-2.0, scapy in the web process is GPL-2.0-only, and
+# the Apache Software Foundation states Apache-2.0 code "cannot be included in
+# GPLv2 projects".
+#
+# androguard itself is installed with --no-deps (see Dockerfile and
+# scripts/install_offline.sh) and the imports it actually needs are pinned
+# below. Its declared dependency set pulls IPython, jedi, pygments and
+# SQLAlchemy — interactive-shell tooling an evidence workstation has no use
+# for, and 110 MB of it.
+apkInspector==1.3.7
+asn1crypto==1.5.1
+colorama==0.4.6
+loguru==0.7.3
+lxml==6.1.3
+mutf8==1.1.0
+networkx==3.6.1
+
 # --- evidence certificate rendering ---
 reportlab==4.4.4
 

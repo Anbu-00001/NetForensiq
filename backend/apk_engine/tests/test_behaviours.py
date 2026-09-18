@@ -1,0 +1,142 @@
+"""
+Behaviour rules, against a stand-in code map.
+
+The rules are tested on facts rather than on real DEX files, so each test can
+state exactly which capability is present and in whose code. The negative cases
+matter most: they are the legitimate apps that hold one half of a rule — an app
+store that installs packages, a firewall that routes everything into a VPN.
+"""
+
+import unittest
+
+from apk_engine.behaviours import detect_behaviours, detect_capabilities
+
+
+class FakeSite:
+    def __init__(self, caller='com.example.app.Main.run()', kind='app',
+                 constants=None, references=()):
+        self.caller = caller
+        self.attribution = {'kind': kind, 'name': 'lib' if kind == 'library' else 'com.example.app'}
+        self._constants = constants or []
+        self._references = set(references)
+
+    @property
+    def counts_as_app_code(self):
+        return self.attribution['kind'] in ('app', 'unattributed')
+
+    def constant_arguments(self, _method):
+        return self._constants
+
+    def references(self, *values):
+        return bool(self._references & set(values))
+
+    def evidence(self, with_path=True):
+        return {'caller': self.caller, 'attribution': self.attribution}
+
+
+class FakeCodeMap:
+    """Answers the queries the detectors make, from a table the test writes."""
+
+    def __init__(self, calls=None, strings=None):
+        self.call_table = calls or {}
+        self.string_table = strings or {}
+
+    def calls(self, owner, method, include_subclasses=False):
+        return self.call_table.get((owner, method), [])
+
+    def string_sites(self, regex):
+        return self.string_table.get(regex, [])
+
+
+IDENTITY = {
+    'package': 'com.example.app', 'components': [], 'launcher_activities': [],
+    'application_class': '',
+}
+
+INSTALL = ('Landroid/content/pm/PackageInstaller$Session;', 'commit')
+VPN_ROUTE = ('Landroid/net/VpnService$Builder;', 'addRoute')
+VPN_ESTABLISH = ('Landroid/net/VpnService$Builder;', 'establish')
+TELEGRAM = r'api\.telegram\.org/bot'
+
+
+def run(identity=None, **codemap):
+    ctx, capabilities = detect_capabilities(identity or IDENTITY, FakeCodeMap(**codemap))
+    return {c['id']: c for c in capabilities}, {b['id']: b for b in detect_behaviours(ctx)}
+
+
+class CapabilityTests(unittest.TestCase):
+    def test_library_only_evidence_does_not_make_a_capability_present(self):
+        capabilities, _ = run(calls={INSTALL: [FakeSite(kind='library')]})
+        self.assertFalse(capabilities['cap.install_packages']['present'])
+        self.assertEqual(capabilities['cap.install_packages']['library_only_occurrences'], 1)
+
+    def test_obfuscated_code_counts_as_the_package_s_own(self):
+        capabilities, _ = run(calls={INSTALL: [FakeSite(kind='unattributed')]})
+        self.assertTrue(capabilities['cap.install_packages']['present'])
+
+    def test_vpn_route_needs_a_catch_all_prefix(self):
+        capabilities, _ = run(calls={VPN_ROUTE: [FakeSite(constants=[['10.0.0.2', 32]])]})
+        self.assertFalse(capabilities['cap.vpn_catch_all_route']['present'])
+        capabilities, _ = run(calls={VPN_ROUTE: [FakeSite(constants=[['0.0.0.0', 0]])]})
+        self.assertTrue(capabilities['cap.vpn_catch_all_route']['present'])
+
+    def test_launcher_icon_rule_needs_the_launcher_class_and_the_disabled_state(self):
+        identity = dict(IDENTITY, launcher_activities=['com.example.app.MainActivity'])
+        toggle = ('Landroid/content/pm/PackageManager;', 'setComponentEnabledSetting')
+        # Disables a component, but not the launcher one.
+        capabilities, _ = run(identity, calls={toggle: [
+            FakeSite(constants=[[None, 2, 1]], references=['com.example.app.Other'])]})
+        self.assertFalse(capabilities['cap.hides_launcher_icon']['present'])
+        # Enables the launcher component rather than disabling it.
+        capabilities, _ = run(identity, calls={toggle: [
+            FakeSite(constants=[[None, 1, 1]], references=['com.example.app.MainActivity'])]})
+        self.assertFalse(capabilities['cap.hides_launcher_icon']['present'])
+        capabilities, _ = run(identity, calls={toggle: [
+            FakeSite(constants=[[None, 2, 1]], references=['com.example.app.MainActivity'])]})
+        self.assertTrue(capabilities['cap.hides_launcher_icon']['present'])
+
+
+class BehaviourTests(unittest.TestCase):
+    def test_installing_under_a_catch_all_vpn_fires(self):
+        _caps, behaviours = run(calls={INSTALL: [FakeSite()],
+                                       VPN_ROUTE: [FakeSite(constants=[['0.0.0.0', 0]])]})
+        finding = behaviours['beh.install_under_network_blackout']
+        self.assertEqual(finding['tier'], 3)
+        self.assertEqual(finding['pha'], 'hostile-downloader')
+        self.assertIn('T1407', [t['id'] for t in finding['attack']])
+        self.assertTrue(finding['sources'])
+        self.assertIn('cap.install_packages', finding['evidence'])
+
+    def test_an_app_store_that_only_installs_does_not_fire(self):
+        _caps, behaviours = run(calls={INSTALL: [FakeSite()]})
+        self.assertNotIn('beh.install_under_network_blackout', behaviours)
+
+    def test_a_firewall_that_only_routes_does_not_fire(self):
+        _caps, behaviours = run(calls={VPN_ROUTE: [FakeSite(constants=[['0.0.0.0', 0]])],
+                                       VPN_ESTABLISH: [FakeSite()]})
+        self.assertNotIn('beh.install_under_network_blackout', behaviours)
+
+    def test_library_code_on_one_side_does_not_complete_the_rule(self):
+        _caps, behaviours = run(calls={INSTALL: [FakeSite(kind='library')],
+                                       VPN_ROUTE: [FakeSite(constants=[['0.0.0.0', 0]])]})
+        self.assertNotIn('beh.install_under_network_blackout', behaviours)
+
+    def test_sms_to_telegram_bot_needs_both_halves(self):
+        identity = dict(IDENTITY, components=[{
+            'kind': 'receiver', 'name': 'com.example.app.SmsRx', 'permission': '',
+            'intent_filters': [{'actions': ['android.provider.Telephony.SMS_RECEIVED'],
+                                'categories': []}]}])
+        _caps, behaviours = run(identity)
+        self.assertNotIn('beh.sms_to_telegram_bot', behaviours)
+        _caps, behaviours = run(identity, strings={TELEGRAM: [FakeSite()]})
+        finding = behaviours['beh.sms_to_telegram_bot']
+        self.assertEqual(finding['pha'], 'spyware')
+        self.assertIn('T1636.004', [t['id'] for t in finding['attack']])
+
+    def test_every_rule_declares_sources_lookalikes_and_a_tier(self):
+        from apk_engine.behaviours import BEHAVIOURS
+        for rule in BEHAVIOURS:
+            self.assertIn(rule['tier'], (2, 3), rule['id'])
+            self.assertTrue(rule['sources'], rule['id'])
+            self.assertTrue(rule['lookalikes'], rule['id'])
+            self.assertTrue(rule['attack'], rule['id'])

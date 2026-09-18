@@ -108,6 +108,9 @@ step "Installing dependencies — no index, bundled wheels only"
   --requirement "$TARGET/backend/requirements.txt" \
   || die "install failed. --no-index means pip did not fall back to the network:
 a package is missing from wheelhouse/, or was built for a different platform."
+"$VENV/bin/python" -m pip install --no-index --find-links "$BUNDLE/wheelhouse" --no-deps \
+  --requirement "$TARGET/backend/requirements-nodeps.txt" \
+  || die "androguard install failed (see the --no-deps note in requirements.txt)."
 ok "$("$VENV/bin/python" -m pip list --format=freeze | wc -l) packages, none fetched"
 
 # --- 3b. A stable signing key ----------------------------------------------

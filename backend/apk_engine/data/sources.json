@@ -1,0 +1,29 @@
+{
+  "exodus_trackers.json": {
+    "attribution": "Tracker signatures \u00a9 Exodus Privacy, https://exodus-privacy.eu.org/",
+    "licence": "ODbL-1.0 (contents DbCL-1.0)",
+    "records": 432,
+    "retrieved": "2026-09-17T17:55:54+00:00",
+    "sha256": "4ba445a299c38db310fb02f25ea06f74fe38ed804022076ff67ebd8ee9958ddd",
+    "via": "Exodus Privacy API response as redistributed by MobSF (https://raw.githubusercontent.com/MobSF/Mobile-Security-Framework-MobSF/master/mobsf/signatures/exodus_trackers)"
+  },
+  "stalkerware_indicators.json": {
+    "attribution": "Stalkerware indicators \u00a9 Echap, https://github.com/AssoEchap/stalkerware-indicators",
+    "licence": "CC-BY-4.0",
+    "records": {
+      "products": 147,
+      "samples": 3228
+    },
+    "retrieved": "2026-09-17T17:55:54+00:00",
+    "sha256": "c83cc9e6a81737cec77ec66fd550f31fdddc8931a104d989df754e1fbcef867b",
+    "upstream_commit_date": "2026-06-21T20:40:25Z",
+    "via": "https://github.com/AssoEchap/stalkerware-indicators at a04c5c1958bff93fec3b1b56edbb412b209f2a38"
+  },
+  "tlds.txt": {
+    "licence": "IANA public data",
+    "retrieved": "2026-09-17T17:55:54+00:00",
+    "sha256": "9fcbae34c0a65f67c55a2a9dd1bfcd3a3681cf2fda6eda1880862118cc58c1e1",
+    "version_line": "# Version 2026091700, Last Updated Thu Sep 17 07:07:01 2026 UTC",
+    "via": "https://data.iana.org/TLD/tlds-alpha-by-domain.txt"
+  }
+}

@@ -1,0 +1,431 @@
+{
+ "measured_at": "2026-09-18T11:14:41+00:00",
+ "engine_version": "2.0.0",
+ "corpus": {
+  "benign": 31,
+  "malicious": 1,
+  "description": "Legitimate: 23 open-source F-Droid apps chosen because they legitimately install packages, create VPNs, handle SMS, automate through accessibility or run shell commands; Flipkart (Play Store build pulled from a phone); 7 locally built apps. Malicious: the KANAD S.H.I.E.L.D. 2026 judge's sample (com.mrram.loader).",
+  "manifest": [
+   {
+    "sha256": "fd9c75d90d0f4a7c132b9b4a5a2cf1992a45e03b8d8ff988b7dcfbc0db2c4d11",
+    "label": "benign",
+    "name": "com.aurora.store"
+   },
+   {
+    "sha256": "0cdb855b05a602caf3a5c3e07ceb37dd947d39e455e60cdaf5c01e0724e4cb0e",
+    "label": "benign",
+    "name": "com.celzero.bravedns"
+   },
+   {
+    "sha256": "a2f0881ee30301ebc69991e5ff150d682baffed7e0f6b239de460eda8791b12f",
+    "label": "benign",
+    "name": "com.consentlens.consentlens"
+   },
+   {
+    "sha256": "4663196214d8be157f87da3d73290f49cd3148b5ab72686dd983f956fe602093",
+    "label": "benign",
+    "name": "com.flipkart.android"
+   },
+   {
+    "sha256": "92cd3a81c7a8d066e517a50932fe85424de7752cb72e76032174d53ec36a2741",
+    "label": "benign",
+    "name": "com.fsck.k9"
+   },
+   {
+    "sha256": "6bb80ebb624808108b2acca44acfba4764afad5a0e56e0eac5a5bc8c013931ff",
+    "label": "benign",
+    "name": "com.guardianpulse.guardian_pulse"
+   },
+   {
+    "sha256": "862f87a30baef06181f049adf7c460611605b25a807eaf3c25841a9dd84bed9e",
+    "label": "benign",
+    "name": "com.kunzisoft.keepass.libre"
+   },
+   {
+    "sha256": "da3070f3f18bdbed1eab666677afd39e4b19a60c70f0bfca68a5730147f81f10",
+    "label": "benign",
+    "name": "com.looker.droidify"
+   },
+   {
+    "sha256": "1aa6e7ce15a3d4ec8fbec2571b1f96d509a798fb93c0206351162d547a50950a",
+    "label": "benign",
+    "name": "com.mendhak.gpslogger"
+   },
+   {
+    "sha256": "1b4bdccb764f1b9cc6637018754aa5600a9fb01a006f203348d5097e6ca8dd36",
+    "label": "benign",
+    "name": "com.mpowernet.shesafe"
+   },
+   {
+    "sha256": "664e43ef02578bb6c44956471e1275f276e33e5af39ed50694f926241278f49a",
+    "label": "malicious",
+    "name": "com.mrram.loader"
+   },
+   {
+    "sha256": "2d08059c9a0a94ef4316e5c8491e3c6aee99a87b58bb796163c44e08deb1615c",
+    "label": "benign",
+    "name": "com.nextcloud.client"
+   },
+   {
+    "sha256": "9a0ba5a2a1c6e5261e5fda3098d320da8c40192b31a921fa6c39097f25599217",
+    "label": "benign",
+    "name": "com.nexus.nexus"
+   },
+   {
+    "sha256": "e6265a57eb5ca363808488e3b01955958bed93bc0c8a0d281849b363b11027ec",
+    "label": "benign",
+    "name": "com.termux"
+   },
+   {
+    "sha256": "f3fc06d56065aebac7fa7f70308243bbf3b4a53731f078654c4e931f893a7e87",
+    "label": "benign",
+    "name": "com.walarm.app"
+   },
+   {
+    "sha256": "3ce86b641d1627820d8f05606a3fb58d966ffa8360c234563b3c5e1bd3a8490a",
+    "label": "benign",
+    "name": "de.blinkt.openvpn"
+   },
+   {
+    "sha256": "158b4308da0006298d22ed557adbff24b282fddeb1bc0b3468829a60f405a8c4",
+    "label": "benign",
+    "name": "eu.faircode.netguard"
+   },
+   {
+    "sha256": "0da5d9e1b4fe1e6560720f12ae00149d7c4a4a8aff4ab10163e6f95dd833aa8a",
+    "label": "benign",
+    "name": "eu.siacs.conversations"
+   },
+   {
+    "sha256": "6ce8ee6c3a5a76ab2928f3f3b6e3934c352a3fd6bf76b7ff3dc291c6cbd928de",
+    "label": "benign",
+    "name": "im.vector.app"
+   },
+   {
+    "sha256": "6111c9b110039aefc99837e1553e876e31290530cdbdb0f789b8b327f277a97c",
+    "label": "benign",
+    "name": "io.devicefarmer.minicap"
+   },
+   {
+    "sha256": "d565271d6390618d83821fff1bc6770099191d2b6a6d9d37ea7e541a297917a1",
+    "label": "benign",
+    "name": "io.github.sds100.keymapper"
+   },
+   {
+    "sha256": "27f1eb82d288a9939b7c0bdd0fb94f78749824ffc753d32d421e01cbe487e5e0",
+    "label": "benign",
+    "name": "net.osmand.plus"
+   },
+   {
+    "sha256": "ca5672ca8c7174554ca0b07b5b26e505817a05142f571cf2abe67e790c30249c",
+    "label": "benign",
+    "name": "net.sourceforge.opencamera"
+   },
+   {
+    "sha256": "0de00a58a0dbb4c4b6befc9fe1f5e53800993484baab955824798f46fbf3338e",
+    "label": "benign",
+    "name": "org.adaway"
+   },
+   {
+    "sha256": "4b0ad16aac912abefa95f27241ab5e7958a306749c811ba71034e6c1824cc136",
+    "label": "benign",
+    "name": "org.briarproject.briar.android"
+   },
+   {
+    "sha256": "985f5181d48bb6bafd54083a048b391271e0ab28385881cc41294fb01a222762",
+    "label": "benign",
+    "name": "org.fdroid.fdroid"
+   },
+   {
+    "sha256": "6a89be96b5ec39f5e2b11bd61dc7031f4b88261b324ab13af5743fbc62f0cddb",
+    "label": "benign",
+    "name": "org.fossify.contacts"
+   },
+   {
+    "sha256": "95f226c7929adc2699cdb2bc6ead29a704bddb8f55bd92d9b4ecf74bb604f1c6",
+    "label": "benign",
+    "name": "org.fossify.messages"
+   },
+   {
+    "sha256": "d1ad08467034e5138a6e68f03b6e150f0bb010dfcbf490ff3d2bd4822b755728",
+    "label": "benign",
+    "name": "org.fossify.phone"
+   },
+   {
+    "sha256": "bd4ebc4b85fefb43a68126d8704d38222e88ef3205b3666e7a2fa00b325a696b",
+    "label": "benign",
+    "name": "org.fossify.voicerecorder"
+   },
+   {
+    "sha256": "0051538a0c2107a78bdd839a17b3213a09193ba4e0c579611c4a71136bec6f88",
+    "label": "benign",
+    "name": "org.orca.advisory"
+   },
+   {
+    "sha256": "1d66d19eedbab969b1be2e44e0ea35f5f8921cbe83b5c5ac810767ca1a84b7e8",
+    "label": "benign",
+    "name": "org.schabi.newpipe"
+   }
+  ],
+  "not_examined": []
+ },
+ "signals": {
+  "axml.attribute_names": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "axml.attribute_size": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "axml.string_count_mismatch": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "beh.accessibility_control_with_overlay": {
+   "benign_fired": 1,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.consentlens.consentlens"
+   ]
+  },
+  "beh.hides_launcher_icon": {
+   "benign_fired": 1,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.mpowernet.shesafe"
+   ]
+  },
+  "beh.install_from_quick_tunnel": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "beh.install_under_network_blackout": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "beh.sms_to_telegram_bot": {
+   "benign_fired": 0,
+   "malicious_fired": 0,
+   "benign_examples": []
+  },
+  "cap.accessibility_actions": {
+   "benign_fired": 8,
+   "malicious_fired": 1,
+   "benign_examples": [
+    "com.aurora.store",
+    "eu.faircode.netguard",
+    "io.github.sds100.keymapper",
+    "org.fossify.contacts",
+    "org.fossify.messages",
+    "org.fossify.phone",
+    "org.fossify.voicerecorder",
+    "com.consentlens.consentlens"
+   ]
+  },
+  "cap.accessibility_service": {
+   "benign_fired": 5,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.celzero.bravedns",
+    "io.github.sds100.keymapper",
+    "com.consentlens.consentlens",
+    "com.mpowernet.shesafe",
+    "org.orca.advisory"
+   ]
+  },
+  "cap.boot_start": {
+   "benign_fired": 20,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.aurora.store",
+    "com.celzero.bravedns",
+    "com.fsck.k9",
+    "com.looker.droidify",
+    "com.mendhak.gpslogger",
+    "com.nextcloud.client",
+    "de.blinkt.openvpn",
+    "eu.faircode.netguard",
+    "eu.siacs.conversations",
+    "im.vector.app"
+   ]
+  },
+  "cap.device_admin": {
+   "benign_fired": 2,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.aurora.store",
+    "io.github.sds100.keymapper"
+   ]
+  },
+  "cap.dynamic_code_loading": {
+   "benign_fired": 0,
+   "malicious_fired": 0,
+   "benign_examples": []
+  },
+  "cap.hides_launcher_icon": {
+   "benign_fired": 1,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.mpowernet.shesafe"
+   ]
+  },
+  "cap.install_packages": {
+   "benign_fired": 13,
+   "malicious_fired": 1,
+   "benign_examples": [
+    "com.aurora.store",
+    "com.fsck.k9",
+    "com.looker.droidify",
+    "com.nextcloud.client",
+    "eu.siacs.conversations",
+    "im.vector.app",
+    "net.osmand.plus",
+    "org.adaway",
+    "org.briarproject.briar.android",
+    "org.fdroid.fdroid"
+   ]
+  },
+  "cap.notification_listener": {
+   "benign_fired": 2,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "io.github.sds100.keymapper",
+    "com.walarm.app"
+   ]
+  },
+  "cap.overlay_window": {
+   "benign_fired": 3,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "im.vector.app",
+    "org.schabi.newpipe",
+    "com.consentlens.consentlens"
+   ]
+  },
+  "cap.query_installed_apps": {
+   "benign_fired": 10,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.aurora.store",
+    "com.celzero.bravedns",
+    "com.mendhak.gpslogger",
+    "de.blinkt.openvpn",
+    "eu.faircode.netguard",
+    "io.github.sds100.keymapper",
+    "org.adaway",
+    "org.briarproject.briar.android",
+    "org.fdroid.fdroid",
+    "com.consentlens.consentlens"
+   ]
+  },
+  "cap.quick_tunnel_url": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "cap.root_detection_strings": {
+   "benign_fired": 1,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.flipkart.android"
+   ]
+  },
+  "cap.shell_exec": {
+   "benign_fired": 13,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.aurora.store",
+    "com.celzero.bravedns",
+    "com.fsck.k9",
+    "com.nextcloud.client",
+    "com.termux",
+    "de.blinkt.openvpn",
+    "im.vector.app",
+    "io.github.sds100.keymapper",
+    "net.osmand.plus",
+    "org.adaway"
+   ]
+  },
+  "cap.sms_read": {
+   "benign_fired": 2,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "org.fossify.messages",
+    "com.flipkart.android"
+   ]
+  },
+  "cap.sms_receiver": {
+   "benign_fired": 1,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "org.fossify.messages"
+   ]
+  },
+  "cap.sms_send": {
+   "benign_fired": 5,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "io.github.sds100.keymapper",
+    "org.fossify.messages",
+    "com.flipkart.android",
+    "com.guardianpulse.guardian_pulse",
+    "org.orca.advisory"
+   ]
+  },
+  "cap.telegram_bot_api": {
+   "benign_fired": 0,
+   "malicious_fired": 0,
+   "benign_examples": []
+  },
+  "cap.vpn_catch_all_route": {
+   "benign_fired": 1,
+   "malicious_fired": 1,
+   "benign_examples": [
+    "com.celzero.bravedns"
+   ]
+  },
+  "cap.vpn_interface": {
+   "benign_fired": 4,
+   "malicious_fired": 1,
+   "benign_examples": [
+    "com.celzero.bravedns",
+    "de.blinkt.openvpn",
+    "eu.faircode.netguard",
+    "org.adaway"
+   ]
+  },
+  "cert.debug_certificate": {
+   "benign_fired": 6,
+   "malicious_fired": 0,
+   "benign_examples": [
+    "com.consentlens.consentlens",
+    "com.mpowernet.shesafe",
+    "com.guardianpulse.guardian_pulse",
+    "io.devicefarmer.minicap",
+    "com.nexus.nexus",
+    "org.orca.advisory"
+   ]
+  },
+  "cert.malformed_country": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "zip.header_mismatch": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  },
+  "zip.unknown_compression_method": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "benign_examples": []
+  }
+ }
+}

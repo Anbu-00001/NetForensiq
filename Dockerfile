@@ -68,8 +68,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 
 WORKDIR /app
 
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/requirements.txt backend/requirements-nodeps.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir --no-deps -r requirements-nodeps.txt
 
 COPY backend/ ./
 # The version file lives at the repository root, outside the build context
@@ -78,7 +79,8 @@ COPY backend/ ./
 COPY VERSION ./
 COPY --from=frontend /build/dist /app/frontend_dist
 
-ENV FRONTEND_DIST=/app/frontend_dist \
+ENV APK_ENGINE_PYTHON=/usr/local/bin/python3-analysis \
+    FRONTEND_DIST=/app/frontend_dist \
     STATIC_ROOT=/app/staticfiles \
     # On a persisted volume, not the container filesystem.
     #
@@ -132,6 +134,15 @@ RUN useradd --create-home --uid 10001 netforensiq \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends p7zip-full \
     && rm -rf /var/lib/apt/lists/*
+
+# A second copy of the interpreter, deliberately without the capability below.
+#
+# APK examination runs as a separate process on input that is hostile by
+# hypothesis, and that process has no business holding raw-socket rights. `cp`
+# does not preserve file capabilities, so this copy — made before setcap runs —
+# is the same interpreter with none of them. capture/apk_runner.py invokes it
+# through APK_ENGINE_PYTHON.
+RUN cp "$(readlink -f "$(command -v python3)")" /usr/local/bin/python3-analysis
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libcap2-bin \
