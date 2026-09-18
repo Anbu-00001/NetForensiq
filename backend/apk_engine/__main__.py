@@ -7,11 +7,22 @@ Command line — the only interface the web process uses.
 
     python -m apk_engine evaluate --benign DIR [DIR ...] --malicious DIR [DIR ...]
         Measures every signal over labelled corpora and writes data/baselines.json.
+
+    python -m apk_engine reference --from DIR [DIR ...] --authority publisher --note TEXT
+        Records package name -> authorised signing key from packages known to be
+        genuine, so later examinations can check what a sample claims to be.
+        Run where it is deployed: a laboratory's reference set is its own.
+
+    python -m apk_engine corpus
+        Prints the corpus every signal's base rate was measured on, with the
+        SHA-256 of each sample, so the measurement can be repeated and
+        contradicted.
 """
 
 import argparse
 import json
 import logging
+import os
 import sys
 
 
@@ -49,6 +60,18 @@ def main(argv=None):
     ev.add_argument('--check', action='store_true',
                     help='held-out test: report tiers under current baselines, write nothing')
 
+    rf = sub.add_parser('reference')
+    rf.add_argument('--from', dest='sources', nargs='+', required=True,
+                    help='directories or .apk files known to be genuine')
+    rf.add_argument('--authority', choices=('publisher', 'distributor'), default='distributor',
+                    help='publisher: this is THE authorised key (a mismatch is tier 3). '
+                         'distributor: a key observed on one channel\'s build (tier 2)')
+    rf.add_argument('--note', default='', help='where these packages came from, for the record')
+    rf.add_argument('--out')
+    rf.add_argument('--max-memory-mb', type=int, default=6144)
+
+    sub.add_parser('corpus')
+
     args = parser.parse_args(argv)
     # apkInspector logs every tampered entry at DEBUG through the root logger.
     # The report already carries those facts; stderr is for failures.
@@ -71,6 +94,34 @@ def main(argv=None):
             report = unexaminable(f'The examination failed: {type(exc).__name__}: {exc}')
         json.dump(report, sys.stdout, default=str)
         sys.stdout.write('\n')
+        return 0
+
+    if args.command == 'reference':
+        _limit(resource_name='RLIMIT_AS', value=args.max_memory_mb * 1024 * 1024)
+        from .reference_set import build, write
+        paths = []
+        for source in args.sources:
+            if os.path.isdir(source):
+                paths += [os.path.join(source, n) for n in sorted(os.listdir(source))
+                          if n.lower().endswith('.apk')]
+            else:
+                paths.append(source)
+        data = build(paths, authority=args.authority, note=args.note)
+        written = write(data, args.out)
+        print(f'{data["entry_count"]} package(s) recorded as {args.authority} -> {written}',
+              file=sys.stderr)
+        for failure in data['failures']:
+            print(f'  skipped {failure}', file=sys.stderr)
+        return 0
+
+    if args.command == 'corpus':
+        from .baselines import load
+        corpus = load().get('corpus', {})
+        print(f'{corpus.get("benign", 0)} legitimate, {corpus.get("malicious", 0)} malicious')
+        print(corpus.get('description', ''))
+        print()
+        for sample in corpus.get('manifest', []):
+            print(f'{sample["sha256"]}  {sample["label"]:9s}  {sample["name"]}')
         return 0
 
     from .evaluate import evaluate

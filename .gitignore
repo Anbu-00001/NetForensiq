@@ -168,3 +168,12 @@ backend/.cache/
 frontend/test-results/
 *.sqlite3-shm
 *.sqlite3-wal
+
+# ──────────────────────────────────────────────────────────────
+# Malware samples and sandbox output — NEVER commit these
+# ──────────────────────────────────────────────────────────────
+sandbox_results/
+*.apk
+*.apk.zip
+apk_corpus/
+malicious_mb/

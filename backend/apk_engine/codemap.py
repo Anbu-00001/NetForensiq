@@ -176,6 +176,16 @@ class CodeMap:
             return {'kind': 'app', 'name': self.identity.get('package') or ''}
         return {'kind': 'unattributed', 'name': ''}
 
+    def attribute_component(self, component_name):
+        """
+        Attribute a *manifest* component to the app or to a bundled library.
+
+        The same question ``attribute`` answers for a class named in code, for a
+        class named in the manifest — where the name may be relative (``.Foo``)
+        and has to be resolved against the package first.
+        """
+        return self.attribute(descriptor(self._resolve(component_name)))
+
     def _components(self):
         classes = set()
         for c in self.identity.get('components', []):

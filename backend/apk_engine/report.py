@@ -32,6 +32,21 @@ TIERS = {
         'that nothing was found.'),
 }
 
+# A tier reached by an identity finding needs its own words. "Harmful
+# behaviour demonstrated" would be false: what was demonstrated is that the
+# file is not signed by the key recorded for the name it claims, which is a
+# different and narrower thing.
+IDENTITY_TIERS = {
+    3: ('Not the application it claims to be',
+        'The package declares the name of a known application but is not signed by the key '
+        'recorded as that application\'s. Android treats the signing key, not the name, as '
+        'identity, so the two are not the same application.'),
+    2: ('Not the recorded build of the application it claims to be',
+        'The package declares the name of a known application and is signed by a different key '
+        'than the build on record. That is consistent with redistribution through another '
+        'channel as well as with impersonation; the reference entry says which was recorded.'),
+}
+
 LIMITS = [
     'Static examination only: the sample is never executed, so code downloaded, decrypted or '
     'generated at runtime is not seen.',
@@ -43,6 +58,8 @@ LIMITS = [
     'lambdas are not edges, so a missing path does not mean unreachable code.',
     'A signal is "validated" when it fired on none of the legitimate reference apps. The '
     'printed upper bound is how large its false-positive rate could still plausibly be.',
+    'Identity findings are only as complete as the reference set they are checked against. An '
+    'empty reference set means no claim was checked, never that the claim was verified.',
 ]
 
 
@@ -59,14 +76,17 @@ def skeleton():
         'behaviours': [],
         'endpoints': None,
         'intel': None,
+        'reference_set': None,
+        'reproduction': None,
         'code': None,
         'errors': [],
         'limits': LIMITS,
     }
 
 
-def assessment_for(tier, basis=(), families=(), techniques=(), not_established=(), summary=None):
-    label, meaning = TIERS[tier]
+def assessment_for(tier, basis=(), families=(), techniques=(), not_established=(), summary=None,
+                   vocabulary=None):
+    label, meaning = (vocabulary or TIERS)[tier]
     return {
         'tier': tier, 'label': label, 'meaning': meaning,
         'summary': summary or meaning,

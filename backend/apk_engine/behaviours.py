@@ -4,9 +4,11 @@ Capabilities (what the code can do) and behaviours (documented combinations).
 Two layers, deliberately
 ========================
 **Capabilities** are neutral facts: "calls PackageInstaller.Session.commit",
-"routes all traffic into a VPN". Each is found as call sites or string
-references *in app or unattributed code* — a capability only a bundled library
-contains is counted separately and never feeds a behaviour. On their own they
+"routes all traffic into a VPN". Each is found as call sites, string references
+or manifest components *belonging to the app or unattributed* — a capability
+only a bundled library contains is counted separately and never feeds a
+behaviour. Manifest components go through the same split as code (``_manifest``),
+because the manifest merger copies an SDK's components into the app's manifest. On their own they
 prove nothing: in the evaluation corpus F-Droid and Droid-ify install packages,
 and NetGuard, RethinkDNS, AdAway and OpenVPN create VPNs. They are listed
 because an examiner needs the inventory, not because they are suspicious.
@@ -50,8 +52,23 @@ def _strings(ctx, regex):
             [s for s in sites if not s.counts_as_app_code])
 
 
-def _manifest(names, what):
-    return [{'manifest': what, 'component': n} for n in names]
+def _manifest(ctx, names, what):
+    """
+    Manifest components, split app from library exactly as code evidence is.
+
+    The manifest merger copies an SDK's components into the app's manifest, so
+    an accessibility service or SMS receiver declared by a bundled library
+    arrives here looking exactly like one the app wrote. Counting those as the
+    app's own is the same defect that made the old scorer read NPCI's root check
+    as Flipkart's — one layer up, where it can reach a behaviour rule.
+    """
+    app, library = [], 0
+    for name in names:
+        if ctx.codemap.attribute_component(name)['kind'] == 'library':
+            library += 1
+        else:
+            app.append({'manifest': what, 'component': name})
+    return app, library
 
 
 # ── capability detectors: return (app_evidence, library_evidence_count) ─────
@@ -104,12 +121,12 @@ def _sms_receiver(ctx):
     names = []
     for action in ('android.provider.Telephony.SMS_RECEIVED', 'android.provider.Telephony.SMS_DELIVER'):
         names += components_with_action(ctx.identity, action)
-    return _manifest(sorted(set(names)), 'receiver for incoming SMS'), 0
+    return _manifest(ctx, sorted(set(names)), 'receiver for incoming SMS')
 
 
 def _accessibility_service(ctx):
     names = components_with_permission(ctx.identity, 'android.permission.BIND_ACCESSIBILITY_SERVICE', ('service',))
-    return _manifest(names, 'accessibility service'), 0
+    return _manifest(ctx, names, 'accessibility service')
 
 
 def _accessibility_actions(ctx):
@@ -153,7 +170,7 @@ def _overlay_window(ctx):
 
 def _device_admin(ctx):
     names = components_with_permission(ctx.identity, 'android.permission.BIND_DEVICE_ADMIN', ('receiver',))
-    evidence, lib = _manifest(names, 'device administrator receiver'), 0
+    evidence, lib = _manifest(ctx, names, 'device administrator receiver')
     for method in ('lockNow', 'wipeData', 'resetPassword'):
         app, l = _api(ctx, 'Landroid/app/admin/DevicePolicyManager;', method)
         evidence += app
@@ -183,12 +200,12 @@ def _root_detection_strings(ctx):
 
 def _notification_listener(ctx):
     names = components_with_permission(ctx.identity, 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE', ('service',))
-    return _manifest(names, 'notification listener'), 0
+    return _manifest(ctx, names, 'notification listener')
 
 
 def _boot_start(ctx):
     names = components_with_action(ctx.identity, 'android.intent.action.BOOT_COMPLETED')
-    return _manifest(names, 'receiver started at boot'), 0
+    return _manifest(ctx, names, 'receiver started at boot')
 
 
 def _hides_launcher_icon(ctx):

@@ -37,15 +37,23 @@ class FakeSite:
 class FakeCodeMap:
     """Answers the queries the detectors make, from a table the test writes."""
 
-    def __init__(self, calls=None, strings=None):
+    def __init__(self, calls=None, strings=None, libraries=()):
         self.call_table = calls or {}
         self.string_table = strings or {}
+        # (dotted prefix, library name) pairs, as CodeMap holds them.
+        self.libraries = tuple(libraries)
 
     def calls(self, owner, method, include_subclasses=False):
         return self.call_table.get((owner, method), [])
 
     def string_sites(self, regex):
         return self.string_table.get(regex, [])
+
+    def attribute_component(self, component_name):
+        for prefix, library in self.libraries:
+            if component_name.startswith(prefix):
+                return {'kind': 'library', 'name': library}
+        return {'kind': 'app', 'name': 'com.example.app'}
 
 
 IDENTITY = {
@@ -132,6 +140,24 @@ class BehaviourTests(unittest.TestCase):
         finding = behaviours['beh.sms_to_telegram_bot']
         self.assertEqual(finding['pha'], 'spyware')
         self.assertIn('T1636.004', [t['id'] for t in finding['attack']])
+
+    def test_a_receiver_the_manifest_merger_copied_in_is_not_the_app_s(self):
+        """
+        The manifest merger copies an SDK's components into the app's manifest,
+        so an SMS receiver declared by a bundled library is indistinguishable
+        from one the app wrote until it is attributed. Before that attribution
+        existed, this rule could be completed by a library's receiver.
+        """
+        identity = dict(IDENTITY, components=[{
+            'kind': 'receiver', 'name': 'com.someSdk.messaging.SmsRx', 'permission': '',
+            'intent_filters': [{'actions': ['android.provider.Telephony.SMS_RECEIVED'],
+                                'categories': []}]}])
+        capabilities, behaviours = run(
+            identity, strings={TELEGRAM: [FakeSite()]},
+            libraries=(('com.someSdk.', 'Some SDK'),))
+        self.assertFalse(capabilities['cap.sms_receiver']['present'])
+        self.assertEqual(capabilities['cap.sms_receiver']['library_only_occurrences'], 1)
+        self.assertNotIn('beh.sms_to_telegram_bot', behaviours)
 
     def test_every_rule_declares_sources_lookalikes_and_a_tier(self):
         from apk_engine.behaviours import BEHAVIOURS

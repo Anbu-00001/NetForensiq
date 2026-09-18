@@ -1,0 +1,309 @@
+{
+ "authority": "distributor",
+ "built": "2026-09-18T11:52:50+00:00",
+ "entries": {
+  "com.aurora.store": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "5c83c7672b929955dc0a1db89a5e6ae4389e2eae7ec939956041694e5815f532"
+   ],
+   "label": "Aurora Store",
+   "source": {
+    "file": "com.aurora.store.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "fd9c75d90d0f4a7c132b9b4a5a2cf1992a45e03b8d8ff988b7dcfbc0db2c4d11",
+    "version_name": "4.8.4"
+   }
+  },
+  "com.celzero.bravedns": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "abc6766ba34e027dc7dfa29b1c2b5b1d1dc14f7ba637895a81dfb68e40bc1579"
+   ],
+   "label": "Rethink",
+   "source": {
+    "file": "com.celzero.bravedns.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "0cdb855b05a602caf3a5c3e07ceb37dd947d39e455e60cdaf5c01e0724e4cb0e",
+    "version_name": "v0.5.6"
+   }
+  },
+  "com.fsck.k9": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "c430665e3662253b2078dcda350c2c6ce44d915a3d8a147b63ced619bb9e8576"
+   ],
+   "label": "K-9 Mail",
+   "source": {
+    "file": "com.fsck.k9.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "92cd3a81c7a8d066e517a50932fe85424de7752cb72e76032174d53ec36a2741",
+    "version_name": "23.0"
+   }
+  },
+  "com.kunzisoft.keepass.libre": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "c810aab7efa4d5ad3fc2941fdf5f99b88a3b73f86219715627edb4dabac541a4"
+   ],
+   "label": "KeePassDX",
+   "source": {
+    "file": "com.kunzisoft.keepass.libre.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "862f87a30baef06181f049adf7c460611605b25a807eaf3c25841a9dd84bed9e",
+    "version_name": "4.5.4"
+   }
+  },
+  "com.looker.droidify": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "b4f1c8a81e4b9f6e02638e93bead56656502c21fb95c8d3ec93d0cdd1f6e0d3f"
+   ],
+   "label": "Droid-ify",
+   "source": {
+    "file": "com.looker.droidify.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "da3070f3f18bdbed1eab666677afd39e4b19a60c70f0bfca68a5730147f81f10",
+    "version_name": "0.7.7"
+   }
+  },
+  "com.mendhak.gpslogger": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "dc3507919aad1c981423f7563ad699830518900f943632bc36eeb7250c390235"
+   ],
+   "label": "GPSLogger",
+   "source": {
+    "file": "com.mendhak.gpslogger.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "1aa6e7ce15a3d4ec8fbec2571b1f96d509a798fb93c0206351162d547a50950a",
+    "version_name": "137"
+   }
+  },
+  "com.nextcloud.client": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "5709576f9d6c6a7687dd5d56b269d1fa5e379702b91bc83f39fd7b7c597c1b83"
+   ],
+   "label": "Nextcloud",
+   "source": {
+    "file": "com.nextcloud.client.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "2d08059c9a0a94ef4316e5c8491e3c6aee99a87b58bb796163c44e08deb1615c",
+    "version_name": "35.0.0"
+   }
+  },
+  "com.termux": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "228fb2cfe90831c1499ec3ccaf61e96e8e1ce70766b9474672ce427334d41c42"
+   ],
+   "label": "Termux",
+   "source": {
+    "file": "com.termux.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "e6265a57eb5ca363808488e3b01955958bed93bc0c8a0d281849b363b11027ec",
+    "version_name": "0.118.3"
+   }
+  },
+  "de.blinkt.openvpn": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "4cd330fe6593e2e64b1e1fa383f0c6d73892184fc1cd1a909e71d558d862e212"
+   ],
+   "label": "OpenVPN for Android",
+   "source": {
+    "file": "de.blinkt.openvpn.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "3ce86b641d1627820d8f05606a3fb58d966ffa8360c234563b3c5e1bd3a8490a",
+    "version_name": "0.7.65"
+   }
+  },
+  "eu.faircode.netguard": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "cd775f59ee5aebba18d9f20aa5d69c7b6952958224b7c93f597e174b57b4dd8f"
+   ],
+   "label": "NetGuard",
+   "source": {
+    "file": "eu.faircode.netguard.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "158b4308da0006298d22ed557adbff24b282fddeb1bc0b3468829a60f405a8c4",
+    "version_name": "2.337"
+   }
+  },
+  "eu.siacs.conversations": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "c75abe78593643ae7cac527327cd2193482db067404a88b8c13f7a0701946187"
+   ],
+   "label": "Conversations",
+   "source": {
+    "file": "eu.siacs.conversations.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "0da5d9e1b4fe1e6560720f12ae00149d7c4a4a8aff4ab10163e6f95dd833aa8a",
+    "version_name": "2.20.2+free"
+   }
+  },
+  "im.vector.app": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "b15d9b673b55b9fe656190794d872e59ec5b85b3bfb8a76b9442f17eae2887c9"
+   ],
+   "label": "Element Classic",
+   "source": {
+    "file": "im.vector.app.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "6ce8ee6c3a5a76ab2928f3f3b6e3934c352a3fd6bf76b7ff3dc291c6cbd928de",
+    "version_name": "1.6.62"
+   }
+  },
+  "io.github.sds100.keymapper": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "f4d753302710c9a7a40885c891aebdb1a0f275122fdcdb7c2f45a202b213f373"
+   ],
+   "label": "Key Mapper",
+   "source": {
+    "file": "io.github.sds100.keymapper.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "d565271d6390618d83821fff1bc6770099191d2b6a6d9d37ea7e541a297917a1",
+    "version_name": "4.4.0-foss"
+   }
+  },
+  "net.osmand.plus": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "38294eaac95c3bb5a994692cd7758f8bcdbffb40819af6e806eb7fe482324dcd"
+   ],
+   "label": "OsmAnd~",
+   "source": {
+    "file": "net.osmand.plus.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "27f1eb82d288a9939b7c0bdd0fb94f78749824ffc753d32d421e01cbe487e5e0",
+    "version_name": "5.3.10"
+   }
+  },
+  "net.sourceforge.opencamera": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "438991c968e8d308ca34078d37511c90c502d596baf9f0d0c5fbd1c9bf67df6d"
+   ],
+   "label": "Open Camera",
+   "source": {
+    "file": "net.sourceforge.opencamera.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "ca5672ca8c7174554ca0b07b5b26e505817a05142f571cf2abe67e790c30249c",
+    "version_name": "1.56.2"
+   }
+  },
+  "org.adaway": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "42203f1ac857426d1496e971db96fbe1f88c25c9e1f895a5c98d703891292277"
+   ],
+   "label": "AdAway",
+   "source": {
+    "file": "org.adaway.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "0de00a58a0dbb4c4b6befc9fe1f5e53800993484baab955824798f46fbf3338e",
+    "version_name": "6.1.4"
+   }
+  },
+  "org.briarproject.briar.android": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "501ddf14a6ecf904fb20285c56a565cb987a867f91572ee33c2d43771cca4e37"
+   ],
+   "label": "Briar",
+   "source": {
+    "file": "org.briarproject.briar.android.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "4b0ad16aac912abefa95f27241ab5e7958a306749c811ba71034e6c1824cc136",
+    "version_name": "1.5.19"
+   }
+  },
+  "org.fdroid.fdroid": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "43238d512c1e5eb2d6569f4a3afbf5523418b82e0a3ed1552770abb9a9c9ccab"
+   ],
+   "label": "F-Droid",
+   "source": {
+    "file": "org.fdroid.fdroid.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "985f5181d48bb6bafd54083a048b391271e0ab28385881cc41294fb01a222762",
+    "version_name": "1.23.2"
+   }
+  },
+  "org.fossify.contacts": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "affdb124d3f4720c2f98dbca9eacba0514fba4306e20a2786c861c3c0d6ff292"
+   ],
+   "label": "Contacts",
+   "source": {
+    "file": "org.fossify.contacts.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "6a89be96b5ec39f5e2b11bd61dc7031f4b88261b324ab13af5743fbc62f0cddb",
+    "version_name": "1.6.0"
+   }
+  },
+  "org.fossify.messages": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "affdb124d3f4720c2f98dbca9eacba0514fba4306e20a2786c861c3c0d6ff292"
+   ],
+   "label": "Messages",
+   "source": {
+    "file": "org.fossify.messages.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "95f226c7929adc2699cdb2bc6ead29a704bddb8f55bd92d9b4ecf74bb604f1c6",
+    "version_name": "1.9.1"
+   }
+  },
+  "org.fossify.phone": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "affdb124d3f4720c2f98dbca9eacba0514fba4306e20a2786c861c3c0d6ff292"
+   ],
+   "label": "Phone",
+   "source": {
+    "file": "org.fossify.phone.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "d1ad08467034e5138a6e68f03b6e150f0bb010dfcbf490ff3d2bd4822b755728",
+    "version_name": "1.11.1"
+   }
+  },
+  "org.fossify.voicerecorder": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "affdb124d3f4720c2f98dbca9eacba0514fba4306e20a2786c861c3c0d6ff292"
+   ],
+   "label": "Voice Recorder",
+   "source": {
+    "file": "org.fossify.voicerecorder.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "bd4ebc4b85fefb43a68126d8704d38222e88ef3205b3666e7a2fa00b325a696b",
+    "version_name": "1.7.1"
+   }
+  },
+  "org.schabi.newpipe": {
+   "authority": "distributor",
+   "certificates_sha256": [
+    "964dfa418e66390110b0c061a0497cbbd7395b8b2526bee4dece95597eb5e9d4"
+   ],
+   "label": "NewPipe",
+   "source": {
+    "file": "org.schabi.newpipe.apk",
+    "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+    "sha256": "1d66d19eedbab969b1be2e44e0ea35f5f8921cbe83b5c5ac810767ca1a84b7e8",
+    "version_name": "0.29.1"
+   }
+  }
+ },
+ "entry_count": 23,
+ "failures": [],
+ "note": "F-Droid release builds, acquired for the NetForensiq evaluation corpus, 18 Sep 2026",
+ "schema": "netforensiq.apk-reference-set/1"
+}

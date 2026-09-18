@@ -341,6 +341,7 @@ export default function SamplePage() {
   const capabilities = (report?.capabilities ?? []).filter((c) => c.present);
   const endpoints = report?.endpoints;
   const intel = report?.intel;
+  const claim = report?.reference_set;
 
   return (
     <Box sx={{ display: 'flex', bgcolor: PANEL, minHeight: '100vh' }}>
@@ -476,6 +477,39 @@ export default function SamplePage() {
           {report && (
             <>
               <Assessment report={report} />
+
+              {claim?.findings?.length > 0 && (
+                <Panel
+                  title="What this package claims to be"
+                  subtitle={claim.checked_against?.entries
+                    ? `Checked against ${claim.checked_against.entries} known package${claim.checked_against.entries === 1 ? '' : 's'}${claim.checked_against.note ? ` · ${claim.checked_against.note}` : ''}`
+                    : 'No reference set is installed, so no identity claim was checked'}
+                >
+                  {claim.findings.map((f) => (
+                    <Box key={f.id} sx={{
+                      borderLeft: `3px solid ${f.establishes === 'identity' ? CRITICAL : GREY}`,
+                      pl: 1.2, py: 0.6, mb: 0.8,
+                    }}>
+                      <Typography sx={{ fontSize: 12.5, color: INK, fontWeight: 600 }}>
+                        {f.title}
+                      </Typography>
+                      <Typography sx={{ fontSize: 12, color: INK_SOFT, mt: 0.3 }}>
+                        {f.statement}
+                      </Typography>
+                      {f.establishes !== 'identity' && (
+                        <Typography sx={{ fontSize: 11, color: GREY_MUTED, mt: 0.3 }}>
+                          Reported for the examiner; this does not decide the tier.
+                        </Typography>
+                      )}
+                      {f.lookalikes?.length > 0 && (
+                        <Typography sx={{ fontSize: 11, color: GREY_MUTED, mt: 0.3 }}>
+                          Also consistent with: {f.lookalikes.join(' ')}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Panel>
+              )}
 
               {intel?.matches?.length > 0 && (
                 <Panel

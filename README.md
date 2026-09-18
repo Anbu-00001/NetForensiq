@@ -274,6 +274,7 @@ flowchart TD
 | **4** Known harmful software | The file or its signing key is a listed harmful product | Hash or certificate match in a bundled indicator set |
 | **3** Harmful behaviour demonstrated | A documented malware technique is in the app's own code | A validated behaviour rule, with the call path shown |
 | **2** Built to evade inspection | Constructed to defeat analysis tools or hide from the user | A validated integrity indicator |
+| **3 / 2** Not the application it claims to be | Declares a known package name but is not signed by the key on record | A reference-set entry; tier 3 when that entry is the publisher's own key, 2 when it is one distributor's build |
 | **1** No harmful behaviour established | Examination completed; nothing above was found | — **never means "safe"** |
 | **0** Could not be examined | Parsing, memory or time ran out | — never presented as a clean result |
 
@@ -293,11 +294,85 @@ Measured on that corpus (`backend/apk_engine/data/baselines.json`, regenerate wi
 
 The judge's sample from KANAD S.H.I.E.L.D. 2026 (`com.mrram.loader`, delivered as "PENSION CARD VERIFICATION") reaches **tier 3 — Hostile downloader**, on its own `MainActivity` feeding a `PackageInstaller` session while `InstallVpnService` routes `0.0.0.0/0` and `::/0` into a local VPN, plus a Cloudflare quick-tunnel stage-2 URL and five forged-header indicators. Flipkart reaches **tier 1**. Under the previous additive score it was the other way round: Flipkart scored 100/100 "Remote access trojan", on a root *check* inside NPCI's UPI library.
 
+### Measured against real corpora (18 Sep 2026)
+
+Both halves were measured, because a tool that reports only the half it does well is not reporting. Full method and caveats in [research/151 §8.9–8.13](research/151_WHAT_MAKES_THIS_DIFFERENT.md).
+
+**False positives — 300 unseen F-Droid packages, held out.** Sampled deterministically from the F-Droid index (seed fixed, index-published SHA-256 verified on every download, none overlapping the baseline corpus), then run in `--check` mode so nothing was written and nothing was fitted:
+
+| Result | Count |
+|---|---|
+| Reached tier 2 or above (**false positives**) | **0 / 299** |
+| Tier 1 — no harmful behaviour established | 299 |
+| Tier 0 — could not be examined | 1 (`pw.faraday.faraday`, exceeded the 6 GB memory cap) |
+
+Every signal permitted to raise a tier fired on **zero** of the 299: all eight AXML indicators, all seven ZIP indicators, `cert.debug_certificate`, and all three validated behaviour rules. The one that matters most, `zip.encryption_flag_on_package`, is **0 / 299 legitimate against 71 / 195 malicious**.
+
+**Detection — 200 MalwareBazaar packages.** The 200 most recent APK samples as of 18 Sep 2026 (first seen 8 Jul – 17 Sep 2026; Copybara, IRATA, NGate and Herodotus among the labelled families, 168 unlabelled but confirmed malicious), taken without filtering by family or by what we already detect, examined in a sandbox with no network:
+
+| Tier | Samples | |
+|---|---:|---|
+| 4 — Known harmful software | 10 | indicator identity match |
+| 3 — Harmful behaviour demonstrated | 8 | validated behaviour rule |
+| 2 — Built to evade inspection | 50 | validated integrity indicator |
+| 1 — No harmful behaviour established | **127** | **missed** |
+| 0 — Could not be examined | 5 | |
+
+**68 of 200 (34%) reached tier 2 or above; 63.5% were missed.** That number is published rather than buried: it is the first sensitivity figure this project has had, and no scoring tool in this space publishes one at all.
+
+**Why the misses matter more than the hits.** Every one of the 127 had DEX code indexed — `dex_count = 0` count: **zero**, nothing truncated. None were packed or resource-only. Static analysis saw them all; the rules simply do not cover what it saw. **59 of 127 fired exactly one capability** (our rules require combinations, by design), 14 fired none at all, and 10 fired six or more without matching a rule. That is a rule gap, which is fixable, not an architectural blind spot, which would not be.
+
+### What these numbers do and do not support
+
+The false-positive bound improves by an order of magnitude with corpus size — the exact one-sided 95% upper bound for zero firings is **9.2% at n=31**, **1.0% at n=299**, **0.92% at n=323** (the two corpora merged, no overlap).
+
+But F-Droid is a cleaner population than the field: its builds carry **89% fewer tracking libraries** than their Google Play equivalents (University of Oxford, 2025), and developers routinely ship a stripped FOSS variant there. The app that broke the old scorer was a *Play* build of Flipkart, whose merged manifest declares components under `com.facebook`, `in.juspay` and `org.npci.upi` — exactly the class F-Droid under-represents.
+
+So the supported claim is **"fired on none of 300 legitimate F-Droid builds"**. It is *not* "fires on fewer than 1% of Android apps", and that stronger sentence is not made anywhere in this repository.
+
 ### Two design decisions worth reading
 
 **① Capability is not intent.** Google Play explicitly permits SMS permissions for UPI apps, and a banking SDK is *expected* to check for root. So permissions and API calls are an inventory, and only combinations that published threat research documents — each citing that report, listing the legitimate apps that look similar, and mapping to MITRE ATT&CK — can establish harm.
 
-**② Whose code is it?** A finding names the calling class, attributed to the app, to a named SDK (Exodus signatures) or to obfuscated code. A capability that exists only inside a bundled library is counted separately and never feeds a behaviour rule.
+**② Whose code is it?** A finding names the calling class, attributed to the app, to a named SDK (Exodus signatures) or to obfuscated code. A capability that exists only inside a bundled library is counted separately and never feeds a behaviour rule. Manifest components go through the same split, because the manifest merger copies an SDK's services and receivers into the app's own manifest — an accessibility service declared by a bundled library is not the app declaring one.
+
+### Does it have the identity it claims?
+
+The fraud that reaches Indian complainants is mostly impersonation — an APK called "PENSION CARD VERIFICATION", a fake bank, a fake pay-commission calculator. For those the first question is not what the package *does* but what it *claims to be*, and the answer is an identity fact rather than a statistical one: Android treats the signing key as identity, so a package declaring a known name while signed by a different key is not that application. No corpus is needed to say so, and the defence can check it with `keytool`.
+
+The reference set is built where it is deployed — a laboratory points this at the genuine government and banking apps it has acquired, and every later examination is checked against them:
+
+```bash
+python -m apk_engine reference --from /path/to/genuine/apks     --authority publisher --note "Downloaded from Google Play, 18 Sep 2026"
+```
+
+`--authority publisher` means *this is the authorised key*, so a mismatch is tier 3. `--authority distributor` means *this key was seen on one channel's build*, so a mismatch is tier 2 and the report says the difference is also consistent with legitimate redistribution. The shipped set holds the 23 F-Droid builds from the evaluation corpus, recorded as `distributor`; it is a working seed, not a national registry.
+
+### Measuring against real malware, without a runnable sample on disk
+
+The engine never executes an APK — there is no Android runtime, so a sample is an inert ZIP and the
+exposure is parsing, not detonation. Acquisition keeps it that way: samples are stored as the
+password-protected ZIP abuse.ch serves, mode `0400`, named by SHA-256, and are decrypted only onto a
+`noexec` tmpfs inside a container with `--network none --read-only --cap-drop ALL`.
+
+```bash
+export MALWAREBAZAAR_AUTH_KEY=...          # free key: https://auth.abuse.ch/
+python scripts/fetch_malwarebazaar_corpus.py fetch --file-type apk --limit 200     --out ../apk_corpus/malicious_mb      # outside any git work tree; fetch refuses otherwise
+./scripts/analyse_untrusted.sh ../apk_corpus/malicious_mb
+```
+
+Each sample's SHA-256 is verified after decryption, so a file that is not the one MalwareBazaar
+recorded is never examined. Expect a high miss rate — five behaviour rules against a broad sample
+set — and do not filter the corpus to samples we already detect; the misses are the specification
+for the next rules.
+
+### Reproducible by the other side
+
+Every report carries the means to obtain it again — engine and tool versions, the SHA-256 of each reference file read, the baseline snapshot judged against, and the command. `engine.seconds` is named as the one field that varies between runs, and `apk_engine/tests/test_determinism.py` holds the engine to it. The corpus behind every base rate prints in full:
+
+```bash
+python -m apk_engine corpus     # every sample's SHA-256, so the measurement can be contradicted
+```
 
 ### The correlation nobody else can produce
 
@@ -447,7 +522,7 @@ The running container needs **no network**. Verified under `--network none`: a s
 ## 🧪 Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 513 backend tests
+docker exec netforensiq python manage.py test    # 534 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 ```
 
@@ -490,8 +565,9 @@ NetForensiq/
 │   │   ├── codemap.py       call graph · app vs SDK vs obfuscated code
 │   │   ├── behaviours.py    capabilities + documented behaviour rules
 │   │   ├── baselines.py     which signals measurement lets move a verdict
+│   │   ├── reference_set.py identity claims: signed by the key on record?
 │   │   ├── evaluate.py      corpus harness → data/baselines.json
-│   │   └── data/            Exodus · stalkerware IOCs · IANA TLDs (dated)
+│   │   └── data/            Exodus · stalkerware IOCs · IANA TLDs · known signers
 │   └── evidence/
 │       ├── service.py       seal · custody · verify · §63 signing
 │       ├── certificate_pdf.py   renders THE SCHEDULE, Parts A & B
@@ -501,6 +577,7 @@ NetForensiq/
 ├── integrations/wazuh/    decoders · rules · sample events
 ├── research/              legal, technical and literature research
 └── scripts/               verification · offline bundle · air-gap transfer
+                        · fetch_fdroid_corpus.py (reproducible benign corpus)
 ```
 
 ---
@@ -509,7 +586,10 @@ NetForensiq/
 
 This project was built for a hackathon and it is **not finished**. Stated plainly, because a forensics tool that oversells itself is worse than none:
 
-- **The APK corpus is small.** Signals are validated against 31 legitimate apps and **one** malicious sample. Zero firings in 31 apps bounds the false-positive rate at ~9%, not at zero, and detection rate is not measured at all. ~300 legitimate apps are needed to claim ≤1%; the harness for that is `python -m apk_engine evaluate`.
+- **Detection is measured, and it is 34%.** On 200 current MalwareBazaar APK samples, 68 reached tier 2 or above and **127 were missed**. Five behaviour rules do not cover modern Android malware, and the misses are published in [research/151 §8.9](research/151_WHAT_MAKES_THIS_DIFFERENT.md) as a work list rather than smoothed over.
+- **The shipped baselines still rest on 31 apps.** `data/baselines.json` was measured on 31 legitimate apps and one malicious sample, which bounds a clean signal's false-positive rate at ~9.2%, not zero. The 300-app held-out run confirms zero false positives at a ~1.0% bound, but it was a `--check` run and did not rewrite the baselines: 8 of the original 31 samples are no longer on this machine, so that measurement cannot be reproduced as-is.
+- **Two signals are mislabelled by that small corpus.** `cert.malformed_country` carries `validated` status from 0/31 yet fired on 15 of 299 unseen apps (it does not reach the tier path today, so nothing is wrong in output); `cap.dynamic_code_loading` was 0/31 but is 1/299. Both are corrected in [research/151 §8.13](research/151_WHAT_MAKES_THIS_DIFFERENT.md).
+- **The benign corpus is cleaner than the field.** F-Droid builds carry 89% fewer tracking libraries than their Play equivalents, so the false-positive bound is optimistic for Play Store apps.
 - **Static analysis only.** No detonation, no decompilation, no emulation. It reads the manifest, the certificate and DEX strings — nothing more is claimed.
 - **Ten of the fourteen ATT&CK tactics cannot be evidenced from network capture at all**, and `scenario.py` names them rather than quietly leaving them out.
 - **`ANOMALY_STATISTICAL` cites no threshold.** It is capped at MEDIUM and always ships the features that made a flow stand out.

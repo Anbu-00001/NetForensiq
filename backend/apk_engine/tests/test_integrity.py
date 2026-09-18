@@ -43,3 +43,39 @@ class IntegrityTests(unittest.TestCase):
         self.assertFalse(result['checked'])
         self.assertTrue(result['error'])
         self.assertEqual(result['findings'], [])
+
+
+class MeasurementTests(unittest.TestCase):
+    """
+    A signal that never fires must still be measured.
+
+    Signals were recorded only when they fired, so an indicator absent from
+    every legitimate app never reached baselines.json at all, and
+    ``baselines.status`` then called it *unmeasured* — barring it from raising
+    a tier. That disqualified precisely the indicators that discriminate best.
+    Measured on 200 MalwareBazaar packages, ``zip.encryption_flag_on_package``
+    fired on 71 of 195 and on no legitimate app, and could do nothing.
+    """
+
+    def signals_for(self, report):
+        from apk_engine.engine import signals
+        return signals(dict({'capabilities': [], 'behaviours': [], 'identity': None}, **report))
+
+    def test_every_indicator_is_recorded_even_when_it_did_not_fire(self):
+        fired = self.signals_for(
+            {'integrity': {'checked': True, 'findings': [{'id': 'zip.header_mismatch'}]}})
+        for indicator_id in integrity.INDICATORS:
+            self.assertIn(indicator_id, fired, f'{indicator_id} was not measured')
+        self.assertTrue(fired['zip.header_mismatch'])
+        self.assertFalse(fired['zip.encryption_flag_on_package'])
+
+    def test_a_file_that_could_not_be_checked_claims_nothing_either_way(self):
+        # "Did not fire" would be a statement about a file nothing could read.
+        fired = self.signals_for({'integrity': {'checked': False, 'findings': []}})
+        self.assertEqual([k for k in fired if k in integrity.INDICATORS], [])
+
+    def test_a_real_package_measures_every_indicator(self):
+        from apk_engine import integrity as module
+        fired = self.signals_for({'integrity': module.check(factories.apk())})
+        self.assertEqual(set(module.INDICATORS) - set(fired), set())
+        self.assertFalse(any(fired[i] for i in module.INDICATORS))

@@ -12,9 +12,11 @@ import hashlib
 import os
 import time
 
-from . import ENGINE_VERSION, baselines as baseline_store, endpoints, integrity, intel, reference
+from . import (ENGINE_VERSION, baselines as baseline_store, endpoints, integrity, intel,
+               reference, reference_set)
 from .behaviours import BEHAVIOURS, detect_behaviours, detect_capabilities
 from .container import inspect_archive
+from .integrity import INDICATORS
 from .report import skeleton
 from .verdict import decide
 
@@ -41,6 +43,41 @@ def _hashes(path):
             for digest in digests.values():
                 digest.update(block)
     return dict({k: v.hexdigest() for k, v in digests.items()}, size=size)
+
+
+def _reproduction(report, apk_path):
+    """
+    Everything a second examiner needs to obtain this report again.
+
+    An expert's opinion that cannot be re-tested is worth less than one that
+    can, so the report states its own provenance: which engine, which tool
+    versions, which snapshot of every reference file, and the command. Given
+    the same input bytes and the same data files, ``examine`` is deterministic
+    and the report is identical but for its own timing — which is why
+    ``engine.seconds`` is named here as the one field that may differ.
+    """
+    digests = {}
+    for name in sorted(os.listdir(reference.DATA_DIR)):
+        path = os.path.join(reference.DATA_DIR, name)
+        if not os.path.isfile(path):
+            continue
+        digest = hashlib.sha256()
+        with open(path, 'rb') as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b''):
+                digest.update(block)
+        digests[name] = digest.hexdigest()
+    return {
+        'command': ('python -m apk_engine examine --apk <the file whose SHA-256 is '
+                    f'{report["file"].get("sha256", "")}>'),
+        'engine': report['engine'].get('engine', ''),
+        'tool_versions': {k: v for k, v in report['engine'].items()
+                          if k in ('androguard', 'apkInspector')},
+        'reference_data_sha256': digests,
+        'baselines_measured_at': report['engine'].get('baselines', {}).get('measured_at', ''),
+        'determinism': ('Given the same input file and the same reference data above, this '
+                        'examination produces an identical report. The only field that varies '
+                        'between runs is engine.seconds, which records elapsed time.'),
+    }
 
 
 def examine(apk_path, container_path=None, original_name='', baselines=None):
@@ -127,8 +164,17 @@ def examine(apk_path, container_path=None, original_name='', baselines=None):
             errors.append(f'Endpoints could not be extracted: {exc}')
 
     report['intel'] = intel.match(report['file']['sha256'], identity, host_list)
+    try:
+        report['reference_set'] = reference_set.check(identity)
+    except Exception as exc:
+        errors.append(f'The identity claim could not be checked: {exc}')
     report['assessment'] = decide(report['integrity'], report['behaviours'], report['intel'],
-                                  examined_code, examined_manifest)
+                                  examined_code, examined_manifest,
+                                  reference=report['reference_set'])
+    try:
+        report['reproduction'] = _reproduction(report, apk_path)
+    except Exception as exc:
+        errors.append(f'Reproduction details could not be recorded: {exc}')
     report['engine']['seconds'] = round(time.monotonic() - started, 2)
     return report
 
@@ -139,10 +185,28 @@ def signals(report):
 
     Independent of baselines, so evaluation measures raw behaviour and not the
     statuses it is about to produce.
+
+    Absence has to be recorded, not just presence. A signal that never fires on
+    any legitimate app was previously missing from the measurement altogether,
+    so ``baselines.status`` called it *unmeasured* and it could never raise a
+    tier — which disqualified exactly the signals that discriminate best. It
+    cost us the strongest signal in the 200-sample MalwareBazaar run:
+    ``zip.encryption_flag_on_package`` fired on 71 of 195 malicious packages and
+    on no legitimate one, and was inert. So every indicator in the catalogue is
+    written out, present or not.
+
+    Only when the check actually completed, though. If apkInspector could not
+    parse the file, "did not fire" would be a claim about a file nobody read.
     """
     fired = {}
-    for finding in (report.get('integrity') or {}).get('findings', []):
-        fired[finding['id']] = True
+    integrity_report = report.get('integrity') or {}
+    detected_integrity = {f['id'] for f in integrity_report.get('findings', [])}
+    if integrity_report.get('checked'):
+        for indicator_id in INDICATORS:
+            fired[indicator_id] = indicator_id in detected_integrity
+    else:
+        for indicator_id in detected_integrity:
+            fired[indicator_id] = True
     for capability in report.get('capabilities') or []:
         fired[capability['id']] = capability['present']
     detected = {b['id'] for b in report.get('behaviours') or []}
