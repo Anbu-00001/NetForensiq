@@ -166,3 +166,5 @@ backend/.cache/
 # Local artefacts — regenerated, never reviewed in a diff
 # Playwright failure artefacts
 frontend/test-results/
+*.sqlite3-shm
+*.sqlite3-wal
