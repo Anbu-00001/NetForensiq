@@ -250,9 +250,12 @@ def _what_was_found(session, styles):
 
 
 def _by_host(session, styles):
+    from xml.sax.saxutils import escape as xml_escape
+
     from capture.attack_mapping import (
         beaconing_hosts_in, describe as attack_describe,
     )
+    from capture.base_rates import statement as base_rate_statement
 
     beacon_hosts = beaconing_hosts_in(session)
     flow = [_para('2. FINDINGS BY MACHINE', styles['annex'])]
@@ -309,6 +312,14 @@ def _by_host(session, styles):
                     f'<b>Classification:</b> {attack_describe(finding, beacon_hosts)}',
                     styles['note'],
                 ))
+            # Once per rule, beside the classification: how often this rule
+            # fires on traffic that is not an attack. A court reading "beacon"
+            # is entitled to the rule's error rate in the same place.
+            if printed[finding.rule_id] == 1:
+                frozen = (finding.evidence or {}).get('measured_base_rate') or {}
+                sentence = frozen.get('statement') or base_rate_statement(finding.rule_id)
+                block.append(_para(
+                    f'<b>Measured error rate:</b> {xml_escape(sentence)}', styles['note']))
             if finding.rationale:
                 block.append(_para(finding.rationale, styles['note']))
             block.append(Spacer(1, 3))

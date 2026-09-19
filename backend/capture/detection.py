@@ -23,6 +23,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 
+from . import base_rates
 from .models import Detection, Flow
 from .processor import (
     DEFAULT_IDLE_TIMEOUT, ENTROPY_SAMPLE_BYTES, IDLE_TIMEOUT_SECONDS,
@@ -118,6 +119,53 @@ def is_internal(ip, networks=None):
     return any(address in net for net in pool)
 
 
+# Destinations that cannot be a remote correspondent, whatever the traffic
+# looks like.
+#
+# Why this is a categorical exclusion and not a tuned threshold
+# ------------------------------------------------------------
+# Measured on 16 captures of ordinary user traffic (research/157), the
+# exfiltration rule reported *"0.1 MB outbound to 239.255.255.250
+# (106876:1)"*. That address is SSDP's multicast group: a host announces
+# itself to it and nothing ever answers, because there is nobody to answer —
+# the packets do not leave the link. The sent:received ratio the rule is built
+# on is not high there, it is undefined, and a ratio of 106876:1 is the
+# arithmetic of dividing by the 1 byte the code substitutes for zero.
+#
+# The same applies to every address below: each is defined by its RFC as
+# link-scoped or non-forwarded, so "data left the network to this host" is not
+# a claim that can be true of it.
+#
+#   224.0.0.0/4       IPv4 multicast              RFC 5771
+#   255.255.255.255   limited broadcast           RFC 919: "must not be forwarded"
+#   169.254.0.0/16    IPv4 link-local             RFC 3927: "A router MUST NOT
+#                                                 forward a packet with an IPv4
+#                                                 Link-Local source or
+#                                                 destination address."
+#   ff00::/8          IPv6 multicast              RFC 4291
+#   fe80::/10         IPv6 link-local             RFC 4291
+#
+# This costs nothing in detection: exfiltration and C2 do not travel by
+# multicast, because multicast does not travel. A host abusing mDNS or SSDP to
+# signal another machine on the same segment is a real if rare technique, and
+# it is a different claim from the one these rules make — it is recorded in
+# research/157 rather than silently covered here.
+LINK_SCOPED_NETWORKS = tuple(ipaddress.ip_network(cidr) for cidr in (
+    '224.0.0.0/4', '255.255.255.255/32', '169.254.0.0/16', 'ff00::/8', 'fe80::/10',
+))
+
+
+def is_link_scoped(ip):
+    """True if this address never leaves the local link. See above."""
+    if not ip:
+        return False
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(address in net for net in LINK_SCOPED_NETWORKS)
+
+
 def flow_direction(flow):
     """
     (initiator_ip, peer_ip, service_port) for a flow.
@@ -142,6 +190,14 @@ SRC_SIMPLE_SCAN = (
 )
 SRC_SNORT3 = 'Snort 3 port_scan inspector defaults (Cisco Talos)'
 SRC_FARNHAM = 'Farnham & Atlasis (2013), DNS tunnelling label length — secondary source only'
+# The CDN false positive, and the two tests that separate it from a tunnel.
+SRC_ELASTIC_DNS = (
+    'Elastic Security, "Plight at the end of the tunnel" (elastic.co/blog/plight-end-tunnel): '
+    'group by registered domain; "subdomains created by DNS tunnels are usually only '
+    'queried once"; tunnels leave "loose ends" — "There is no intention to ever make an '
+    'IP connection to the resolved domain name"'
+)
+SRC_PSL = 'Mozilla Public Suffix List (publicsuffix.org), snapshot shipped in capture/data'
 # Stronger than the Farnham secondary citation: the tunnel tools themselves.
 # RFC 1035 §2.3.4 caps a label at 63 octets and a whole name at 255. Tunnels
 # have to fill that budget to move data, so they sit just under the ceiling —
@@ -273,6 +329,26 @@ THRESHOLDS = {
     # the same thing in both.
     'keepalive_min_intervals': (20, OUR_HEURISTIC + ' — below ~20 samples the MAD estimate '
                                                     'is too unstable to act on'),
+    # A period, not a burst.
+    #
+    # The beacon rules reported "Periodic callback to 161.69.13.21 every ~0s"
+    # on ordinary traffic (research/157). A median interval at or near zero is
+    # not a schedule: it is packets arriving together, and every one of these
+    # rules is a claim about a schedule. One second is the floor because below
+    # it the aggregator's own model does not distinguish gaps — flows are cut
+    # on idle timeouts measured in tens of seconds (IDLE_TIMEOUT_SECONDS), so
+    # sub-second structure inside a flow is transport behaviour, not cadence.
+    #
+    # It is deliberately a floor and not a filter on fast beacons. Real C2 does
+    # beacon every few seconds, and RITA's own design — a minimum of 23
+    # connections, "Since analyzing hosts that have fewer than at least one
+    # connection per hour could significantly increase both the analysis time
+    # and the number of false positives" — targets the slower end. Excluding
+    # everything under a minute would be tuning against this corpus rather than
+    # against a defect, so it is not done here; what the measured benign rate
+    # says about fast keepalives is reported in research/157 instead.
+    'beacon_min_period': (1.0, OUR_HEURISTIC + ' — a median interval below one second '
+                                               'describes a burst, not a periodic callback'),
 
     # risk_score is a 0-100 figure on the dashboard's "Flagged flows" card and
     # the default sort of the flow table. It came from four bare literals with
@@ -545,11 +621,19 @@ def rule_beaconing(session):
         # capture every one of 155 "beacons" was inbound scanning.
         if not is_internal(initiator, home) or is_internal(peer, home):
             continue
+        if is_link_scoped(peer):
+            continue
 
         flows.sort(key=lambda f: f.first_seen)
         starts = [f.first_seen.timestamp() for f in flows]
         intervals = [b - a for a, b in zip(starts, starts[1:])]
         if len(intervals) < 2:
+            continue
+        # A schedule, not a burst. See the beacon_min_period threshold: this
+        # rule reported "Periodic callback to 161.69.13.21 every ~0s" on
+        # ordinary traffic, which is a browser opening several connections at
+        # once, not a callback.
+        if statistics.median(intervals) < _t('beacon_min_period'):
             continue
 
         sizes = [(f.bytes_sent or 0) for f in flows]
@@ -602,17 +686,23 @@ def rule_beaconing_keepalive(session):
     """
     home = session_home_networks(session)
     findings = []
+    candidates = defaultdict(list)
     alert = _t('beacon_alert_score')
     min_intervals = _t('keepalive_min_intervals')
+    min_period = _t('beacon_min_period')
 
     for flow in session.flows.filter(interval_count__gte=min_intervals):
         median = flow.interval_median or 0.0
-        if median <= 0:
+        if median < min_period:
             continue
 
         initiator, peer, _ = flow_direction(flow)
         if not is_internal(initiator, home) or is_internal(peer, home):
             continue  # egress only — see rule_beaconing
+        if is_link_scoped(peer):
+            # SSDP announcements to 239.255.255.250 are as regular as any
+            # beacon and are not a callback to anywhere.
+            continue
 
         # RITA's MADM subscore, applied to intra-connection send intervals.
         score = _ceil3(max(0.0, 1 - (flow.interval_mad / median)))
@@ -620,10 +710,31 @@ def rule_beaconing_keepalive(session):
             continue
 
         peer = flow.dst_ip if (flow.initiator_ip or flow.src_ip) == flow.src_ip else flow.src_ip
+        subject = flow.initiator_ip or flow.src_ip
+        candidates[(subject, peer, flow.dst_port)].append((score, median, flow))
+    # One finding per (host, peer, port), not per connection.
+    #
+    # Measured on ordinary traffic (research/157) this rule produced 1,150
+    # findings across 16 captures, 340 of them about one host talking to one
+    # AWS address — the same observation, restated once per connection. Zeek's
+    # notice framework fixes this with an `identifier` and a suppression
+    # interval: "The identifier string should be unique for a single instance
+    # of the notice ... for the purpose of deduplicating notices", and without
+    # one, suppression never happens at all. The identity here is the three
+    # things the finding is about: who, to where, on what port.
+    #
+    # Nothing is hidden: the count of connections carrying the pattern is on
+    # the finding, and every flow remains in evidence. What changes is that
+    # 340 restatements cannot bury one real finding further down the list.
+    for (subject, peer, port), seen in candidates.items():
+        seen.sort(key=lambda item: -item[0])
+        score, median, flow = seen[0]
+        repeats = len(seen)
         findings.append(Detection(
             session=session, flow=flow,
             rule_id='C2_BEACON_KEEPALIVE',
-            title=f'Regular keepalive to {peer}:{flow.dst_port} every ~{median:.1f}s',
+            title=(f'Regular keepalive to {peer}:{port} every ~{median:.1f}s'
+                   + (f' ({repeats} connections)' if repeats > 1 else '')),
             category='command_and_control',
             severity=Detection.Severity.MEDIUM,
             method=Detection.Method.RULE,
@@ -649,6 +760,8 @@ def rule_beaconing_keepalive(session):
                 'interval_mad_s': flow.interval_mad,
                 'dispersion': flow.interval_dispersion,
                 'sample_count': flow.interval_count,
+                'connections_with_this_pattern': repeats,
+                'min_period': _cite('beacon_min_period'),
                 'rule_provenance': OUR_HEURISTIC,
             },
         ))
@@ -745,21 +858,80 @@ def rule_unknown_long_channel(session):
     return findings
 
 
+def _dns_loose_ends(session):
+    """
+    Which (host, name) lookups were followed by a connection to the answer.
+
+    Elastic's test for telling a CDN from a tunnel: ordinary resolution exists
+    to reach an address, so the host goes on to talk to what it looked up; a
+    tunnel "has no intention to ever make an IP connection to the resolved
+    domain name". Answered with addresses the host then spoke to, a name is
+    *used*; anything else — no address in the reply, or an address the host
+    never contacted in this capture — is a loose end.
+
+    Returns (is_loose, evidence_available). `evidence_available` is False when
+    the capture holds no conversation other than DNS itself (the CTU DNS-only
+    captures are exactly that): there is then nothing to test against, and the
+    finding must say so rather than treat every name as a loose end.
+    """
+    answers = defaultdict(set)
+    for name, addresses in session.dns_records.exclude(response_ip='').values_list(
+            'query_name', 'response_ip'):
+        answers[name.lower()].update(a.strip() for a in addresses.split(',') if a.strip())
+
+    peers = defaultdict(set)
+    non_dns = 0
+    for src, dst, port, proto in session.flows.values_list(
+            'src_ip', 'dst_ip', 'dst_port', 'app_protocol'):
+        if proto == 'DNS' or port == 53:
+            continue
+        non_dns += 1
+        peers[src].add(dst)
+        peers[dst].add(src)
+
+    def is_loose(src_ip, name):
+        return not (answers.get(name.lower(), set()) & peers.get(src_ip, set()))
+
+    return is_loose, non_dns > 0
+
+
 def rule_dns_tunnelling(session):
+    """
+    DNS used as a data channel: long encoded labels, or a flood of one-off
+    names under one domain.
+
+    Both tests are counted per *registered domain* (Public Suffix List) and
+    over *loose ends* only — names the host never went on to connect to — which
+    is Elastic's published answer to the CDN false positive this rule used to
+    produce on 4 of 16 ordinary captures: `66 unique subdomains of
+    amazonaws.com`, `59 of akamaiedge.net`, `662 of in-addr.arpa`
+    (research/157, research/158).
+    """
+    from . import psl
+
     findings = []
     label_len = _t('dns_label_length')
     uniq_thresh = _t('dns_unique_subdomains')
     entropy_thresh = _t('dns_label_entropy')
     entropy_min_len = _t('dns_entropy_min_label_len')
+    is_loose, connection_evidence = _dns_loose_ends(session)
+    method_note = (
+        'Counted per registered domain (Public Suffix List '
+        f'{psl.version()}), and only over names this host did not go on to connect to. '
+        + ('' if connection_evidence else
+           'This capture holds no traffic other than DNS, so whether the host used '
+           'the answers cannot be tested here and every name has been counted.')
+    )
 
     # Long, high-entropy labels.
-    # Aggregated per (source, parent domain) rather than raised per query: one
-    # tunnel produces hundreds of oversized queries, and an analyst facing 500
-    # near-identical alerts stops reading them. One finding, with the evidence
-    # rolled up, is both more usable and more honest about what was observed.
+    # Aggregated per (source, registered domain) rather than raised per query:
+    # one tunnel produces hundreds of oversized queries, and an analyst facing
+    # 500 near-identical alerts stops reading them. One finding, with the
+    # evidence rolled up, is both more usable and more honest about what was
+    # observed.
     long_label = defaultdict(lambda: {
         'count': 0, 'max_len': 0, 'max_entropy': 0.0,
-        'samples': [], 'flow': None,
+        'samples': [], 'flow': None, 'used': 0,
     })
 
     # Length AND entropy, not length OR entropy.
@@ -788,9 +960,13 @@ def rule_dns_tunnelling(session):
         query_entropy__gte=entropy_thresh,
     )
     for record in matches:
-        labels = record.query_name.split('.')
-        parent = '.'.join(labels[-2:]) if len(labels) >= 2 else record.query_name
+        parent = psl.registered_domain(record.query_name)
         entry = long_label[(record.src_ip, parent)]
+        if connection_evidence and not is_loose(record.src_ip, record.query_name):
+            # A long hashed hostname the browser then fetched from — gstatic,
+            # a CDN edge — is a long name, not a channel.
+            entry['used'] += 1
+            continue
         entry['count'] += 1
         entry['max_len'] = max(entry['max_len'], record.subdomain_length)
         entry['max_entropy'] = max(entry['max_entropy'], record.query_entropy)
@@ -799,6 +975,8 @@ def rule_dns_tunnelling(session):
             entry['samples'].append(record.query_name[:EVIDENCE_SAMPLE_VALUE_CHARS])
 
     for (src_ip, parent), entry in long_label.items():
+        if not entry['count']:
+            continue
         findings.append(Detection(
             session=session, flow=entry['flow'],
             rule_id='DNS_TUNNEL_LONG_LABEL',
@@ -811,67 +989,84 @@ def rule_dns_tunnelling(session):
             rationale=(
                 f'{src_ip} issued {entry["count"]} queries under {parent} whose subdomain '
                 f'labels reach {entry["max_len"]} characters (peak entropy '
-                f'{entry["max_entropy"]:.2f} bits/char). DNS tunnelling encodes payload into '
-                f'subdomain labels, producing long high-entropy names; ordinary domains do '
-                f'not. Flagged only when a label reaches both {label_len} characters '
+                f'{entry["max_entropy"]:.2f} bits/char), and did not go on to connect to '
+                f'any address they returned. DNS tunnelling encodes payload into '
+                f'subdomain labels, producing long high-entropy names that are never '
+                f'used to reach anything; ordinary long hostnames are fetched from. '
+                f'Flagged only when a label reaches both {label_len} characters '
                 f'and {entropy_thresh} bits/char — length alone catches hostnames made of '
                 f'dictionary words, which are suspicious for other reasons but are not '
-                f'tunnels. Antivirus '
-                f'reputation lookups and some CDNs legitimately use long encoded labels '
-                f'and must be ruled out.'
+                f'tunnels. DNS-based reputation lookups (antivirus, spam blocklists) '
+                f'carry data in the name by design and must be ruled out. {method_note}'
             ),
             evidence={
                 'observed_query_count': entry['count'],
+                'queries_followed_by_a_connection_excluded': entry['used'],
+                'connection_evidence_available': connection_evidence,
                 'observed_max_label_length': entry['max_len'],
                 'observed_max_entropy': entry['max_entropy'],
-                'parent_domain': parent,
+                'registered_domain': parent,
+                'public_suffix_list': psl.version(),
                 'samples': entry['samples'],
                 'samples_are_illustrative': (
                     f'showing {len(entry["samples"])} of {entry["count"]} matching '
                     f'queries; the full set is in this session\'s DNS records'
                 ),
                 'matched_on': 'label length AND entropy, both required',
+                'method': SRC_ELASTIC_DNS,
                 **_cite('dns_label_length'),
                 'entropy_threshold': _cite('dns_label_entropy'),
                 'entropy_min_length': _cite('dns_entropy_min_label_len'),
             },
         ))
 
-    # Many distinct subdomains under one registrable domain
-    per_parent = defaultdict(set)
+    # Many distinct, never-used subdomains under one registered domain.
+    queries = defaultdict(lambda: defaultdict(int))
     for src_ip, qname in session.dns_records.values_list('src_ip', 'query_name'):
-        labels = qname.split('.')
-        parent = '.'.join(labels[-2:]) if len(labels) >= 2 else qname
-        per_parent[(src_ip, parent)].add(qname)
+        queries[(src_ip, psl.registered_domain(qname))][qname.lower()] += 1
 
-    for (src_ip, parent), names in per_parent.items():
-        if len(names) <= uniq_thresh:
+    for (src_ip, parent), counts in queries.items():
+        if len(counts) <= uniq_thresh:
             continue
+        loose = sorted(n for n in counts if not connection_evidence or is_loose(src_ip, n))
+        if len(loose) <= uniq_thresh:
+            continue
+        total = sum(counts.values())
+        once = sum(1 for n in loose if counts[n] == 1)
         findings.append(Detection(
             session=session, flow=None,
             rule_id='DNS_TUNNEL_SUBDOMAIN_VOLUME',
-            title=f'{len(names)} unique subdomains of {parent} from {src_ip}',
+            title=f'{len(loose)} unused subdomains of {parent} from {src_ip}',
             category='exfiltration',
             severity=Detection.Severity.MEDIUM,
             method=Detection.Method.RULE,
-            confidence=min(len(names) / (uniq_thresh * _t('confidence_scale_multiplier')), 1.0),
+            confidence=min(len(loose) / (uniq_thresh * _t('confidence_scale_multiplier')), 1.0),
             subject_ip=src_ip,
             rationale=(
-                f'{src_ip} resolved {len(names)} distinct subdomains under {parent} '
-                f'within this capture. Tunnelling clients generate a fresh subdomain per '
-                f'data chunk, so unique-name volume under a single parent is a stronger '
-                f'signal than any individual query. Threshold {uniq_thresh}. '
-                f'CDNs and antivirus reputation lookups legitimately do this and must be '
-                f'whitelisted before acting.'
+                f'{src_ip} resolved {len(counts)} distinct names under {parent} in this '
+                f'capture and never connected to what {len(loose)} of them returned; '
+                f'{once} of those were asked for exactly once. Tunnelling clients '
+                f'generate a fresh name per chunk of data and have no use for the answer '
+                f'as an address, so one-off names nobody connects to, in volume, under '
+                f'one registered domain, is the shape of a tunnel. Threshold '
+                f'{uniq_thresh}. DNS-based reputation and blocklist lookups also look '
+                f'like this and must be ruled out. {method_note}'
             ),
             evidence={
-                'observed_unique_subdomains': len(names),
-                'parent_domain': parent,
-                'sample': sorted(names)[:EVIDENCE_SAMPLE_LIMIT],
+                'observed_unused_subdomains': len(loose),
+                'observed_unique_subdomains': len(counts),
+                'unused_names_queried_once': once,
+                'total_queries': total,
+                'unique_to_total_ratio': round(len(counts) / total, 3),
+                'connection_evidence_available': connection_evidence,
+                'registered_domain': parent,
+                'public_suffix_list': psl.version(),
+                'sample': loose[:EVIDENCE_SAMPLE_LIMIT],
                 'samples_are_illustrative': (
-                    f'showing {min(len(names), EVIDENCE_SAMPLE_LIMIT)} of {len(names)} '
-                    f'observed subdomains; the full set is in this session\'s DNS records'
+                    f'showing {min(len(loose), EVIDENCE_SAMPLE_LIMIT)} of {len(loose)} '
+                    f'unused subdomains; the full set is in this session\'s DNS records'
                 ),
+                'method': SRC_ELASTIC_DNS,
                 **_cite('dns_unique_subdomains'),
             },
         ))
@@ -922,10 +1117,36 @@ def rule_port_scan(session):
             per_source[initiator].append((flow.first_seen, peer, service_port, flow))
 
     for source, probes in per_source.items():
-        combos = {(peer, port) for _, peer, port, _ in probes}
+        # Only connections that *failed* count towards the threshold.
+        #
+        # This rule used to count every distinct host+port pair a source
+        # touched. Measured on 16 captures of ordinary traffic (research/157)
+        # it reported "10.0.2.15 probed 806 host+port combinations on 719
+        # hosts" — a browser loading pages, reaching CDNs and ad networks. A
+        # busy browser touches hundreds of hosts; that is what browsing is.
+        #
+        # Zeek counts failures and says so: Scan::addr_scan_threshold is "the
+        # threshold of the unique number of hosts a scanning host has to have
+        # **failed connections** with on a single port". The distinction is
+        # not a refinement, it is the whole signal — Jung et al. (IEEE S&P
+        # 2004, "Fast Portscan Detection Using Sequential Hypothesis Testing")
+        # built their detector on it and named the failure mode of counting
+        # destinations instead: such a rule "can erroneously flag a legitimate
+        # access such as that of Web crawlers or proxies".
+        #
+        # A failure here is a flow whose peer never completed a handshake:
+        # fewer than two packets back covers both of Zeek's cases — S0,
+        # "connection attempt seen, no reply", and REJ, a single RST. A
+        # connection that carried anything at all returns more than that. It
+        # is the same test the covert-channel rule already uses, for the same
+        # reason (research/155 s.3.2).
+        failed = [entry for entry in probes if entry[3].packets_received < 2]
+        combos = {(peer, port) for _, peer, port, _ in failed}
+        attempted = {(peer, port) for _, peer, port, _ in probes}
         threshold = local_thresh if is_internal(source, home) else remote_thresh
         if len(combos) < threshold:
             continue
+        probes = failed
 
         # Episode structure: how concentrated was the probing?
         episodes = []
@@ -957,8 +1178,8 @@ def rule_port_scan(session):
         findings.append(Detection(
             session=session, flow=probes[0][3],
             rule_id='RECON_PORT_SCAN',
-            title=f'Port scan: {source} probed {len(combos)} host+port combinations '
-                  f'on {target_label}',
+            title=f'Port scan: {source} failed to connect to {len(combos)} host+port '
+                  f'combinations on {target_label}',
             category='reconnaissance',
             severity=(Detection.Severity.HIGH
                       if syn_ratio > _t('scan_syn_ratio_high')
@@ -967,8 +1188,9 @@ def rule_port_scan(session):
             confidence=min(len(combos) / (threshold * _t('confidence_scale_multiplier')), 1.0),
             subject_ip=source,
             rationale=(
-                f'{source} probed {len(combos)} distinct host+port combinations across '
-                f'{len(targets)} host(s) over {span:.0f}s, in {len(episodes)} episode(s) '
+                f'{source} made failed connection attempts to {len(combos)} distinct '
+                f'host+port combinations across {len(targets)} host(s) over {span:.0f}s, in '
+                f'{len(episodes)} episode(s) '
                 f'separated by gaps of more than {timeout:.0f}s. The largest single episode '
                 f'reached {largest} combinations. {syn_only} of {len(probes)} connections '
                 f'were SYN without a completed handshake ({syn_ratio:.0%}), the half-open '
@@ -982,7 +1204,8 @@ def rule_port_scan(session):
                   'and should be whitelisted.'
             ),
             evidence={
-                'observed_host_port_combinations': len(combos),
+                'failed_host_port_combinations': len(combos),
+                'attempted_host_port_combinations': len(attempted),
                 'observed_target_hosts': len(targets),
                 'episode_count': len(episodes),
                 'largest_episode_combinations': largest,
@@ -1021,6 +1244,12 @@ def rule_exfiltration(session):
     volume_threshold = max(outbound[idx], floor)
 
     for flow in session.flows.all():
+        # Multicast, broadcast and link-local destinations first: the ratio
+        # this rule is built on is undefined for them. See LINK_SCOPED_NETWORKS.
+        _initiator, peer, _service = flow_direction(flow)
+        if is_link_scoped(peer) or is_link_scoped(flow.dst_ip):
+            continue
+
         total_out = flow.bytes_sent
         total_in = flow.bytes_received or 1
         ratio = total_out / total_in
@@ -1438,9 +1667,14 @@ def synthesise_corroboration(session, findings):
     """
     minimum = _t('corroboration_distinct_rules')
 
+    # Only rules measured silent on ordinary traffic may vote (base_rates.py).
+    # Counting every rule made this fire on 7 of 16 captures of a Windows VM
+    # browsing the web and on none of 7 attacks (research/157): agreement
+    # among rules that each fire on innocent traffic is not evidence, and this
+    # is the one finding that says CRITICAL.
     by_subject = defaultdict(list)
     for finding in findings:
-        if finding.subject_ip:
+        if finding.subject_ip and base_rates.may_corroborate(finding.rule_id):
             by_subject[finding.subject_ip].append(finding)
 
     summaries = []
@@ -1523,6 +1757,11 @@ def analyse_session(session, clear_existing=True, dispatch_alerts=True):
     # The unsupervised signal, last: it is a lead rather than a conclusion and
     # is capped at MEDIUM, so it never outranks a rule that cited a threshold.
     findings.extend(statistical_anomalies(session))
+
+    # Every finding carries what its rule has been measured to do on ordinary
+    # traffic, and a rule never shown to fire on an attack is capped at LOW.
+    for finding in findings:
+        base_rates.annotate(finding)
 
     # bulk_create bypasses Model.save(), so the rank must be set here or
     # every finding sorts as 0.

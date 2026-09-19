@@ -131,10 +131,10 @@ query's flow was written must still link to it.
 
 ## 4. Still open
 
-- **The 209 MB capture has not been re-run.** research/155 §1 recorded it failing at
-  4,523 MB. The three copies of each flow at the peak are now down to one plus a batch,
-  which should be the difference — but that is an expectation, not a measurement, and it
-  is not claimed as one here.
+- ~~**The 209 MB capture has not been re-run.**~~ **Re-run 19 Sep 2026 (research/158 §5):
+  it completes under the same 5 GB cap** — 491.9 s, import process peak 3,532 MB (it
+  failed at 4,523 MB before), 2,253,190 IP packets, 946,238 conversations, 108 findings;
+  a sign-in during the import answered in 0.52 s. The expectation above held.
 - **A fast scan burst still cannot be drained.** Eviction is by idle time, so a capture
   whose 107,035 conversations all happen inside a minute has nothing to write out early.
   Capture B is exactly that case, and its memory did not improve.

@@ -165,13 +165,22 @@ def parse(data, linktype=DLT_ETHERNET):
     """
     Extract the flow-relevant fields from one captured frame.
 
-    Returns `(src_ip, dst_ip, protocol, sport, dport, tcp_flags, payload)`
-    or `None` when the frame carries no IP conversation this model describes
+    Returns `(src_ip, dst_ip, protocol, sport, dport, tcp_flags, payload,
+    data_len)` or `None` when the frame carries no IP conversation this model describes
     (ARP, STP, LLDP, a truncated header, an unsupported link type).
 
     `tcp_flags` is the raw flag byte; the caller decodes it. `payload` is a
     slice of the caller's buffer, not a copy of a rebuilt packet — the bytes
     that were on the wire.
+
+    `data_len` is how many octets of application data the packet carries, per
+    the IP header's own length field. For TCP it differs from `len(payload)`:
+    `payload` runs to the end of the frame, matching what the dissector yields,
+    so a bare ACK padded to Ethernet's 60-octet minimum shows six octets of
+    "payload" and zero of data. The flow model needs the second number to tell
+    a message from an acknowledgement (see processor._ingest). Where the length
+    field is zero or runs past the captured bytes (segmentation offload,
+    truncated snaplen) the captured bytes are all there is to go on.
     """
     n = len(data)
     et, off = _network_offset(data, linktype, n)
@@ -190,6 +199,8 @@ def parse(data, linktype=DLT_ETHERNET):
         src = _inet_ntoa(data[off + 12:off + 16])
         dst = _inet_ntoa(data[off + 16:off + 20])
         toff = off + ihl
+        total = unpack_from('!H', data, off + 2)[0]
+        end = off + total if ihl <= total and off + total <= n else n
 
         # Only the first fragment carries the transport header. Later
         # fragments have a non-zero offset and must not have their payload
@@ -197,11 +208,14 @@ def parse(data, linktype=DLT_ETHERNET):
         # conversations on port 0.
         frag_off = unpack_from('!H', data, off + 6)[0] & 0x1FFF
         if frag_off:
-            return src, dst, 'OTHER', 0, 0, 0, b''
+            return src, dst, 'OTHER', 0, 0, 0, b'', 0
 
     elif et == _ETH_IPV6:
         if off + 40 > n:
             return None
+        declared = unpack_from('!H', data, off + 4)[0]
+        # Zero is a jumbogram (RFC 2675) or an offloaded segment.
+        end = off + 40 + declared if declared and off + 40 + declared <= n else n
         proto = data[off + 6]
         src = _inet_ntop(_AF_INET6, data[off + 8:off + 24])
         dst = _inet_ntop(_AF_INET6, data[off + 24:off + 40])
@@ -222,7 +236,7 @@ def parse(data, linktype=DLT_ETHERNET):
                 # Same reasoning as IPv4: only offset zero holds the transport
                 # header.
                 if unpack_from('!H', data, toff + 2)[0] & 0xFFF8:
-                    return src, dst, 'OTHER', 0, 0, 0, b''
+                    return src, dst, 'OTHER', 0, 0, 0, b'', 0
                 proto = data[toff]
                 toff += 8
             else:
@@ -253,7 +267,7 @@ def parse(data, linktype=DLT_ETHERNET):
         flags = data[toff + 13]
         start = toff + doff
         return src, dst, 'TCP', sport, dport, flags, (
-            data[start:] if start < n else b'')
+            data[start:] if start < n else b''), max(0, end - start)
 
     if proto == _PROTO_UDP:
         if toff + 8 > n:
@@ -274,8 +288,8 @@ def parse(data, linktype=DLT_ETHERNET):
         # must not introduce. Matching the dissector matters more than
         # matching the RFC, because the recorded findings were derived with
         # the dissector's reading.
-        return src, dst, 'UDP', sport, dport, 0, (
-            data[start:] if start < n else b'')
+        payload = data[start:] if start < n else b''
+        return src, dst, 'UDP', sport, dport, 0, payload, len(payload)
 
     if proto == _PROTO_ICMP:
         if toff + 4 > n:
@@ -293,7 +307,8 @@ def parse(data, linktype=DLT_ETHERNET):
         # boundary — affordable, because ICMP is well under 1% of a typical
         # capture, and necessary, because the entropy of an ICMP payload is
         # what the tunnelling rule reads.
-        return src, dst, 'ICMP', 0, (data[toff] * 256) + data[toff + 1], 0, data[toff:]
+        return (src, dst, 'ICMP', 0, (data[toff] * 256) + data[toff + 1], 0,
+                data[toff:], n - toff)
 
     # ICMPv6 is deliberately NOT classified as ICMP.
     #
@@ -305,7 +320,7 @@ def parse(data, linktype=DLT_ETHERNET):
     # different flows depending on which reader ran, and would quietly change
     # findings on IPv6 captures as a side effect of a performance change.
     # Those are two separate decisions and this is only the first one.
-    return src, dst, 'OTHER', 0, 0, 0, b''
+    return src, dst, 'OTHER', 0, 0, 0, b'', 0
 
 
 # ICMP message types whose header carries id and seq (RFC 792 echo, timestamp,

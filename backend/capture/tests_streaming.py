@@ -576,3 +576,36 @@ class TickCadenceTests(SimpleTestCase):
         first = _read_streaming(path, every=7)[3]
         second = _read_streaming(path, every=7)[3]
         self.assertEqual(first, second)
+
+
+class SessionListOrderTests(TestCase):
+    """
+    The dashboard opens whichever session the API returns first.
+
+    That makes the order part of the contract, not a presentation detail. It
+    was broken by a query-planning accident: `annotate()` adds a GROUP BY and
+    the model's `-started_at` default ordering was folded into it, so the list
+    came back oldest-first and an officer who had just imported a capture was
+    shown a demonstration capture from weeks earlier.
+    """
+
+    def setUp(self):
+        from accounts.models import User
+        self.officer = User.objects.create_user(
+            username='order-officer', password='a-long-enough-password',
+            badge_id='B-902', department='Cyber',
+            role=User.Role.INVESTIGATOR, is_approved=True,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.officer)
+
+    def test_the_most_recent_capture_is_returned_first(self):
+        for name in ('oldest', 'middle', 'newest'):
+            CaptureSession.objects.create(
+                name=name, source_type=CaptureSession.Source.PCAP,
+                state=CaptureSession.State.COMPLETED,
+            )
+        body = self.client.get('/api/sessions/').data
+        rows = body['results'] if isinstance(body, dict) and 'results' in body else body
+        self.assertEqual([row['name'] for row in rows][:3],
+                         ['newest', 'middle', 'oldest'])

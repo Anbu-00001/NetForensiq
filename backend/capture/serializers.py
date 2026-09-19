@@ -39,13 +39,30 @@ class DetectionSerializer(serializers.ModelSerializer):
     reviewed_by_username = serializers.CharField(
         source='reviewed_by.username', read_only=True, default=None,
     )
+    # What this rule has been measured to do on ordinary traffic. The copy
+    # frozen into the finding when it was made, where there is one; findings
+    # from before rates were published get today's measurement, marked so.
+    measured_base_rate = serializers.SerializerMethodField()
+
+    def get_measured_base_rate(self, detection):
+        from . import base_rates
+        frozen = (detection.evidence or {}).get('measured_base_rate')
+        if frozen:
+            return {**frozen, 'as_of_finding': True}
+        return {
+            **(base_rates.rate(detection.rule_id) or {}),
+            'statement': base_rates.statement(detection.rule_id),
+            'may_corroborate': base_rates.may_corroborate(detection.rule_id),
+            'as_of_finding': False,
+        }
 
     class Meta:
         model = Detection
         fields = [
             'id', 'session', 'flow', 'rule_id', 'title', 'category',
             'severity', 'severity_label', 'method', 'method_label',
-            'confidence', 'rationale', 'evidence', 'subject_ip', 'created_at',
+            'confidence', 'rationale', 'evidence', 'measured_base_rate',
+            'subject_ip', 'created_at',
             # Analyst review state. Without these the client cannot tell a
             # reviewed finding from an unreviewed one, and the triage controls
             # never render.

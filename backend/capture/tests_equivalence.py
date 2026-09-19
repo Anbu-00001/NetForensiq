@@ -131,7 +131,7 @@ class DnsCorpusTests(SimpleTestCase):
                 parsed = fastparse.parse(data, linktype)
                 if parsed is None:
                     continue
-                _src, _dst, protocol, sport, dport, _flags, payload = parsed
+                _src, _dst, protocol, sport, dport, _flags, payload, _data_len = parsed
                 if 53 not in (sport, dport) or not payload:
                     continue
 

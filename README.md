@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ NetForensiq
+# NetForensiq
 
 ### Network & Packet Forensics Platform — built to survive a courtroom, not just a dashboard
 
@@ -9,11 +9,11 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-607_passing-1B6E3C?style=flat-square)](#-tests)
-[![Air-gapped](https://img.shields.io/badge/Runtime-air--gapped-1B6E3C?style=flat-square)](#-air-gapped-by-construction)
-[![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#-bsa-section-63-certificates)
+[![Tests](https://img.shields.io/badge/tests-631_passing-1B6E3C?style=flat-square)](#tests)
+[![Air-gapped](https://img.shields.io/badge/Runtime-air--gapped-1B6E3C?style=flat-square)](#air-gapped-by-construction)
+[![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#bsa-section-63-certificates)
 
-**🥈 2nd Place — KANAD S.H.I.E.L.D. 2026**
+**2nd Place — KANAD S.H.I.E.L.D. 2026**
 Cyber Crime Branch, Ahmedabad City Police × i-Hub Gujarat
 *Category 2 · Problem Statement #8 — Network & Packet Forensics Platform*
 
@@ -21,7 +21,7 @@ Cyber Crime Branch, Ahmedabad City Police × i-Hub Gujarat
 
 ---
 
-## 🎯 The Problem
+## The Problem
 
 Arkime, Zeek and Suricata will show you packets. **None of them will hand an investigating officer a document a magistrate can accept.**
 
@@ -29,16 +29,16 @@ Indian digital evidence lives or dies on the **Bharatiya Sakshya Adhiniyam (BSA)
 
 ```mermaid
 graph LR
-    subgraph SCENE["🎥 Physical Scene"]
+    subgraph SCENE["Physical Scene"]
         A["eSakshya<br/><i>videographs seizure</i>"]
     end
-    subgraph STORE["📦 Police Malkhana"]
+    subgraph STORE["Police Malkhana"]
         B["CCTNS Register<br/><i>logs the hard drive</i>"]
     end
-    subgraph GAP["⚠️ The Gap"]
+    subgraph GAP["The Gap"]
         C["PCAP · SPAN taps · volatile flows<br/><b>no scene video · no physical log</b>"]
     end
-    subgraph NF["🛡️ NetForensiq"]
+    subgraph NF["NetForensiq"]
         D["Seal &amp; Hash"] --> E["Hash-Chained Custody"] --> F["Detect &amp; Attribute"] --> G["BSA §63 Certificate"]
     end
 
@@ -60,7 +60,34 @@ graph LR
 
 ---
 
-## ⚡ Quick Start
+## Where this fits — phones already scan apps, so why a tool at all?
+
+**It does not compete with the scanner on the phone, and it would lose if it tried.** Google Play Protect catches 99.8% of new Android malware in AV-TEST's May 2025 test; this engine catches 58% of the unseen malware it was measured on ([details below](#compared-with-what-is-already-on-the-phone--google-play-protect)). Those scanners have one job: decide, on the handset, whether an install goes ahead.
+
+This project starts where that job has already failed. A victim has been defrauded, walks into a police station, and an officer has to establish *what happened* in a form that survives cross-examination:
+
+| | Scanner on the phone | NetForensiq |
+|---|---|---|
+| When it acts | Before or at install | After the fact, on an exhibit an officer holds |
+| What it gives | A warning to the user | Reasons — the call path, the permission, the forged header, each signal's measured error rate |
+| Evidence handling | None | Sealed on intake, hash-chained custody, BSA §63 certificate |
+| Network traffic | Not examined | The core of the tool: PCAP import, flow assembly, 11 rules with published error rates |
+| Where it runs | On the phone, with Google's servers | Offline, in the lab, no network at all |
+
+### Why phones still get infected, when the scanner catches 99.8%
+
+The cases that reach police are the ones prevention missed. From published reporting:
+
+- **The 99.8% is measured on malware that is already in circulation.** AV-TEST tests against recent samples — its reference set is "widespread Android malware from the last 4 weeks" ([AV-TEST](https://www.av-test.org/en/antivirus/mobile-devices/android/may-2025/google-play-protect-46.1-253308/)). A freshly repackaged "bank KYC" or "e-challan" app has not been seen by anyone yet, and campaigns keep producing new ones.
+- **The victim is persuaded to install it.** Microsoft Threat Intelligence documented a campaign against Indian users that sends APKs over WhatsApp and Telegram posing as banks, government services and utilities, stealing card PINs, PAN details, banking credentials and SMS one-time passwords. It works only because the victim enables installation from unknown sources ([The Hacker News, Nov 2023](https://thehackernews.com/2023/11/malicious-apps-disguised-as-banks-and.html)). A scanner warns; a user who has been told their account will be blocked taps through.
+- **The first app is a dropper.** It looks harmless when scanned and installs the real payload afterwards. ThreatFabric documented *SecuriDropper*, a dropper-as-a-service built to get around Android 13's restrictions on sideloaded apps by imitating an app store's install process, used to deliver SpyNote spyware and banking trojans ([ThreatFabric](https://www.threatfabric.com/blogs/droppers-bypassing-android-13-restrictions)). The sample handed out at KANAD S.H.I.E.L.D. 2026, "PENSION CARD VERIFICATION", is this shape: a downloader that installs packages while routing all traffic through its own VPN.
+- **The India-specific block is narrow by design.** Play Protect's enhanced fraud protection blocks only installs from browsers, messaging apps and file managers, and only when the app declares SMS, notification or accessibility access ([Google](https://blog.google/intl/en-in/products/launching-enhanced-fraud-protection-pilot-in-india/)). Measured here on 198 readable unseen malware samples, that rule would block 40% of them.
+
+None of this is measured by this project except the last line; it is why a tool for *after* an infection is still needed, not a claim about how often each route occurs.
+
+---
+
+## Quick Start
 
 ```bash
 git clone https://github.com/Anbu-00001/NetForensiq.git
@@ -94,27 +121,27 @@ docker exec netforensiq python manage.py seed_demo
 
 <sub>Demo password for all four: `Netforensiq@2026`. `pending-applicant` fails by design — it demonstrates the approval gate.</sub>
 
-> ⚠️ Bound to **loopback**, not `0.0.0.0`. A forensic tool that appears on the station LAN the moment it starts is not a decision anyone made.
+> Bound to **loopback**, not `0.0.0.0`. A forensic tool that appears on the station LAN the moment it starts is not a decision anyone made.
 
 ---
 
-## 🔄 The Evidence Lifecycle
+## The Evidence Lifecycle
 
 Everything in NetForensiq flows through one pipeline. **The hash is taken before anything reads the file** — so the artefact the digest describes is the artefact the findings came from.
 
 ```mermaid
 flowchart TD
-    U["📥 <b>Officer uploads a capture</b><br/>browser or manage.py import_pcap"]
+    U["<b>Officer uploads a capture</b><br/>browser or manage.py import_pcap"]
     P{"Declare provenance<br/><i>required · no default</i>"}
-    S["🔒 <b>SEAL</b><br/>SHA-256 + SHA-1 + MD5<br/>copied into evidence store"]
-    C1["⛓️ Custody event 1<br/><i>SEIZED · officer · timestamp</i>"]
-    A["⚙️ <b>ANALYSE the sealed copy</b><br/>never the upload"]
-    F["🌊 Flow assembly<br/><i>Zeek-sourced idle timeouts</i>"]
-    D["🎯 11 detection rules<br/>+ statistical anomaly"]
-    M["🗺️ MITRE ATT&amp;CK mapping"]
-    C2["⛓️ Custody event 2<br/><i>ANALYSED</i>"]
-    R["📊 Findings + attack scenario"]
-    CERT["📜 <b>BSA §63 Certificate</b><br/>Part A + Part B · two people"]
+    S["<b>SEAL</b><br/>SHA-256 + SHA-1 + MD5<br/>copied into evidence store"]
+    C1["Custody event 1<br/><i>SEIZED · officer · timestamp</i>"]
+    A["<b>ANALYSE the sealed copy</b><br/>never the upload"]
+    F["Flow assembly<br/><i>Zeek-sourced idle timeouts</i>"]
+    D["11 detection rules<br/>+ statistical anomaly"]
+    M["MITRE ATT&amp;CK mapping"]
+    C2["Custody event 2<br/><i>ANALYSED</i>"]
+    R["Findings + attack scenario"]
+    CERT["<b>BSA §63 Certificate</b><br/>Part A + Part B · two people"]
 
     U --> P
     P -->|seized / reference / synthetic| S
@@ -140,9 +167,9 @@ A default would mean the system deciding, on an officer's behalf, **what a file 
 
 ```mermaid
 graph LR
-    SZ["🔴 <b>SEIZED</b><br/>captured from a network<br/>under investigation<br/><i>→ this is evidence</i>"]
-    RF["🟠 <b>REFERENCE</b><br/>real traffic from a<br/>published corpus<br/><i>→ real, but not evidence</i>"]
-    SY["🔵 <b>SYNTHETIC</b><br/>generated for demonstration<br/><i>→ never presentable</i>"]
+    SZ["<b>SEIZED</b><br/>captured from a network<br/>under investigation<br/><i>→ this is evidence</i>"]
+    RF["<b>REFERENCE</b><br/>real traffic from a<br/>published corpus<br/><i>→ real, but not evidence</i>"]
+    SY["<b>SYNTHETIC</b><br/>generated for demonstration<br/><i>→ never presentable</i>"]
 
     classDef sz fill:#FDECEA,stroke:#B3261E,stroke-width:3px,color:#5C0F0A
     classDef rf fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
@@ -154,20 +181,20 @@ graph LR
 
 ---
 
-## ⛓️ Chain of Custody — Hash-Chained, Not Just Logged
+## Chain of Custody — Hash-Chained, Not Just Logged
 
 An audit table anyone can `UPDATE` is not a chain of custody. Every custody event carries the hash of the one before it, so **removing or editing any link breaks every link after it**.
 
 ```mermaid
 graph LR
-    G["🌱 GENESIS<br/><code>prev = 0000…</code>"]
+    G["GENESIS<br/><code>prev = 0000…</code>"]
     E1["① SEIZED<br/><code>H(genesis + event)</code>"]
     E2["② ANALYSED<br/><code>H(prev + event)</code>"]
     E3["③ CERTIFICATE ISSUED<br/><code>H(prev + event)</code>"]
     E4["④ COUNTERSIGNED<br/><code>H(prev + event)</code>"]
-    V{"🔍 verify()"}
-    OK["✅ INTACT<br/>every link recomputes"]
-    BAD["❌ BROKEN<br/><i>names the exact link</i>"]
+    V{"verify()"}
+    OK["INTACT<br/>every link recomputes"]
+    BAD["BROKEN<br/><i>names the exact link</i>"]
 
     G --> E1 --> E2 --> E3 --> E4 --> V
     V -->|chain recomputes| OK
@@ -187,31 +214,33 @@ Tampering is reported as *"the chain breaks at event 3"* — not a silent boolea
 
 ---
 
-## 🎯 Detection Engine
+## Detection Engine
 
 Eleven rules, every one **deterministic and citable**. No black-box score decides whether someone is prosecuted.
 
 ```mermaid
 flowchart LR
-    FLOWS["🌊 Assembled flows"] --> ENGINE{"Detection engine"}
+    FLOWS["Assembled flows"] --> ENGINE{"Detection engine"}
 
-    ENGINE --> BEACON["📡 <b>C2 Beaconing</b><br/>PERIODIC · KEEPALIVE"]
-    ENGINE --> TUNNEL["🕳️ <b>Tunnelling</b><br/>DNS long-label · subdomain volume<br/>ICMP oversized"]
-    ENGINE --> EXFIL["📤 <b>Exfiltration</b><br/>volume asymmetry"]
-    ENGINE --> RECON["🔍 <b>Reconnaissance</b><br/>port scan"]
-    ENGINE --> COVERT["🎭 <b>Covert channel</b><br/>unknown service on open port"]
-    ENGINE --> IOC["🧾 <b>IOC feed match</b><br/><i>only if a feed was imported</i>"]
-    ENGINE --> ANOM["📈 <b>Statistical anomaly</b><br/><i>capped MEDIUM · not a rule</i>"]
+    ENGINE --> BEACON["<b>C2 Beaconing</b><br/>PERIODIC · KEEPALIVE"]
+    ENGINE --> TUNNEL["<b>Tunnelling</b><br/>DNS long-label · subdomain volume<br/>ICMP oversized"]
+    ENGINE --> EXFIL["<b>Exfiltration</b><br/>volume asymmetry"]
+    ENGINE --> RECON["<b>Reconnaissance</b><br/>port scan"]
+    ENGINE --> COVERT["<b>Covert channel</b><br/>unknown service on open port"]
+    ENGINE --> IOC["<b>IOC feed match</b><br/><i>only if a feed was imported</i>"]
+    ENGINE --> ANOM["<b>Statistical anomaly</b><br/><i>capped MEDIUM · not a rule</i>"]
 
-    BEACON & TUNNEL & EXFIL & RECON & COVERT & IOC --> CORR["🔗 <b>HOST_CORROBORATED</b><br/><i>same host, multiple independent rules</i>"]
-    CORR --> ATT["🗺️ MITRE ATT&amp;CK v19.2"]
+    BEACON & TUNNEL & EXFIL & RECON & COVERT & IOC --> RATE{"Fired on 0 of 22<br/>ordinary captures?"}
+    RATE -->|"yes → may corroborate"| CORR["<b>HOST_CORROBORATED</b><br/><i>same host, multiple independent rules</i>"]
+    RATE -->|"no → reported with its measured rate"| ATT
+    CORR --> ATT["MITRE ATT&amp;CK v19.2"]
     ANOM -.->|never corroborates alone| CORR
 
     classDef flow fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
     classDef rule fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
     classDef crit fill:#FDECEA,stroke:#B3261E,stroke-width:3px,color:#5C0F0A
     classDef soft fill:#EEF2F7,stroke:#4A5568,stroke-width:1px,color:#1A202C
-    class FLOWS,ENGINE,ATT flow
+    class FLOWS,ENGINE,ATT,RATE flow
     class BEACON,TUNNEL,EXFIL,RECON,COVERT,IOC rule
     class CORR crit
     class ANOM soft
@@ -220,38 +249,38 @@ flowchart LR
 | Rule ID | Detects | Threshold source |
 |---|---|---|
 | `C2_BEACON_PERIODIC` | Regular callback intervals | Published, with interval statistics shown |
-| `C2_BEACON_KEEPALIVE` | Long-lived low-byte channels | Published |
+| `C2_BEACON_KEEPALIVE` | Regular data-bearing sends inside one long connection (bare TCP keep-alives excluded, RFC 1122) | Ours, scored with RITA's formula — shown at LOW until seen on an attack |
 | `DNS_TUNNEL_LONG_LABEL` | Oversized DNS labels | RFC 1035 label limits |
-| `DNS_TUNNEL_SUBDOMAIN_VOLUME` | High unique-subdomain counts | Published |
+| `DNS_TUNNEL_SUBDOMAIN_VOLUME` | Many never-used names under one registered domain (Public Suffix List) | Elastic's method; count threshold ours |
 | `ICMP_TUNNEL_OVERSIZED` | ICMP payloads carrying data | Published |
 | `EXFIL_VOLUME_ASYMMETRY` | Outbound ≫ inbound | Published + entropy sample count |
-| `RECON_PORT_SCAN` | Fan-out across ports | Published |
+| `RECON_PORT_SCAN` | **Failed** connections across hosts and ports | Zeek / Snort 3 |
 | `COVERT_CHANNEL_UNKNOWN_PORT` | Unrecognised service on a permitted port | Published |
 | `IOC_FEED_MATCH` | Endpoint on an imported feed | Feed's own retrieval date |
-| `HOST_CORROBORATED` | One host implicated by **several independent rules** | Derived |
-| `ANOMALY_STATISTICAL` | Unsupervised outlier | ⚠️ Cites nothing — capped MEDIUM by design |
+| `HOST_CORROBORATED` | One host implicated by **several independent rules, each measured silent on ordinary traffic** | Derived |
+| `ANOMALY_STATISTICAL` | Unsupervised outlier | Cites nothing — capped MEDIUM by design |
 
-> Every threshold is served live at `GET /api/detections/thresholds/` — **35 thresholds**, each tagged as sourced or heuristic. A number an officer cannot decompose is a number they cannot testify to.
+> Every threshold is served live at `GET /api/detections/thresholds/` — **36 thresholds**, each tagged as sourced or heuristic. A number an officer cannot decompose is a number they cannot testify to.
 
 ---
 
-## 📱 APK Examination — evidence tiers, not a score
+## APK Examination — evidence tiers, not a score
 
 Submitted samples are sealed like any other exhibit, then examined **statically** — never executed, never sent to a cloud scanner. The examination runs as a **separate, memory-limited process**: androguard and apkInspector (Apache-2.0) never share an address space with scapy (GPL-2.0-only), and a sample built to crash a parser takes down a worker, not the server.
 
 ```mermaid
 flowchart TD
-    Z["📦 .apk or .zip<br/><i>ZipCrypto / WinZip-AES, conventional passwords auto-tried</i>"]
-    SAFE{"🛡️ Safe to open?<br/><i>overlapping entries · declared size</i>"}
-    SEAL["🔒 Seal the file as received<br/><i>the ZIP, not the extracted APK</i>"]
-    INT["🧬 Integrity<br/><i>forged ZIP + AXML headers</i>"]
-    ID["🪪 Identity<br/><i>manifest · v1/v2/v3 signers · AOSP permissions</i>"]
-    MAP["🗺️ Code map<br/><i>call graph, app vs SDK vs obfuscated</i>"]
-    CAP["🧰 Capabilities<br/><i>neutral inventory</i>"]
-    BEH["🎯 Behaviours<br/><i>documented combinations</i>"]
-    INTEL["📇 Offline intel<br/><i>hash · cert · package</i>"]
-    BASE{"📊 Fired on 0 of 31<br/>legitimate apps?"}
-    T["⚖️ Evidence tier 0–4"]
+    Z[".apk or .zip<br/><i>ZipCrypto / WinZip-AES, conventional passwords auto-tried</i>"]
+    SAFE{"Safe to open?<br/><i>overlapping entries · declared size</i>"}
+    SEAL["Seal the file as received<br/><i>the ZIP, not the extracted APK</i>"]
+    INT["Integrity<br/><i>forged ZIP + AXML headers</i>"]
+    ID["Identity<br/><i>manifest · v1/v2/v3 signers · AOSP permissions</i>"]
+    MAP["Code map<br/><i>call graph, app vs SDK vs obfuscated</i>"]
+    CAP["Capabilities<br/><i>neutral inventory</i>"]
+    BEH["Behaviours<br/><i>documented combinations</i>"]
+    INTEL["Offline intel<br/><i>hash · cert · package</i>"]
+    BASE{"Fired on 0 of 31<br/>legitimate apps?"}
+    T["Evidence tier 0–4"]
 
     Z --> SAFE -->|yes| SEAL --> INT --> ID --> MAP --> CAP --> BEH --> BASE
     SAFE -->|no| SEAL
@@ -278,6 +307,47 @@ flowchart TD
 | **1** No harmful behaviour established | Examination completed; nothing above was found | — **never means "safe"** |
 | **0** Could not be examined | Parsing, memory or time ran out | — never presented as a clean result |
 
+### What the network rules do to ordinary traffic (19 Sep 2026)
+
+The APK engine's verdicts rest on a measured benign base rate. **The network rules had no equivalent until now**, and measuring them was not flattering. Run over 16 captures of ordinary user traffic from the CTU Malware Capture Facility's *Normal* set — Windows machines browsing the web, no staged attacks, 134,739 flows — **every rule that fires at all fires on legitimate traffic** ([research/157](research/157_NETWORK_RULE_BASE_RATES.md)).
+
+Four of those firings were defects, each fixed against what Zeek, Snort and the Threshold Random Walk paper (Jung et al., IEEE S&P 2004) actually do:
+
+| Rule | Benign captures before | after | Malicious captures |
+|---|---:|---:|---:|
+| `RECON_PORT_SCAN` — now counts **failed** connections, as Zeek does, not fan-out | 8 / 16 | **1 / 16** | 4 / 7 → **4 / 7** |
+| `C2_BEACON_PERIODIC` — a median interval of ~0s is a burst, not a schedule | 8 / 16 | **4 / 16** | 1 / 7 → 0 / 7 |
+| `HOST_CORROBORATED` | 7 / 16 | **5 / 16** | 0 / 7 |
+| `C2_BEACON_KEEPALIVE` — one finding per (host, peer, port), not per connection | 1,150 findings | **597** | 0 / 7 |
+| **Total findings on benign traffic** | **1,803** | **1,221** | 1,138 → 1,136 |
+
+The port-scan fix removed seven of eight benign firings **and cost nothing on the malicious side**. The single malicious finding that disappeared was the zero-interval artefact itself — a false statement withdrawn from both corpora, not a detection lost.
+
+**The four defects that measurement left open were then fixed and measured again** ([research/158](research/158_NETWORK_RULES_MEASURED_AGAIN.md)):
+
+| Defect | Fix, and its source | Same 16 captures | 6 captures nothing was fitted to |
+|---|---|---:|---:|
+| `C2_BEACON_KEEPALIVE` read idle browser sockets as beacons | Only data-bearing packets count as sends — a TCP keep-alive "either contains no data or consists of one octet" (RFC 1122), and Chromium probes idle sockets every 45 s | 597 → **37** findings | 3 / 6, all LOW |
+| DNS tunnelling counted CDN and cloud hostnames | Group by registered domain (Mozilla Public Suffix List, shipped offline); count only names the host never connected to — Elastic's "loose ends" test | 4 → **1** captures | 1 / 6 |
+| `HOST_CORROBORATED` (CRITICAL) fired on ordinary traffic | Only rules measured silent on ordinary traffic may corroborate — the APK engine's bar | 5 → **0** | **0 / 6** |
+| No finding said how often its rule is wrong | Every finding now carries its rule's measured rate, on screen and in the report | — | — |
+
+**Each finding now states its rule's error rate in plain words**, from `backend/capture/data/rule_base_rates.json` — measured on 22 captures of ordinary traffic and 8 of real attacks, never hand-edited:
+
+| Rule | Ordinary traffic | Attacks | Effect |
+|---|---:|---:|---|
+| `RECON_PORT_SCAN` | 2 / 22 | 4 / 8 | reason to look, cannot corroborate |
+| `COVERT_CHANNEL_UNKNOWN_PORT` | 6 / 22 | 3 / 8 | reason to look, cannot corroborate |
+| `DNS_TUNNEL_LONG_LABEL` | 1 / 22 | 2 / 8 | reason to look, cannot corroborate |
+| `DNS_TUNNEL_SUBDOMAIN_VOLUME` | 2 / 22 | 1 / 8 — a real iodine tunnel, caught | reason to look, cannot corroborate |
+| `EXFIL_VOLUME_ASYMMETRY` | 8 / 22 | 1 / 8 | reason to look, cannot corroborate |
+| `ICMP_TUNNEL_OVERSIZED` | 2 / 22 | 1 / 8 | reason to look, cannot corroborate |
+| `C2_BEACON_KEEPALIVE` | 10 / 22 | **0 / 8** | **shown at LOW** — never seen to fire on an attack |
+| `C2_BEACON_PERIODIC` | 4 / 22 | **0 / 8** | **shown at LOW** — the attack corpus has no connection-per-callback beacon, so it is untested there |
+| `IOC_FEED_MATCH` | 0 / 22 | 0 / 8 | untested; the only rule allowed to corroborate |
+
+**Still wrong, stated rather than hidden:** "fired on an attack capture" is not "caught the attack" — the long-label rule's wrccdc firing is a CDN name; eight attack captures is thin; browsers' DNS prefetching still looks like a tunnel's loose ends; and 22 captures bound even a silent rule's true benign rate at 12.7%. With every rule firing on some ordinary traffic, `HOST_CORROBORATED` will essentially not fire — correct for a finding that says CRITICAL, until the rules under it are specific.
+
 ### The rule that keeps it honest
 
 **A signal may only raise a tier if it fired on _zero_ apps in the legitimate reference corpus.** Everything else is reported with its count and cannot move the verdict. The corpus is 201 examined F-Droid apps: 23 chosen because they legitimately do what malware does — install packages (F-Droid, Droid-ify, Aurora Store), create VPNs (NetGuard, RethinkDNS, AdAway, OpenVPN), handle SMS (Fossify Messages), automate through accessibility (Key Mapper), run shell commands (Termux) — plus 200 sampled at random. Benign firings seen on the earlier 31-app corpus, which included a Play Store build of Flipkart and seven locally built apps no longer on disk, are carried forward rather than lost: re-measuring cannot validate a signal by losing the evidence against it.
@@ -300,11 +370,16 @@ Both halves were measured, on corpora kept apart before anything was examined, b
 
 | | Corpus | Result |
 |---|---|---|
-| **Detection — unseen malware** | 100 MalwareBazaar APKs, selected by excluding the design corpus *before* any was examined | **64 / 100 = 64.0%** (95% CI 53.8–73.4) |
-| **False positives — unseen legitimate apps** | 100 F-Droid APKs sampled with a new seed, examined only after the last engine change | **0 / 100** (one-sided 95% bound 3.0%); 11 could not be examined |
+| **Detection — blind set, scored once (19 Sep 2026)** | 100 more MalwareBazaar APKs, downloaded by excluding both earlier corpora and left unexamined until the engine was frozen | **52 / 100 = 52.0%** (95% CI 41.8–62.1) |
+| Detection — held-out set | 100 MalwareBazaar APKs, selected by excluding the design corpus *before* any was examined | 64 / 100 = 64.0% (95% CI 53.8–73.4) |
+| **Detection — both unseen sets together** | **200** | **116 / 200 = 58.0%** (95% CI 50.8–64.9) |
+| **False positives — unseen legitimate apps** | 100 F-Droid APKs sampled with a new seed, examined only after the last engine change; re-checked on the shipped engine | **0 / 100** (one-sided 95% bound 3.0%); 11 could not be examined |
 | In-sample, for comparison only | the 200 MalwareBazaar APKs the rules were built from | 163 / 200 = 81.5% |
 
-Unseen malware by tier: 4 — known harmful software: **2** · 3 — harmful behaviour demonstrated: **17** · 2 — built to evade inspection: **45** · 1 — nothing established: **31** · 0 — could not be examined: **5**.
+Held-out set by tier: 4 — known harmful software: **2** · 3 — harmful behaviour demonstrated: **17** · 2 — built to evade inspection: **45** · 1 — nothing established: **31** · 0 — could not be examined: **5**.
+Blind set by tier: 4: **4** · 3: **23** · 2: **25** · 1: **45** · 0: **3**.
+
+**The blind set scored lower than the held-out set, and that result stands.** It was scored once, on the engine exactly as it ships, and the pre-registered prediction that it would reach 64 or more was wrong. The difference is almost all in tier 2: 45 held-out samples were caught by forged-archive indicators and 25 blind ones — the blind set was drawn from the 600 most recent uploads, and fewer of them tamper with their own ZIP headers. The engine's strongest signal is a packaging trick, and newer samples use it less. **58% on 200 unseen samples is the number to quote.**
 
 **How it got here, and what did not help.** The engine was at **34%** with five behaviour rules and baselines measured on 31 apps. Adding five more rules changed **no tier at all** — a rule that has never been measured against legitimate software cannot raise one, by design. Re-measuring the baselines on the larger corpus is what moved it: ten ZIP/AXML tampering indicators fire on 0 of 201 legitimate apps and on 114 of 200 malicious ones, and once validated they took unseen-malware detection to **63%**. Two further rules, NFC card relay and packed payload, projected to ~82% on the design set and added **one point** on unseen malware: they were fitted to one campaign that the held-out set does not contain. The held-out test also caught three defects before they shipped — a Qt app flagged because framework code was read as the developer's, and two native-code apps whose compressed data looked "packed" — each fixed and recorded.
 
@@ -317,6 +392,33 @@ The false-positive bound depends on corpus size — the exact one-sided 95% uppe
 But F-Droid is a cleaner population than the field: its builds carry **89% fewer tracking libraries** than their Google Play equivalents (University of Oxford, 2025), and developers routinely ship a stripped FOSS variant there. The app that broke the old scorer was a *Play* build of Flipkart, whose merged manifest declares components under `com.facebook`, `in.juspay` and `org.npci.upi` — exactly the class F-Droid under-represents.
 
 So the supported claims are **"caught 64 of 100 unseen MalwareBazaar APKs"** and **"flagged none of 100 unseen F-Droid apps"**. They are *not* "detects 64% of Android malware" or "fires on fewer than 3% of Android apps" — MalwareBazaar is what researchers upload, and F-Droid is cleaner than the Play Store — and those stronger sentences are not made anywhere in this repository.
+
+### Compared with what is already on the phone — Google Play Protect
+
+**On detection rate, NetForensiq is not better than Google Play Protect, and nothing in this repository claims it is.** The measured numbers do not support it:
+
+| | Samples | Detected |
+|---|---|---|
+| **Google Play Protect** — AV-TEST, May 2025 ([report](https://www.av-test.org/en/antivirus/mobile-devices/android/may-2025/google-play-protect-46.1-253308/)) | 2,973 new Android malware samples | **99.8%**, with 0 false warnings |
+| Google Play Protect — AV-TEST endurance test, Jul–Dec 2025 ([report](https://www.av-test.org/en/news/endurance-test-security-apps-for-4-billion-android-devices/)) | ~9,000 new + ~9,000 known | 99.6% / 99.7% |
+| **NetForensiq** — this repository | 200 unseen MalwareBazaar APKs | **58.0%** (95% CI 50.8–64.9) |
+
+These are not the same samples, so the rows are not a head-to-head, and the size of the gap is not a measured difference. It is large enough, though, that reading it as NetForensiq being ahead would be wrong. Play Protect's full scanner could not be run here: it lives on an Android device and in Google's cloud, where it checks each install "against known harmful or malicious samples" and, for apps it has not seen, uploads extracted signals "for evaluation by Google" ([Google](https://developers.google.com/android/play-protect/client-protections)). MalwareBazaar samples are public, so Play Protect very likely knows most of ours by hash; that is an expectation, not a measurement.
+
+**The one part of the phone's install-time check that *can* be reproduced was measured head to head.** In India, Play Protect's *enhanced fraud protection* (Nov 2024) blocks any app installed from a browser, messaging app or file manager that declares **RECEIVE_SMS, READ_SMS, notification-listener or accessibility access** ([Google](https://blog.google/intl/en-in/products/launching-enhanced-fraud-protection-pilot-in-india/)). That rule is published exactly, so `scripts/efp_permission_check.py` applies it, in the same sandbox, to the same samples the engine was scored on:
+
+| Same samples | NetForensiq flags | Google's fraud rule would block | Both | Either |
+|---|---:|---:|---:|---:|
+| Held-out malware (100) | **64** | 46 | 30 | 80 |
+| Blind malware (100) | **52** | 33 of 98 readable | 18 | 67 |
+| **Unseen malware, total (200)** | **116 (58%)** | **79 of 198 (40%)** | 48 | 147 (74%) |
+| Legitimate F-Droid apps (100), if downloaded through a browser | **0** of 89 examined | **3** — two launchers and a notification vault, all using accessibility | — | — |
+
+So, measured on the same 200 samples: **the engine catches more malware than India's install-time fraud rule (58% vs 40%) and blocked no legitimate app where the rule would block three.** The rule and the engine also catch different things — together they reach 74%, and 31 samples the rule blocks are ones the engine misses. That is the defensible comparison, and it is the whole of it: this is one published rule, not Play Protect.
+
+**The phone's "default" scanner is Play Protect.** On Android phones that ship with Google Play services, the check that runs when an app is installed from a browser is Play Protect itself. Some manufacturers add a second scanner: Samsung's *Device protection* is powered by McAfee ([SamMobile](https://www.sammobile.com/news/mcafee-will-offer-virus-protection-to-samsung-devices-for-at-least-nine-more-years/)), and Xiaomi's *Security* app lets the user choose Avast or AVL ([Check Point Research](https://research.checkpoint.com/2019/vulnerability-in-xiaomi-pre-installed-security-app/)). McAfee and Avast both scored the maximum 6/6 for protection in [AV-TEST's July 2025 Android test](https://www.av-test.org/en/antivirus/mobile-devices/android/july-2025/) — on their retail apps, not the versions built into these phones, and AV-TEST's summary does not publish their exact rates. Nothing suggests either is weaker than Play Protect, so none of them is claimed to be beaten here either.
+
+What NetForensiq is for instead is set out in [Where this fits](#where-this-fits--phones-already-scan-apps-so-why-a-tool-at-all).
 
 ### Two design decisions worth reading
 
@@ -366,9 +468,9 @@ python -m apk_engine corpus     # every sample's SHA-256, so the measurement can
 
 ```mermaid
 graph LR
-    APK["📱 APK embeds<br/><code>cdn-analytics.example</code>"]
-    PCAP["📼 Sealed exhibit NF-2026…<br/><code>10.3.14.101</code> resolved it<br/><i>14:22:07 IST</i>"]
-    OUT["⚖️ <b>A capability becomes an event</b><br/>with a timestamp and an exhibit number"]
+    APK["APK embeds<br/><code>cdn-analytics.example</code>"]
+    PCAP["Sealed exhibit NF-2026…<br/><code>10.3.14.101</code> resolved it<br/><i>14:22:07 IST</i>"]
+    OUT["<b>A capability becomes an event</b><br/>with a timestamp and an exhibit number"]
     APK --> OUT
     PCAP --> OUT
 
@@ -382,16 +484,16 @@ graph LR
 
 ---
 
-## 📜 BSA Section 63 Certificates
+## BSA Section 63 Certificates
 
 Section 63(4) requires **the person in charge of the device and an expert** — two different people. A two-part form that one account can sign twice guarantees nothing.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant IO as 👮 Investigating Officer
-    participant SYS as 🛡️ NetForensiq
-    participant EX as 🔬 FSL Examiner
+    participant IO as Investigating Officer
+    participant SYS as NetForensiq
+    participant EX as FSL Examiner
 
     IO->>SYS: Issue certificate (Part A)
     SYS->>SYS: Re-verify exhibit hash
@@ -400,7 +502,7 @@ sequenceDiagram
     EX->>SYS: Countersign Part B
     SYS->>SYS: Check examiner standing<br/>(role, or EXPERT on this case)
     SYS->>SYS: Re-verify hash before attesting
-    SYS-->>EX: ✅ COMPLETE — PDF rendered
+    SYS-->>EX: COMPLETE — PDF rendered
     Note over SYS: Custody event appended to the chain
 ```
 
@@ -408,7 +510,7 @@ The renderer reproduces **THE SCHEDULE** to the Act — Part A and Part B — an
 
 ---
 
-## ⚡ Performance
+## Performance
 
 Measured on a real **200 MB / 2,274,747-packet** ICS capture (4SICS Geek Lounge):
 
@@ -420,7 +522,9 @@ Measured on a real **200 MB / 2,274,747-packet** ICS capture (4SICS Geek Lounge)
 
 The parse win comes from `capture/fastparse.py`, which reads header fields straight out of the frame with `struct` instead of building a Scapy object per packet.
 
-Those figures were taken without a memory ceiling on the worker. Re-run later against the production server command with each worker capped at 5 GB, the same capture **ran out of memory** and the import failed ([research/155](research/155_PCAP_REAL_CAPTURE_TEST.md) §1) — memory grows with the number of conversations, and this capture holds 940,733. It has not been re-measured since the import was rebuilt to write flows out in batches ([research/156](research/156_BACKGROUND_IMPORT.md)), so no claim is made about it here.
+Those figures were taken without a memory ceiling on the worker. Re-run against the production server command with each process capped at 5 GB, the same capture **ran out of memory** at 4,523 MB and the import failed ([research/155](research/155_PCAP_REAL_CAPTURE_TEST.md) §1) — memory grows with the number of conversations, and this capture holds 946,238.
+
+**Re-measured on 19 Sep 2026, after the import was rebuilt to write flows out in batches ([research/156](research/156_BACKGROUND_IMPORT.md)), under the same 5 GB cap: it completes.** Upload request 1.71 s; a sign-in during the import answered HTTP 200 in 0.52 s; the whole capture read, stored and analysed in **491.9 s**, with the import process peaking at **3,532 MB** (3,957 MB across the server and the import together) — 2,253,190 IP packets (the other 21,557 frames are ARP and other non-IP traffic), 946,238 conversations, 108 findings. Slower than the uncapped figure above, because it now writes as it reads instead of holding everything; it finishes, which it did not.
 
 What *has* been measured since, on real captures through the browser path:
 
@@ -439,16 +543,16 @@ The upload now returns as soon as the exhibit is sealed and hashed; the capture 
 
 ---
 
-## 🔌 SIEM & Alerting
+## SIEM & Alerting
 
 ```mermaid
 graph LR
-    F["🎯 New finding"] --> SIEM{"Export"}
-    SIEM --> ECS["📘 <b>ECS 8.11</b><br/>ndjson · Elastic"]
-    SIEM --> CEF["📕 <b>CEF 0</b><br/>ArcSight lineage"]
-    SIEM --> SYS["📗 <b>RFC 5424</b><br/>syslog · RFC 6587 framing"]
-    SYS --> WAZ["🐺 <b>Wazuh</b><br/>decoders + rules 100200–100222"]
-    F --> WH["🪝 Webhook"]
+    F["New finding"] --> SIEM{"Export"}
+    SIEM --> ECS["<b>ECS 8.11</b><br/>ndjson · Elastic"]
+    SIEM --> CEF["<b>CEF 0</b><br/>ArcSight lineage"]
+    SIEM --> SYS["<b>RFC 5424</b><br/>syslog · RFC 6587 framing"]
+    SYS --> WAZ["<b>Wazuh</b><br/>decoders + rules 100200–100222"]
+    F --> WH["Webhook"]
 
     classDef src fill:#FDECEA,stroke:#B3261E,stroke-width:2px,color:#5C0F0A
     classDef exp fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
@@ -464,24 +568,24 @@ graph LR
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 graph TB
-    subgraph FE["🖥️ React 19 + Vite + MUI"]
+    subgraph FE["React 19 + Vite + MUI"]
         UI["Dashboard · Findings · Evidence<br/>Import · Examine Sample · Approvals"]
         D3["Deterministic D3 topology<br/><i>no force simulation</i>"]
     end
-    subgraph API["⚙️ Django 6 + DRF · gunicorn ×3"]
+    subgraph API["Django 6 + DRF · gunicorn ×3"]
         AUTH["accounts/<br/><i>JWT · roles · audit log</i>"]
         CAP["capture/<br/><i>parse · detect · monitor · APK</i>"]
         EV["evidence/<br/><i>seal · custody · §63 · posture</i>"]
     end
-    subgraph DATA["💾 Storage"]
+    subgraph DATA["Storage"]
         DB[("SQLite WAL / PostgreSQL")]
-        ES["🔒 Evidence store<br/><i>AES-256-GCM at rest</i>"]
+        ES["Evidence store<br/><i>AES-256-GCM at rest</i>"]
     end
-    subgraph WIRE["🌐 Capture"]
+    subgraph WIRE["Capture"]
         PCAP["PCAP / pcapng"]
         LIVE["Live NIC<br/><i>CAP_NET_RAW</i>"]
     end
@@ -506,23 +610,23 @@ graph TB
 
 ---
 
-## ✈️ Air-Gapped by Construction
+## Air-Gapped by Construction
 
 The running container needs **no network**. Verified under `--network none`: a socket to `1.1.1.1` fails with *Network is unreachable*, and the platform still seals a capture, analyses it and issues a §63 certificate.
 
-- 🚫 No cloud scanner, no VirusTotal, no telemetry
-- 🔑 Raw-socket capability baked into the image, not applied by hand
-- 📦 `scripts/save_airgap_images.sh` / `load_airgap_images.sh` for transfer
-- 🗄️ SQLite WAL + 30 s busy timeout, so long analyses don't lock out sign-in
+- No cloud scanner, no VirusTotal, no telemetry
+- Raw-socket capability baked into the image, not applied by hand
+- `scripts/save_airgap_images.sh` / `load_airgap_images.sh` for transfer
+- SQLite WAL + 30 s busy timeout, so long analyses don't lock out sign-in
 
 <sub>Building requires a network. The build happens on a connected machine and the image is carried across.</sub>
 
 ---
 
-## 🧪 Tests
+## Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 607 backend tests
+docker exec netforensiq python manage.py test    # 631 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 ```
 
@@ -545,7 +649,7 @@ The tests that earned their keep:
 
 ---
 
-## 📁 Layout
+## Layout
 
 ```
 NetForensiq/
@@ -582,11 +686,11 @@ NetForensiq/
 
 ---
 
-## ⚠️ Honest Limitations
+## Honest Limitations
 
 This project was built for a hackathon and it is **not finished**. Stated plainly, because a forensics tool that oversells itself is worse than none:
 
-- **Detection on unseen malware is 64%, and 36% is missed.** Of 100 MalwareBazaar APKs never examined before, 31 reached no tier and 5 could not be examined. The next gain needs a new analysis capability and a fresh held-out set — 200 unused samples are available — not more rules written from the same misses ([research/154](research/154_APK_DETECTION_REBASELINE.md)).
+- **Detection on unseen malware is 58%, and 42% is missed.** Of 200 MalwareBazaar APKs never examined before, 76 reached no tier and 8 could not be examined. The blind set (52/100) came in below the held-out one (64/100), and **Play Protect detects far more** (99.8% in AV-TEST's May 2025 test, on different samples). Both unseen sets are now spent; the next claim needs a new capability and newly downloaded samples, not more rules written from the same misses ([research/154](research/154_APK_DETECTION_REBASELINE.md), [research/158](research/158_NETWORK_RULES_MEASURED_AGAIN.md)).
 - **The shipped baselines rest on 201 F-Droid apps, one signal carried forward.** `data/baselines.json` was measured on 201 legitimate and 194 malicious apps. `cert.debug_certificate` keeps the six benign firings seen on the earlier 31-app corpus, whose locally built apps are no longer on disk, so a debug-signed APK cannot raise a tier on the strength of their absence.
 - **Two signals are mislabelled by that small corpus.** `cert.malformed_country` carries `validated` status from 0/31 yet fired on 15 of 299 unseen apps (it does not reach the tier path today, so nothing is wrong in output); `cap.dynamic_code_loading` was 0/31 but is 1/299. Both are corrected in [research/151 §8.13](research/151_WHAT_MAKES_THIS_DIFFERENT.md).
 - **The benign corpus is cleaner than the field.** F-Droid builds carry 89% fewer tracking libraries than their Play equivalents, so the false-positive bound is optimistic for Play Store apps.
@@ -598,7 +702,7 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 
 ---
 
-## 📄 License
+## License
 
 **MIT** — Copyright (c) 2026 Anbuchelvan Ganesan. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md). Third-party code and bundled reference data, with their licences and retrieval dates, are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 

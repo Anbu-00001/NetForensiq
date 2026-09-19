@@ -7,7 +7,7 @@ import {
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
-import ClassificationBanner from '../components/layout/ClassificationBanner';
+import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/ClassificationBanner';
 import { examineSample } from '../services/forensics';
 import { useCurrentUser } from '../services/session';
 import { describeError } from '../services/api';
@@ -359,8 +359,12 @@ export default function SamplePage() {
   const claim = report?.reference_set;
 
   return (
-    <Box sx={{ display: 'flex', bgcolor: PANEL, minHeight: '100vh' }}>
-      <ClassificationBanner />
+    <Box sx={{ display: 'flex', bgcolor: PANEL, minHeight: '100vh', pt: `${BANNER_HEIGHT}px` }}>
+      {/* Fixed, like every other page inside the application. Rendered in
+          flow it became the first item of this flex row and shrank to the
+          width of its own text — a dark box in the top-left corner pushing
+          the navigation down, instead of a marking across the screen. */}
+      <ClassificationBanner fixed />
       <Sidebar />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <TopBar />

@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
-import ClassificationBanner from '../components/layout/ClassificationBanner';
+import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/ClassificationBanner';
 import { captureProgress, uploadCapture } from '../services/forensics';
 import { refreshPosture } from '../services/posture';
 import { useCurrentUser, canActOnEvidence } from '../services/session';
@@ -297,7 +297,7 @@ function ImportPage() {
   const chosenOrigin = ORIGINS.find((o) => o.value === origin);
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: PAPER }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: PAPER, pt: `${BANNER_HEIGHT}px` }}>
       <ClassificationBanner fixed />
       <Box sx={{ display: 'flex' }}>
         <Sidebar />

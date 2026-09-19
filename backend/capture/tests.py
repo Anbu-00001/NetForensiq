@@ -143,6 +143,36 @@ class DetectionTests(TestCase):
             generate_c2_beaconing(beacon_count=60, base_time=1_700_000_000.0), 'beacon-keepalive')
         self.assertIn('C2_BEACON_KEEPALIVE', self._rule_ids(session))
 
+    def test_transport_keepalive_probes_are_not_a_heartbeat(self):
+        """
+        An idle browser socket is not a beacon (research/158).
+
+        Chromium probes an idle connection every 45s to hold NAT state open,
+        and a keep-alive segment "either contains no data or consists of one
+        octet" (RFC 1122 s.4.2.3.6). Counted as sends, that is a perfectly
+        regular callback, and this rule said so on 9 of 16 ordinary captures.
+        The same connection with a data-bearing heartbeat — the test above —
+        must still fire; only the payload differs between the two.
+        """
+        from scapy.layers.inet import IP, TCP
+        from scapy.packet import Raw
+
+        packets, t = [], 1_700_000_000.0
+        for i in range(60):
+            probe = IP(src='10.45.57.30', dst='198.51.100.25') / TCP(
+                sport=50123, dport=443, flags='A')
+            if i % 2:
+                probe = probe / Raw(load=b'\x00')  # the one-garbage-octet form
+            probe.time = t
+            ack = IP(src='198.51.100.25', dst='10.45.57.30') / TCP(
+                sport=443, dport=50123, flags='A')
+            ack.time = t + 0.1
+            packets += [probe, ack]
+            t += 45.0
+        session = self._analyse(packets, 'tcp-keepalive-probes')
+        self.assertNotIn('C2_BEACON_KEEPALIVE', self._rule_ids(session))
+        self.assertEqual(session.flows.get().interval_count, 0)
+
     def test_connection_beacon_counts_connections_not_packets(self):
         """
         Guards the bug real traffic exposed: an earlier rule used packets-in-a-
@@ -858,13 +888,70 @@ class CorroborationTests(TestCase):
     several independent rules keep naming the same address.
     """
 
-    def test_a_host_flagged_by_several_rules_is_summarised_as_critical(self):
+    @staticmethod
+    def _measured(benign_fired):
+        """A base-rate table in which every rule fired on `benign_fired` captures."""
+        from . import base_rates
+        from .detection import RULE_IDS
+        return {'measured': 'test', 'rules': {rule: {
+            'benign_fired': benign_fired, 'benign_captures': 16,
+            'benign_findings': benign_fired, 'benign_upper95': 0.17,
+            'malicious_fired': 1, 'malicious_captures': 7,
+        } for rule in RULE_IDS if rule not in base_rates.NEVER_CORROBORATES}}
+
+    def _compromised(self, table):
+        from unittest import mock
+
         from .synthetic import generate_compromised_host
 
         packets = generate_compromised_host(base_time=1_700_000_000.0)
         path = write_pcap(packets)
         session, _ = run_pcap_import(path, name='compromised', home_net='10.45.57.0/24')
-        analyse_session(session)
+        with mock.patch('capture.base_rates.table', return_value=table):
+            analyse_session(session)
+        return session
+
+    def test_rules_that_fire_on_ordinary_traffic_cannot_corroborate(self):
+        """
+        research/157: HOST_CORROBORATED fired on 7 of 16 captures of a Windows
+        VM browsing the web, and on no attack. The same compromised host, with
+        every rule measured as firing on ordinary traffic, must not be called
+        CRITICAL — agreement among unspecific rules is not evidence.
+        """
+        session = self._compromised(self._measured(benign_fired=3))
+        self.assertFalse(session.detections.filter(rule_id='HOST_CORROBORATED').exists())
+        # Still reported, one by one, each with its measured rate.
+        finding = session.detections.exclude(rule_id='ANOMALY_STATISTICAL').first()
+        self.assertIn('3 of 16', finding.evidence['measured_base_rate']['statement'])
+
+    def test_a_rule_never_seen_on_an_attack_is_capped_at_low(self):
+        """
+        Fired on ordinary traffic and on no attack: not shown to tell the two
+        apart, so it is reported at LOW, with the severity it was written at
+        kept in the evidence — visible, not hidden, and not overstated.
+        """
+        from unittest import mock
+
+        from .synthetic import generate_c2_beaconing
+
+        table = {'measured': 'test', 'rules': {'C2_BEACON_KEEPALIVE': {
+            'benign_fired': 9, 'benign_captures': 16, 'benign_findings': 597,
+            'benign_upper95': 0.77, 'malicious_fired': 0, 'malicious_captures': 7,
+        }}}
+        session, _ = run_pcap_import(
+            write_pcap(generate_c2_beaconing(beacon_count=60, base_time=1_700_000_000.0)),
+            name='unproven')
+        with mock.patch('capture.base_rates.table', return_value=table):
+            analyse_session(session)
+        finding = session.detections.get(rule_id='C2_BEACON_KEEPALIVE')
+        self.assertEqual(finding.severity, Detection.Severity.LOW)
+        rate = finding.evidence['measured_base_rate']
+        self.assertEqual(rate['severity_as_written'], Detection.Severity.MEDIUM)
+        self.assertIn('9 of 16', rate['statement'])
+        self.assertFalse(rate['may_corroborate'])
+
+    def test_a_host_flagged_by_several_rules_is_summarised_as_critical(self):
+        session = self._compromised(self._measured(benign_fired=0))
 
         summaries = session.detections.filter(rule_id='HOST_CORROBORATED')
         self.assertTrue(

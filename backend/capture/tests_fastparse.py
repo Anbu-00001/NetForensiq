@@ -252,11 +252,30 @@ class LinkTypeSupportTests(SimpleTestCase):
 
         parsed = fastparse.parse(frame)
         self.assertIsNotNone(parsed, 'a malformed header must not lose the packet')
-        src, dst, protocol, sport, dport, _flags, payload = parsed
+        src, dst, protocol, sport, dport, _flags, payload, data_len = parsed
         self.assertEqual((src, dst, protocol), ('192.168.2.22', '192.168.88.15', 'TCP'))
         self.assertEqual((sport, dport), (8083, 2632))
         # Exactly what bytes(pkt[TCP].payload) yields for this frame.
         self.assertEqual(payload, b'\x00' * 8)
+        # Of which four are data by the IP length field (44 - 20 - 20) and
+        # four are link padding — the split the dissector also makes.
+        self.assertEqual(data_len, 4)
+
+    def test_padding_on_a_bare_ack_is_not_data(self):
+        """
+        A 54-octet ACK is padded to Ethernet's 60-octet minimum. `payload`
+        keeps the padding, as the dissector does; `data_len` must not, or every
+        acknowledgement would count as a message sent (research/158).
+        """
+        from scapy.layers.inet import IP, TCP
+        from scapy.layers.l2 import Ether
+
+        frame = bytes(Ether(src='00:00:00:00:00:01', dst='00:00:00:00:00:02')
+                      / IP(src='10.0.0.2', dst='192.0.2.4')
+                      / TCP(sport=5000, dport=443, flags='A')).ljust(60, b'\x00')
+        parsed = fastparse.parse(frame)
+        self.assertEqual(len(parsed[6]), 6)
+        self.assertEqual(parsed[7], 0)
 
     def test_linktype_of_reads_the_file_header(self):
         handle, path = tempfile.mkstemp(suffix='.pcap')

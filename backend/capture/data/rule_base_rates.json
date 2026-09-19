@@ -1,0 +1,128 @@
+{
+ "benign_corpus": [
+  "CTU-Normal-13__2017-07-03_capture-win2.pcap",
+  "CTU-Normal-14__2017-07-23_capture-winFull.pcap",
+  "CTU-Normal-18__2017-09-05_capture-win4.pcap",
+  "CTU-Normal-20__2017-04-30_win-normal.pcap",
+  "CTU-Normal-21__2017-05-02_kali-normal.pcap",
+  "CTU-Normal-23__2017-04-18_win-normal.pcap",
+  "CTU-Normal-24__2017-04-19_win-normal.pcap",
+  "CTU-Normal-25__2017-04-25_win-normal.pcap",
+  "CTU-Normal-26__2017-04-28_normal.pcap",
+  "CTU-Normal-27__2017_04_30-normal.pcap",
+  "CTU-Normal-28__2017-05-01_normal.pcap",
+  "CTU-Normal-29__2017-05-01_normal.pcap",
+  "CTU-Normal-30__2017-05-01_normal.pcap",
+  "CTU-Normal-31__2017-05-01_normal.pcap",
+  "CTU-Normal-32__2017-05-02_normal.pcap",
+  "CTU-Normal-33__capture-new-Windows-7-Full.pcap",
+  "CTU-Normal-4-only-DNS__2015-03-24_capture1-only-dns.pcap",
+  "CTU-Normal-6-filtered__2013-10-21_capture-1-only-dns.pcap",
+  "CTU-Normal-7__2013-12-17_capture1.pcap",
+  "CTU-Normal-8-1__2016-09-13_win16.pcap",
+  "CTU-Normal-8-2__2016-09-13_win16.pcap",
+  "CTU-Normal-9__2016-09-13_win16.pcap"
+ ],
+ "malicious_corpus": [
+  "2024-03-14-AsyncRAT-and-XWorm-infection-traffic.pcap",
+  "2024-12-18-one-week-of-server-scans-and-probes-and-web-traffic.pcap",
+  "2025-12-01-thru-12-03-in-the-wild-scans.pcap",
+  "2025-12-17-testing-the-Mirai-botnet-URL-on-a-VM.pcap",
+  "2026-08-07-seven-days-of-scans-and-probes-and-web-traffic-hitting-my-web-server.pcap",
+  "2026-09-08-XWorm-post-infection-traffic.pcap",
+  "dns-tunnel-iodine.pcap",
+  "wrccdc-2018-cyber-defence-exercise.pcap"
+ ],
+ "measured": "2026-09-20",
+ "method": "research/158_NETWORK_RULES_MEASURED_AGAIN.md",
+ "rules": {
+  "ANOMALY_STATISTICAL": {
+   "benign_captures": 22,
+   "benign_findings": 874,
+   "benign_fired": 22,
+   "benign_upper95": 1.0,
+   "malicious_captures": 8,
+   "malicious_fired": 4
+  },
+  "C2_BEACON_KEEPALIVE": {
+   "benign_captures": 22,
+   "benign_findings": 40,
+   "benign_fired": 10,
+   "benign_upper95": 0.6475,
+   "malicious_captures": 8,
+   "malicious_fired": 0
+  },
+  "C2_BEACON_PERIODIC": {
+   "benign_captures": 22,
+   "benign_findings": 4,
+   "benign_fired": 4,
+   "benign_upper95": 0.3691,
+   "malicious_captures": 8,
+   "malicious_fired": 0
+  },
+  "COVERT_CHANNEL_UNKNOWN_PORT": {
+   "benign_captures": 22,
+   "benign_findings": 20,
+   "benign_fired": 6,
+   "benign_upper95": 0.4685,
+   "malicious_captures": 8,
+   "malicious_fired": 3
+  },
+  "DNS_TUNNEL_LONG_LABEL": {
+   "benign_captures": 22,
+   "benign_findings": 1,
+   "benign_fired": 1,
+   "benign_upper95": 0.1981,
+   "malicious_captures": 8,
+   "malicious_fired": 2
+  },
+  "DNS_TUNNEL_SUBDOMAIN_VOLUME": {
+   "benign_captures": 22,
+   "benign_findings": 2,
+   "benign_fired": 2,
+   "benign_upper95": 0.2595,
+   "malicious_captures": 8,
+   "malicious_fired": 1
+  },
+  "EXFIL_VOLUME_ASYMMETRY": {
+   "benign_captures": 22,
+   "benign_findings": 17,
+   "benign_fired": 8,
+   "benign_upper95": 0.5609,
+   "malicious_captures": 8,
+   "malicious_fired": 1
+  },
+  "HOST_CORROBORATED": {
+   "benign_captures": 22,
+   "benign_findings": 0,
+   "benign_fired": 0,
+   "benign_upper95": 0.1273,
+   "malicious_captures": 8,
+   "malicious_fired": 0
+  },
+  "ICMP_TUNNEL_OVERSIZED": {
+   "benign_captures": 22,
+   "benign_findings": 7,
+   "benign_fired": 2,
+   "benign_upper95": 0.2595,
+   "malicious_captures": 8,
+   "malicious_fired": 1
+  },
+  "IOC_FEED_MATCH": {
+   "benign_captures": 22,
+   "benign_findings": 0,
+   "benign_fired": 0,
+   "benign_upper95": 0.1273,
+   "malicious_captures": 8,
+   "malicious_fired": 0
+  },
+  "RECON_PORT_SCAN": {
+   "benign_captures": 22,
+   "benign_findings": 2,
+   "benign_fired": 2,
+   "benign_upper95": 0.2595,
+   "malicious_captures": 8,
+   "malicious_fired": 4
+  }
+ }
+}

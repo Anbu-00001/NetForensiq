@@ -7,6 +7,7 @@ from datetime import datetime, timezone as dt_timezone
 from scapy.layers.inet import IP, TCP, UDP, ICMP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.dns import DNS
+from scapy.packet import Padding
 
 from . import fastdns, fastparse
 from .features import shannon_entropy, dns_query_features, compute_flow_metrics
@@ -210,7 +211,7 @@ class FlowAggregator:
         if parsed is None:
             return
 
-        src_ip, dst_ip, protocol, sport, dport, raw_flags, payload = parsed
+        src_ip, dst_ip, protocol, sport, dport, raw_flags, payload, data_len = parsed
 
         if protocol == 'TCP':
             flags = self._decode_tcp_flags(raw_flags)
@@ -226,7 +227,7 @@ class FlowAggregator:
 
         with self._lock:
             self._ingest(src_ip, dst_ip, protocol, sport, dport, flags,
-                         payload, len(data), timestamp, None)
+                         payload, len(data), timestamp, None, data_len)
 
     def _process(self, pkt):
         # Each `X in pkt` / `pkt[X]` pair walks the layer chain, and this
@@ -239,13 +240,19 @@ class FlowAggregator:
             return
 
         protocol, sport, dport, flags, transport = self._classify(pkt)
+        payload = self._payload_of(transport)
+        # The dissector splits trailing link-layer padding off at the IP
+        # length field and keeps it in the chain as a Padding layer; data is
+        # what is left. Same number fastparse reads from the header.
+        padding = pkt.getlayer(Padding)
+        data_len = len(payload) - (len(padding) if padding is not None else 0)
         self._ingest(
             ip_layer.src, ip_layer.dst, protocol, sport, dport, flags,
-            self._payload_of(transport), len(pkt), packet_timestamp(pkt), pkt,
+            payload, len(pkt), packet_timestamp(pkt), pkt, max(0, data_len),
         )
 
     def _ingest(self, src_ip, dst_ip, protocol, sport, dport, flags, payload,
-                pkt_len, now, scapy_pkt):
+                pkt_len, now, scapy_pkt, data_len=None):
         """
         Fold one packet into the flow table.
 
@@ -303,7 +310,22 @@ class FlowAggregator:
             # Callback periodicity is a property of the *outbound* leg only.
             # Mixing in server replies alternates a ~0.2s response gap with
             # the real ~30s period and hides the beacon entirely.
-            f['timestamps_out'].append(now)
+            #
+            # And of outbound *messages*, not outbound segments. A TCP
+            # keep-alive "either contains no data or consists of one octet"
+            # (RFC 1122 s.4.2.3.6), and a client that is only receiving sends
+            # nothing but bare ACKs. Both are the transport talking to itself,
+            # on the transport's schedule: Chromium probes idle sockets every
+            # 45s (kTCPKeepAliveSeconds) to hold NAT state open. Counted as
+            # sends, an idle browser tab is a perfect beacon — which is what
+            # C2_BEACON_KEEPALIVE reported on 9 of 16 ordinary captures,
+            # clustered at ~10s and ~45s on ports 80 and 443 (research/158).
+            # A remote-access trojan's heartbeat is an application message and
+            # carries data, so it is still counted.
+            if data_len is None:
+                data_len = len(payload) if payload else 0
+            if protocol != 'TCP' or data_len > 1:
+                f['timestamps_out'].append(now)
         else:
             f['packets_received'] += 1
             f['bytes_received'] += pkt_len

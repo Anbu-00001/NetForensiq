@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
-import ClassificationBanner from '../components/layout/ClassificationBanner';
+import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/ClassificationBanner';
 import { listSignInAttempts } from '../services/forensics';
 import { useCurrentUser } from '../services/session';
 import {
@@ -107,7 +107,7 @@ function SignInLogPage() {
   const recent = data?.last_24h;
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: PAPER }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: PAPER, pt: `${BANNER_HEIGHT}px` }}>
       <ClassificationBanner fixed />
       <Box sx={{ display: 'flex' }}>
         <Sidebar />

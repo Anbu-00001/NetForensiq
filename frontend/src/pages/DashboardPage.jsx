@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Box, Typography, MenuItem, Select, CircularProgress, Button, Alert } from '@mui/material';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -41,8 +42,27 @@ const PANEL = {
 };
 
 function DashboardPage() {
+  // Which capture the page is about, and where that answer comes from.
+  //
+  // The Import page ends with "Open <capture>", which navigates here with
+  // ?session=<id>. That parameter used to be ignored: the dashboard always
+  // selected the first session the API returned, so an officer who had just
+  // imported a capture was shown a demonstration capture under their own
+  // capture's name — the same class of misattribution as research/155 s.3.1,
+  // arrived at from the other direction.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSession = searchParams.get('session');
   const [sessions, setSessions] = useState([]);
   const [sessionId, setSessionId] = useState('');
+
+  const selectSession = (value) => {
+    setSessionId(value);
+    // Keep the address bar honest, so a reload or a shared link lands on the
+    // capture being looked at rather than back on whichever is newest.
+    const next = new URLSearchParams(searchParams);
+    next.set('session', String(value));
+    setSearchParams(next, { replace: true });
+  };
   const [summary, setSummary] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [graph, setGraph] = useState(null);
@@ -81,7 +101,12 @@ function DashboardPage() {
       .then((data) => {
         const list = unwrap(data);
         setSessions(list);
-        if (list.length) setSessionId(list[0].id);
+        if (list.length) {
+          // Honour ?session= when it names a capture that exists; otherwise
+          // the most recent one, which is what the API now returns first.
+          const asked = list.find((s) => String(s.id) === String(requestedSession));
+          setSessionId(asked ? asked.id : list[0].id);
+        }
         else setLoading(false);
       })
       // describeError distinguishes "the backend is down" from "you are being
@@ -91,6 +116,11 @@ function DashboardPage() {
         setError(describeError(err, 'Could not reach the API. Is the backend running?'));
         setLoading(false);
       });
+    // Deliberately once, on mount. ?session= decides which capture this page
+    // opens on; after that the officer's own choice in the picker does, and
+    // re-running this on every parameter change would drag them back to the
+    // capture the link named each time they looked at another one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -217,7 +247,7 @@ function DashboardPage() {
             <Select
               size="small"
               value={sessionId}
-              onChange={(e) => setSessionId(e.target.value)}
+              onChange={(e) => selectSession(e.target.value)}
               sx={{
                 minWidth: { xs: 0, sm: 280 }, maxWidth: '100%',
                 color: '#111315', fontSize: 13,

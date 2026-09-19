@@ -54,10 +54,18 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CaptureSessionSerializer
 
     def get_queryset(self):
+        # `.order_by()` is not decoration. The model's Meta orders by
+        # -started_at, but annotate() adds a GROUP BY that the default
+        # ordering is folded into, and the list came back oldest-first — so
+        # the dashboard, which opens whichever session the API returns first,
+        # opened a demonstration capture from August while the officer's own
+        # import sat at the bottom of the list. Stated explicitly here so it
+        # cannot be lost to a query-planning detail again.
         return (
             CaptureSession.objects
             .annotate(detection_count=Count('detections', distinct=True))
             .select_related('started_by')
+            .order_by('-started_at')
         )
 
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
@@ -559,7 +567,41 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             key=lambda item: (worst.get(item[0], 0), item[1]['bytes']),
             reverse=True,
         )
-        kept = dict(ranked[:limit])
+
+        # Slots held back for the hosts everyone else is talking to.
+        #
+        # Ranking is by severity first, and severity means "findings against
+        # this host". A machine being attacked has none — the attackers do —
+        # so on a capture of a web server under scan, all sixty slots went to
+        # scanners and the server itself was folded into "18,377 other hosts".
+        # The picture that came out was sixty attackers pointing at a grey
+        # circle, which is the one thing an officer must be able to see
+        # (research/155 s.4.4, reproduced on session 7 of this very corpus).
+        #
+        # A host that many of the drawn hosts all talked to is structurally the
+        # subject of the diagram whether or not a rule fired on it. So a tenth
+        # of the slots are reserved for exactly that, ranked by how many of the
+        # drawn hosts share it as a peer, and a host qualifies only if at least
+        # two drawn hosts reach it — one shared peer is just another peer.
+        #
+        # This changes what the diagram shows by design, and it never changes
+        # what the findings say: no host is added to the picture as implicated,
+        # only as connected. Its caption says which it is.
+        reserved = max(1, limit // 10)
+        kept = dict(ranked[:max(limit - reserved, 1)])
+        remainder = [ip for ip, _ in ranked[len(kept):]]
+        if remainder:
+            drawn_so_far = set(kept)
+            hubs = sorted(
+                ((len(candidates_for_ranking[ip]['peers'] & drawn_so_far), ip)
+                 for ip in remainder),
+                reverse=True,
+            )
+            for shared, ip in hubs[:reserved]:
+                if shared < 2:
+                    break
+                kept[ip] = candidates_for_ranking[ip]
+
         # Anything ranked out is folded away with the rest rather than vanishing.
         collapsed |= set(candidates_for_ranking) - set(kept)
 
@@ -605,9 +647,9 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
                 'severity_rank': 0,
                 'finding_count': 0,
                 'caption': (
-                    f'{len(collapsed)} hosts folded into one circle. None has a '
-                    f'finding against it and none was a peer of a machine that '
-                    f'does. Together they moved '
+                    f'{len(collapsed)} hosts folded into one circle — those with no '
+                    f'finding against them, and those that ranked below the '
+                    f'{limit} the diagram draws. Together they moved '
                     f'{self._human_bytes(folded["bytes"])} across '
                     f'{folded["flows"]} conversations. Switch to every host to '
                     f'draw them separately.'

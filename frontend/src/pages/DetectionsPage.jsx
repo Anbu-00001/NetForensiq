@@ -203,6 +203,39 @@ function DetectionCard({ detection, onTriaged, canTriage }) {
             {detection.rationale}
           </Typography>
 
+          {/*
+            How often this rule fires on traffic that is not an attack,
+            measured (research/157, 158). The APK side shows every capability's
+            baseline; a network finding without its base rate asks the officer
+            to trust a rule nobody has told them the error rate of.
+          */}
+          {detection.measured_base_rate?.statement && (
+            <Box sx={{
+              p: 1.5, borderRadius: 1.5, mb: 1.5,
+              border: '1px solid #E2E5E9', backgroundColor: '#FFFFFF',
+            }}>
+              <Typography sx={{
+                fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6,
+                color: '#5A6068', mb: 0.5,
+              }}>
+                How often this rule is wrong — measured on ordinary traffic
+              </Typography>
+              <Typography sx={{ fontSize: 12.5, color: '#2B3138', lineHeight: 1.6 }}>
+                {detection.measured_base_rate.statement}
+                {detection.measured_base_rate.severity_as_written && (
+                  ` Written as ${detection.measured_base_rate.severity_as_written.toUpperCase()}, `
+                  + 'shown as LOW for that reason.'
+                )}
+              </Typography>
+              {detection.measured_base_rate.as_of_finding === false && (
+                <Typography sx={{ fontSize: 11.5, color: '#5A6068', mt: 0.5 }}>
+                  This finding was made before rates were published; the figure is
+                  today&apos;s measurement. Re-analyse the capture to record it with the finding.
+                </Typography>
+              )}
+            </Box>
+          )}
+
           {heuristic && (
             <Alert severity="info" sx={{ mb: 1.5, fontSize: 12 }}>
               At least one threshold behind this finding is our own heuristic with no

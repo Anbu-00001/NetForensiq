@@ -167,6 +167,15 @@ For deployments with several concurrent users, the supported PostgreSQL backend 
 
 ### 4.4 The graph can fold away the victim
 
+> **Since fixed.** A tenth of the node slots are now reserved for hosts that many of the
+> drawn hosts all talk to, ranked by how many share them as a peer. Re-measured on the
+> same capture: the attacked server `203.161.44.208` (223,120 conversations, 18,436 peers)
+> is now drawn as the hub of the diagram, with its caption stating plainly that nothing is
+> flagged against it. The aggregate circle's caption was also wrong — it claimed the
+> folded hosts were neither implicated nor peers, which stopped being true as soon as
+> ranking began cutting peers too — and now says what it actually holds.
+
+
 On capture C, 60 external scanners fill the graph's 60-node limit, so the web server they
 were all attacking is folded into "18,377 other hosts" — the one node an officer most wants
 to see. Reserving slots for peers shared by many implicated hosts would fix it; not changed

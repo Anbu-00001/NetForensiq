@@ -49,6 +49,13 @@ and SHA-256 of every file are recorded in `data/sources.json`.
 | `tlds.txt` | [IANA root zone database](https://data.iana.org/TLD/tlds-alpha-by-domain.txt) | IANA public data | Distinguishes hostnames from Java package names. |
 | Permission metadata | AOSP, bundled inside androguard | Apache-2.0 | Protection levels, labels and descriptions shown for each permission. |
 
+## Bundled reference data (`backend/capture/data/`)
+
+| Data | Source | Licence | Notes |
+|---|---|---|---|
+| `public_suffix_list.dat` | [Mozilla Public Suffix List](https://publicsuffix.org/list/public_suffix_list.dat), version `2026-09-18_18-42-54_UTC`, commit `ff02362b20e2`, SHA-256 `330c1c71…d261d261` | MPL-2.0 | Shipped unmodified, as a separate file. Used by `capture/psl.py` to group DNS queries by registered domain; the version is recorded on every DNS finding. |
+| `rule_base_rates.json` | Measured by this project (research/158) | MIT | How often each network rule fires on ordinary and on attack traffic. Written by `scripts/rule_base_rate_report.py --emit`; never edited by hand. |
+
 ## Classification vocabulary
 
 Category names and definitions are Google's Potentially Harmful Application

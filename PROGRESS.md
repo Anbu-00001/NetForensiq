@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **607 backend tests + 61 Playwright E2E, all green, zero skips**
+## Status: Phases 0–13 complete · **631 backend tests + 61 Playwright E2E, all green, zero skips**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -39,12 +39,12 @@ for network evidence.
 
 ## The detection engine
 
-Nine rule IDs, from seven rule functions plus one post-pass. Every threshold
+Eleven rule IDs, from eight rule functions, one post-pass and the unsupervised signal. Every threshold
 carries its source; values we invented are tagged `[OUR HEURISTIC]` and that tag
 travels into each finding's stored evidence. Published at
 `GET /api/detections/thresholds/`.
 
-**35 thresholds: 12 externally cited, 23 ours.** The claim was never that all of
+**36 thresholds: 12 externally cited, 24 ours.** The claim was never that all of
 them are sourced — it is that each one says which it is.
 
 | Rule | Detects |
