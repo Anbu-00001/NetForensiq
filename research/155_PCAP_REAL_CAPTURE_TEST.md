@@ -126,7 +126,14 @@ not be parsed: . It may be truncated or use an unsupported link type"* — sendi
 officer to look for a fault in a good file. It is now reported as what it is (HTTP 413),
 with the remedy: split the capture (`editcap -c`) or use a machine with more memory.
 
-## 4. Not fixed — needs a design decision
+## 4. Not fixed here — needs a design decision
+
+> **Since resolved.** §4.1, §4.2 and §4.3 were built and measured the same day —
+> see [research/156](156_BACKGROUND_IMPORT.md). The upload request on capture C went
+> from 102.0 s to 0.44 s, a sign-in during that import from HTTP 500 after 42.4 s to
+> HTTP 200 in 1.63 s, and 330,156 stored flow rows were compared column by column
+> against the old code and found identical. §4.4 is still open.
+
 
 ### 4.1 Nobody can sign in while a large capture imports
 

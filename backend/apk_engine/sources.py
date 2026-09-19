@@ -129,6 +129,23 @@ SOURCES = {
         'url': 'https://www.ndss-symposium.org/wp-content/uploads/2018/02/ndss2018_04A-4_Duan_paper.pdf',
         'verified': True,
     },
+    'ruggia-tops-2025': {
+        'title': 'The Dark Side of Native Code on Android (Ruggia, Possemato, Dambra, Merlo, '
+                 'Aonzo, Balzarotti) — ten years of Android malware compared with current '
+                 'Play Store apps, measuring where ELF files are placed, which functions they '
+                 'import and which files they open',
+        'publisher': 'ACM Transactions on Privacy and Security 28(2), Article 13', 'date': '2025-02',
+        'url': 'https://dl.acm.org/doi/10.1145/3712308',
+        'verified': True,
+    },
+    'elf-tis-1.2': {
+        'title': 'Tool Interface Standard (TIS) Executable and Linking Format (ELF) '
+                 'Specification, version 1.2 — section header table, dynamic symbol table '
+                 'and the DT_NEEDED dynamic entry',
+        'publisher': 'TIS Committee', 'date': '1995-05',
+        'url': 'https://refspecs.linuxfoundation.org/elf/elf.pdf',
+        'verified': True,
+    },
     'sms-default-handler-kitkat': {
         'title': 'Getting Your SMS Apps Ready for KitKat — the four components an app must '
                  'declare to be eligible as the default SMS handler',

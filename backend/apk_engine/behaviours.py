@@ -404,6 +404,88 @@ def _encrypted_code_payload(ctx):
                            f"beside {dex_bytes:,} bytes of DEX"} for b in blobs[:3]], 0
 
 
+# ── native code ────────────────────────────────────────────────────────────
+#
+# Everything above this line reads DEX bytecode. These read `native.survey`,
+# which reads the ELF files in the package itself — the part of an app the
+# engine could previously only disclose it had not examined.
+#
+# The published rates that make each of these worth measuring are in
+# native.py, from Ruggia et al. (ACM TOPS 2025). None of them is used as a
+# threshold: what each is worth *here* is whatever `evaluate` measures on this
+# engine's own 201 benign apps, exactly like every other signal. A rate
+# measured on someone else's corpus is a reason to look, not a finding.
+
+
+def _native(ctx):
+    return ctx.identity.get('native') or {}
+
+
+def _elf_outside_lib(ctx):
+    """
+    An ELF file somewhere other than `lib/`.
+
+    The standard place for native code is `lib/<abi>/`, where the installer
+    extracts it and the linker finds it. Code shipped anywhere else has to be
+    written out and loaded by the app itself at runtime, which is both a way
+    of carrying a payload and a way of not being where an analyst looks.
+    """
+    names = _native(ctx).get('elf_outside_lib') or []
+    return [{'manifest': 'package entry', 'component': name} for name in names[:5]], 0
+
+
+def _elf_disguised(ctx):
+    """
+    An ELF file whose name does not end in `.so`.
+
+    Identified by its first four bytes, never by its name. A library called
+    `config.png` is not a library that was named carelessly.
+    """
+    names = _native(ctx).get('elf_wrong_extension') or []
+    return [{'manifest': 'package entry', 'component': f'{name} (ELF magic, not a .so name)'}
+            for name in names[:5]], 0
+
+
+def _elf_header_damaged(ctx):
+    """
+    An ELF file this engine could not parse, having read all of it.
+
+    Distinct from a file that was only partly read — see `native.Elf._break`;
+    conflating the two would let the engine's own limits look like tampering.
+    """
+    reasons = _native(ctx).get('broken_headers') or []
+    return [{'manifest': 'package entry', 'component': reason} for reason in reasons[:5]], 0
+
+
+def _packer_library(ctx):
+    """
+    A native library belonging to a named commercial packer.
+
+    Names the product, and stops there. Packers are sold to developers and
+    legitimate apps use them; what this says is that the DEX the engine read
+    is not the code that will run.
+    """
+    packers = _native(ctx).get('packers') or {}
+    return [{'manifest': 'package entry', 'component': f'{library} — {vendor}'}
+            for vendor, library in sorted(packers.items())], 0
+
+
+def _native_group(kind, group):
+    """
+    A detector for one group of imported functions, or one group of strings.
+
+    Written as a factory because the twelve of them differ only in which key
+    they read: an explicit copy each would be twelve chances for one to drift
+    from the rest.
+    """
+    def detector(ctx):
+        found = (_native(ctx).get(kind) or {}).get(group) or []
+        label = 'imported function' if kind == 'imports' else 'string in native code'
+        return [{'manifest': label, 'component': item} for item in found[:5]], 0
+    detector.__name__ = f'_native_{kind}_{group}'
+    return detector
+
+
 CAPABILITIES = [
     # (id, title, detector)
     ('cap.install_packages', 'Installs other packages', _install_packages),
@@ -438,6 +520,38 @@ CAPABILITIES = [
      _minimal_permission_set),
     ('cap.encrypted_code_payload', 'Stub-sized DEX beside a large statistically random entry',
      _encrypted_code_payload),
+
+    # Native code. See the block above CAPABILITIES for what these read and
+    # why none of them carries a published rate into a verdict.
+    ('cap.native_code_outside_lib', 'Carries an ELF file outside lib/', _elf_outside_lib),
+    ('cap.native_code_disguised', 'Carries an ELF file not named .so', _elf_disguised),
+    ('cap.native_header_damaged', 'Carries an ELF file whose header could not be parsed',
+     _elf_header_damaged),
+    ('cap.native_packer_library', 'Carries a named commercial packer library', _packer_library),
+    ('cap.native_process_execution', 'Native code imports the process-execution family',
+     _native_group('imports', 'process_execution')),
+    ('cap.native_dynamic_loading', 'Native code imports dlopen/dlsym',
+     _native_group('imports', 'dynamic_loading')),
+    ('cap.native_anti_debugging', 'Native code imports ptrace',
+     _native_group('imports', 'anti_debugging')),
+    ('cap.native_memory_permissions', 'Native code imports mprotect',
+     _native_group('imports', 'memory_permissions')),
+    ('cap.native_file_permissions', 'Native code imports chmod/chown',
+     _native_group('imports', 'file_permissions')),
+    ('cap.native_su_paths', 'Native code contains su-binary paths',
+     _native_group('strings', 'su_binary')),
+    ('cap.native_root_manager_strings', 'Native code names a root manager',
+     _native_group('strings', 'root_manager')),
+    ('cap.native_instrumentation_checks', 'Native code names Frida, Xposed or Substrate',
+     _native_group('strings', 'instrumentation_tooling')),
+    ('cap.native_emulator_checks', 'Native code contains emulator-detection strings',
+     _native_group('strings', 'emulator_check')),
+    ('cap.native_proc_maps', 'Native code reads /proc/self/maps',
+     _native_group('strings', 'proc_self_maps')),
+    ('cap.native_proc_version', 'Native code reads /proc/version',
+     _native_group('strings', 'proc_version')),
+    ('cap.native_jni_dynamic_binding', 'Native code binds JNI methods with RegisterNatives',
+     _native_group('strings', 'jni_dynamic_binding')),
 ]
 
 

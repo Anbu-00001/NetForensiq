@@ -14,12 +14,11 @@ import hashlib
 import os
 import time
 
-from . import (ENGINE_VERSION, baselines as baseline_store, endpoints, integrity, intel,
-               reference, reference_set)
+from . import (ENGINE_VERSION, baselines as baseline_store, endpoints, frameworks,
+               integrity, intel, native, reference, reference_set)
 from .behaviours import BEHAVIOURS, detect_behaviours, detect_capabilities
 from .container import inspect_archive
 from .integrity import INDICATORS
-from . import frameworks
 from .report import skeleton
 from .verdict import decide
 
@@ -135,6 +134,14 @@ def examine(apk_path, container_path=None, original_name='', baselines=None):
         # Facts the capability detectors need that do not come from the manifest.
         identity['bundled_packages'] = frameworks.bundled_payloads(apk_path)
         identity['opaque_payloads'] = frameworks.opaque_payloads(apk_path)
+        # The native half. Read from the package's own bytes rather than from
+        # androguard, because what matters includes ELF files that are not
+        # where an ELF file is supposed to be — see native.py.
+        try:
+            identity['native'] = native.survey(apk_path)
+        except Exception as exc:
+            identity['native'] = {}
+            errors.append(f'Native libraries could not be examined: {exc}')
 
     examined_manifest = bool(identity and identity.get('package'))
     examined_code = False

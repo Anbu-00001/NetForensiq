@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-584_passing-1B6E3C?style=flat-square)](#-tests)
+[![Tests](https://img.shields.io/badge/tests-607_passing-1B6E3C?style=flat-square)](#-tests)
 [![Air-gapped](https://img.shields.io/badge/Runtime-air--gapped-1B6E3C?style=flat-square)](#-air-gapped-by-construction)
 [![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#-bsa-section-63-certificates)
 
@@ -420,6 +420,18 @@ Measured on a real **200 MB / 2,274,747-packet** ICS capture (4SICS Geek Lounge)
 
 The parse win comes from `capture/fastparse.py`, which reads header fields straight out of the frame with `struct` instead of building a Scapy object per packet.
 
+Those figures were taken without a memory ceiling on the worker. Re-run later against the production server command with each worker capped at 5 GB, the same capture **ran out of memory** and the import failed ([research/155](research/155_PCAP_REAL_CAPTURE_TEST.md) §1) — memory grows with the number of conversations, and this capture holds 940,733. It has not been re-measured since the import was rebuilt to write flows out in batches ([research/156](research/156_BACKGROUND_IMPORT.md)), so no claim is made about it here.
+
+What *has* been measured since, on real captures through the browser path:
+
+| | Before | After |
+|---|---:|---:|
+| Upload request, 46 MB / 500,923 packets | 102.0 s | **0.44 s** |
+| Same capture, to a fully analysed session | 102.0 s | **89.3 s** |
+| Signing in while that import runs | **HTTP 500** after 42.4 s | **HTTP 200** in 1.63 s |
+
+The upload now returns as soon as the exhibit is sealed and hashed; the capture is read by a separate process that reports its progress, so closing the browser no longer has anything to do with whether the import finishes. **330,156 stored flow rows and every finding were compared against the old code, column by column, and are identical** — the import got out of the request without changing a single answer.
+
 **Equivalence is tested, not assumed.** `tests_fastparse.py` runs both readers over real captures and requires *identical* flows, DNS records, byte counts and timestamps. It found two genuine defects the fast path would otherwise have introduced:
 
 - One frame in 2,274,747 declared a TCP `dataofs` of 0 — malformed, and the dissector keeps it. Refusing it lost 1 packet, 1 flow and 62 bytes.
@@ -510,7 +522,7 @@ The running container needs **no network**. Verified under `--network none`: a s
 ## 🧪 Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 584 backend tests
+docker exec netforensiq python manage.py test    # 607 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 ```
 
