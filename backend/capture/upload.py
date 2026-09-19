@@ -175,6 +175,20 @@ class CaptureUploadView(APIView):
                 )
         except ValueError as exc:
             return self._refuse(str(exc))
+        except MemoryError:
+            # Caught before the generic handler below, which used to report it.
+            # MemoryError is an Exception with an empty message, so a real
+            # 209 MB capture that exhausted the server came back as "could not
+            # be parsed: . It may be truncated or use an unsupported link type"
+            # — sending the officer to look for a fault in a perfectly good file.
+            return self._refuse(
+                'The file is not faulty: this server ran out of memory while analysing it. '
+                'Memory grows with the number of distinct conversations, and a capture '
+                'containing a scan can hold hundreds of thousands of them. Split it into '
+                'smaller files (for example `editcap -c 500000 in.pcap part.pcap`) and '
+                'import the parts, or import it on a machine with more memory.',
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
         except Exception as exc:
             # A capture that the parser cannot read is a bad file, not a bug,
             # and the officer needs to know which of the two it is.

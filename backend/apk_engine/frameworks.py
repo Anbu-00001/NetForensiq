@@ -131,6 +131,42 @@ OPAQUE_MIN_ENTROPY = 7.99
 OPAQUE_WINDOW = 65536
 OPAQUE_MAX_CHECKED = 64
 
+# Compressed data is statistically random too; what separates it from encrypted
+# data is that it announces its format. These are the leading signatures each
+# format's specification fixes, so an entry that starts with one is a ZIP, an
+# image, audio or a font — not an opaque payload — whatever it is named.
+#
+# Added after the held-out test (research/154): two legitimate F-Droid apps were
+# placed at tier 2 as packed — eSpeak, a 70 KB DEX beside `res/t8.zip`, a real
+# ZIP of voice data; and Accordion, a 37 KB DEX beside `res/KX.png`, a real PNG.
+# In the design corpus every one of the 50 malicious blobs beside a stub DEX
+# carried no recognisable signature, so this removes both false positives
+# without losing a detection there.
+#
+# Checked by content, never by name, for the reason given above: a payload's
+# name is its author's choice. The limit is the obvious one — an author who
+# prefixes an encrypted payload with a PNG header defeats this; that evasion is
+# recorded in research/154 rather than assumed away.
+KNOWN_FORMAT_MAGIC = (
+    b'PK\x03\x04', b'PK\x05\x06',               # ZIP (and an empty ZIP)
+    b'\x89PNG\r\n\x1a\n',                        # PNG
+    b'\xff\xd8\xff',                             # JPEG
+    b'GIF87a', b'GIF89a',                        # GIF
+    b'RIFF',                                     # WAV, WebP, AVI
+    b'OggS', b'fLaC', b'ID3',                    # Ogg, FLAC, MP3 with ID3 tag
+    b'\x1f\x8b',                                 # gzip
+    b'\xfd7zXZ\x00', b'7z\xbc\xaf\x27\x1c',     # xz, 7-Zip
+    b'BZh', b'\x28\xb5\x2f\xfd',                # bzip2, Zstandard
+    b'wOFF', b'wOF2', b'\x00\x01\x00\x00', b'OTTO',  # WOFF, WOFF2, TrueType, OpenType
+)
+
+
+def _known_format(head):
+    if head.startswith(KNOWN_FORMAT_MAGIC):
+        return True
+    # ISO base media (MP4, M4A, 3GP, HEIF): a box size, then 'ftyp' at offset 4.
+    return head[4:8] == b'ftyp'
+
 
 def _entropy(data):
     if not data:
@@ -167,6 +203,8 @@ def opaque_payloads(apk_path):
             with archive.open(info) as handle:
                 head = handle.read(OPAQUE_WINDOW)
         except Exception:
+            continue
+        if _known_format(head):
             continue
         score = _entropy(head)
         if score >= OPAQUE_MIN_ENTROPY:

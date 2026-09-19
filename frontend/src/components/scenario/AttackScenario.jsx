@@ -35,6 +35,32 @@ const SEVERITY_INK = {
 };
 
 /** 2026-08-18T11:09:55+00:00 → 18 Aug 11:09:55 */
+
+// Rows drawn per stage before the rest are summarised.
+//
+// A stage used to render every finding in it. On a real Mirai capture that was
+// 3,769 rows for one host, 1.1 MB of JSON turned into DOM, and the tab stopped
+// responding before the panel finished drawing — a page that never finishes
+// loading, from the officer's side. The story a stage tells is carried by its
+// first few findings; the complete list belongs on the Findings page, which
+// pages it. The count stays exact: only the drawing is capped, never the data.
+const ROWS_SHOWN = 12;
+
+function CappedRows({ rows }) {
+  const shown = rows.slice(0, ROWS_SHOWN);
+  const rest = rows.length - shown.length;
+  return (
+    <>
+      {shown.map((row) => <FindingRow key={row.id} row={row} />)}
+      {rest > 0 && (
+        <Typography sx={{ fontSize: 11.5, color: '#5A6068', pl: 0.5, pt: 0.5 }}>
+          …and {rest.toLocaleString()} more — every one is listed on the Findings page.
+        </Typography>
+      )}
+    </>
+  );
+}
+
 function clock(iso) {
   if (!iso) return null;
   const d = new Date(iso);
@@ -306,7 +332,7 @@ function AttackScenario({ data }) {
                   <TechniqueChip key={t.id} technique={t} />
                 ))}
               </Box>
-              {stage.findings.map((row) => <FindingRow key={row.id} row={row} />)}
+              <CappedRows rows={stage.findings} />
             </Box>
           ))}
 
@@ -314,7 +340,7 @@ function AttackScenario({ data }) {
             <Fold label={`${host.unclassified.length} supporting finding${
               host.unclassified.length === 1 ? '' : 's'} with no ATT&CK technique`}>
               <Box sx={{ pl: 2.8, pt: 0.5 }}>
-                {host.unclassified.map((row) => <FindingRow key={row.id} row={row} />)}
+                <CappedRows rows={host.unclassified} />
               </Box>
             </Fold>
           )}

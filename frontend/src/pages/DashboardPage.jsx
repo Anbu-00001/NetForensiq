@@ -62,6 +62,17 @@ function DashboardPage() {
     && liveSession?.state === 'running';
   const [bucketSeconds, setBucketSeconds] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Which session the figures on screen belong to. `loading` is only ever true
+  // on first load, so switching sessions used to leave the previous capture's
+  // numbers, graph and timeline on screen — under the new capture's name, with
+  // no spinner — until the slowest request returned. On a real 223,120-flow
+  // capture that was 6.8 seconds of session #6's figures shown as session #9's,
+  // which in an evidence tool is a misattribution rather than a slow page.
+  // Derived rather than set synchronously in the effect, for the reason given
+  // there: the data carries its own session, and anything that does not match
+  // the selection is simply not drawn.
+  const [loadedFor, setLoadedFor] = useState(null);
+  const switching = Boolean(sessionId) && loadedFor !== sessionId;
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState('');
 
@@ -107,9 +118,20 @@ function DashboardPage() {
         setBucketSeconds(t.bucket_seconds ?? null);
         setGraph(g);
         setScenario(sc);
+        setLoadedFor(sessionId);
         setError('');
       })
-      .catch((err) => { if (current) setError(describeError(err, 'Failed to load session data.')); })
+      .catch((err) => {
+        if (!current) return;
+        // A failed switch must not leave the previous session's figures on
+        // screen beneath the error, which would read as this session's.
+        setSummary(null);
+        setTimeline([]);
+        setGraph(null);
+        setScenario(null);
+        setLoadedFor(sessionId);
+        setError(describeError(err, 'Failed to load session data.'));
+      })
       .finally(() => { if (current) setLoading(false); });
 
     // Switching sessions while a request is in flight would otherwise let the
@@ -226,7 +248,7 @@ function DashboardPage() {
                 Read-only access — detection is run by an investigating officer
               </Typography>
             )}
-            {summary?.session?.capture_start && (
+            {!switching && summary?.session?.capture_start && (
               <Typography sx={{ fontSize: 12, color: '#5A6068' }}>
                 traffic captured {new Date(summary.session.capture_start).toLocaleString()}
                 {' · span '}
@@ -241,9 +263,14 @@ function DashboardPage() {
 
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+          {loading || switching ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 10 }}>
               <CircularProgress sx={{ color: '#076E7C' }} />
+              {switching && !loading && (
+                <Typography sx={{ fontSize: 12, color: '#5A6068' }}>
+                  Loading session #{sessionId}…
+                </Typography>
+              )}
             </Box>
           ) : !sessions.length ? (
             <Box sx={{ ...PANEL, textAlign: 'center', py: 6 }}>

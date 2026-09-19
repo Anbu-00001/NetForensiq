@@ -90,6 +90,9 @@ CLAIMS = [
     (r'Backend:\s+(\d+)\s+tests', 'backend_tests'),
     (r'\*\*(\d+)\s+backend tests', 'backend_tests'),
     (r'(\d+)\s+backend tests', 'backend_tests'),
+    # The README's shields.io badge. It said 447 while the suite had 583 —
+    # the first number a visitor reads, and the one nothing was checking.
+    (r'badge/tests-(\d+)_passing', 'backend_tests'),
     (r'Frontend:\s+(\d+)\s+Playwright', 'e2e_tests'),
     (r'\*\*(\d+)\s+Playwright E2E', 'e2e_tests'),
     (r'(\d+)\s+Playwright E2E', 'e2e_tests'),

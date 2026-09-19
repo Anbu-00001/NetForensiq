@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
-Write PROVENANCE/manifest.sha256: a fingerprint of every authored file.
+Freeze dated snapshots of every authored file's fingerprint, for timestamping.
 
 What it is for
 ==============
@@ -28,19 +28,32 @@ indicators, the IANA TLD list — see THIRD_PARTY_NOTICES.md), not packet
 captures, samples or evidence, not dependencies or build output. Listing someone
 else's data in an authorship manifest would claim something untrue.
 
+Layout
+======
+Each stamp is frozen in its own directory, PROVENANCE/stamps/<UTC time>/, as a
+manifest and its .ots proof. A stamp is never rebuilt or overwritten: the whole
+point of an early proof is that it describes the code as it was then, and
+regenerating it in place would replace the earliest evidence with later
+evidence. New work gets a new snapshot beside the old ones, so the directory
+becomes a timeline.
+
 Usage:
-    python scripts/provenance_manifest.py          # write the manifest
-    python scripts/provenance_manifest.py --check  # exit 1 if it is out of date
+    python scripts/provenance_manifest.py              # show what a snapshot would hold
+    python scripts/provenance_manifest.py --snapshot   # freeze a new stamp (and ots-stamp it)
+    python scripts/provenance_manifest.py --check      # what changed since the latest stamp
 """
 
 import argparse
+import datetime
 import hashlib
 import os
+import shutil
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, 'PROVENANCE')
-MANIFEST = os.path.join(OUT_DIR, 'manifest.sha256')
+STAMPS = os.path.join(OUT_DIR, 'stamps')
 
 EXTENSIONS = {'.py', '.js', '.jsx', '.sh', '.md', '.cff', '.yml', '.yaml', '.html', '.css', '.toml'}
 NAMED = {'LICENSE', 'Dockerfile', 'VERSION', 'package.json', '.gitignore', '.dockerignore'}
@@ -81,30 +94,71 @@ def build():
     return '\n'.join(sorted(lines, key=lambda l: l[66:])) + '\n'
 
 
+def latest_stamp():
+    if not os.path.isdir(STAMPS):
+        return None
+    names = sorted(d for d in os.listdir(STAMPS)
+                   if os.path.isfile(os.path.join(STAMPS, d, 'manifest.sha256')))
+    return os.path.join(STAMPS, names[-1]) if names else None
+
+
+def _entries(text):
+    return {line[66:]: line[:64] for line in text.splitlines() if len(line) > 66}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--check', action='store_true')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--snapshot', action='store_true', help='freeze a new dated stamp')
+    group.add_argument('--check', action='store_true', help='changes since the latest stamp')
     args = parser.parse_args(argv)
     text = build()
     count = text.count('\n')
-    if args.check:
-        try:
-            current = open(MANIFEST, encoding='utf-8').read()
-        except FileNotFoundError:
-            print('No manifest yet — run without --check.')
-            return 1
-        if current == text:
-            print(f'Manifest is current ({count} files).')
-            return 0
-        print('Manifest is out of date: files changed since it was written. Rebuild it and '
-              're-stamp (see PROVENANCE/README.md).')
-        return 1
-    os.makedirs(OUT_DIR, exist_ok=True)
-    with open(MANIFEST, 'w', encoding='utf-8') as handle:
-        handle.write(text)
     whole = hashlib.sha256(text.encode('utf-8')).hexdigest()
-    print(f'{count} authored files -> {os.path.relpath(MANIFEST, ROOT)}')
+
+    if args.check:
+        latest = latest_stamp()
+        if latest is None:
+            print('No stamp yet — run with --snapshot.')
+            return 1
+        with open(os.path.join(latest, 'manifest.sha256'), encoding='utf-8') as handle:
+            stamped = _entries(handle.read())
+        now = _entries(text)
+        changed = sorted(p for p in now if p in stamped and now[p] != stamped[p])
+        added = sorted(p for p in now if p not in stamped)
+        removed = sorted(p for p in stamped if p not in now)
+        name = os.path.basename(latest)
+        if not (changed or added or removed):
+            print(f'Nothing has changed since stamp {name} ({count} files).')
+            return 0
+        print(f'Since stamp {name}: {len(changed)} changed, {len(added)} added, '
+              f'{len(removed)} removed. Run --snapshot to stamp the current state.')
+        for label, paths in (('changed', changed), ('added', added), ('removed', removed)):
+            for path in paths[:10]:
+                print(f'  {label:8s} {path}')
+        return 1
+
+    if not args.snapshot:
+        print(f'{count} authored files; a snapshot now would have SHA-256 {whole}')
+        return 0
+
+    stamp_dir = os.path.join(STAMPS, datetime.datetime.now(datetime.timezone.utc)
+                             .strftime('%Y-%m-%dT%H%MZ'))
+    if os.path.exists(stamp_dir):
+        sys.exit(f'{stamp_dir} already exists; stamps are never overwritten. Wait a minute.')
+    os.makedirs(stamp_dir)
+    manifest = os.path.join(stamp_dir, 'manifest.sha256')
+    with open(manifest, 'w', encoding='utf-8') as handle:
+        handle.write(text)
+    print(f'{count} authored files -> {os.path.relpath(manifest, ROOT)}')
     print(f'manifest SHA-256: {whole}')
+    ots = shutil.which('ots')
+    if ots:
+        # Only the manifest's hash is sent, to the public OpenTimestamps calendars.
+        subprocess.run([ots, 'stamp', manifest], check=False)
+    else:
+        print('ots not found: pip install opentimestamps-client, then '
+              f'`ots stamp {os.path.relpath(manifest, ROOT)}`')
     return 0
 
 

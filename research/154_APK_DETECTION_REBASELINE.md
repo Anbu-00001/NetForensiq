@@ -294,10 +294,76 @@ Duan et al. (NDSS 2018, p.3) found commercial packers "widely used by many devel
 pack and protect their intellectual property", and F-Droid contains no packed apps, so
 the zero benign firings overstate how clean this is on Play Store software.
 
-### 6.5 v4 — the held-out result
+### 6.5 v4 — the held-out result, and what it says about the new rules
 
-*Running at the time of writing: v4 re-baseline, held-out test, design-set re-check, and
-the false-positive check on 100 fresh F-Droid apps.*
+Same 100 held-out malicious samples and the same 100 held-out benign apps, v4 engine
+(NFC relay + packed payload + Qt attribution fix), baselines re-measured and merged:
+
+| | v3 | v4 |
+|---|---|---|
+| detection (tier ≥ 2) | 63 / 100 | **64 / 100 = 64.0%** — 95% CI [53.8, 73.4] |
+| false positives (tier ≥ 2) | 1 / 100 (the Qt app, since fixed) | **2 / 100** |
+| balanced accuracy | 81.0% | 81.0% |
+
+Tiers, malicious: 4: 2 · 3: 17 · 2: 45 · 1: 31 · 0: 5.
+
+**The two new rules added one point on unseen malware.** On the design set they had been
+projected to take detection to about 82%. That gap — 18 points between the corpus the
+rules were written against and the corpus they were tested on — is the signature of
+rules fitted to their training data. The NFC relay rule rested on one campaign ("Total
+Protect", 20 variants with randomised package names) plus four NGate samples; a held-out
+set without that campaign gives it almost nothing to find. The rule is still sound — it
+cites two independent primary sources and is precise when it fires — but it is not a
+detection-rate lever on this corpus, and the design-set projection should not have been
+read as one.
+
+**Both new false positives came from `beh.packed_code_payload`**, reproduced on the same
+image and baselines: eSpeak (70 KB DEX beside `res/t8.zip`, a genuine ZIP of voice data)
+and Accordion (37 KB DEX beside `res/KX.png`, a genuine PNG). Native-code apps with a thin
+Java layer ship large compressed data, and compressed data is statistically random.
+Encrypted data is too, but it does not announce a format. In the design corpus all 50
+malicious blobs beside a stub DEX carried no recognisable signature, so v5 excludes
+entries that begin with a known format signature (ZIP, PNG, JPEG, GIF, RIFF, Ogg, FLAC,
+MP3, gzip, xz, 7-Zip, bzip2, Zstandard, fonts, ISO-BMFF) — by content, never by name. The
+fix was designed from the held-out benign apps, so that set is spent for this rule: the
+v5 false-positive claim rests on 100 fresh F-Droid apps sampled with a new seed and not
+examined before the fix was final.
+
+The evasion is obvious and recorded: an author who prefixes an encrypted payload with a
+PNG header defeats the exclusion.
+
+### 6.6 v5 — final, and what shipped
+
+| | corpus | result |
+|---|---|---|
+| **detection, unseen** | 100 held-out MalwareBazaar | **64 / 100 = 64.0%** — 95% CI [53.8, 73.4] |
+| **false positives, unseen** | 100 fresh F-Droid, new seed, examined after the last change | **0 / 100** — one-sided 95% bound 3.0%; 11 could not be examined |
+| false positives, held-out benign | 100 (spent: it motivated the packer fix) | 0 / 100 — confirms the fix, not a clean claim |
+| detection, in-sample | the 200 the rules were written from | 163 / 200 = 81.5% — 95% CI [75.4, 86.6] |
+
+The magic-signature exclusion removed both packer false positives and cost no detection on
+the held-out malicious set (64 before and after).
+
+**The progression, on unseen malware:** 34% (5 rules, 31-app baselines) → 63% (baselines
+re-measured, integrity indicators validated) → 64% (NFC relay and packed payload). The
+in-sample figure is 17.5 points higher than the held-out one; I had predicted they would
+land within 8, and they did not.
+
+**Shipped.** The v5 checks mounted the re-measured baselines over the image's copy, so until
+the file is promoted the product still behaves like the 34% engine. `data/baselines.json`
+is now the merged 201-benign / 194-malicious measurement (the 31-app original is kept at
+`apk_corpus/analysis/baselines_31app_original_backup.json`); 88 engine and 584 backend
+tests pass against it, and a check without any override confirms the integrity indicators
+and the new rules are validated while `cert.debug_certificate` (6 carried forward) and
+`beh.adb_payload_dropper` (4 benign) stay experimental.
+
+**Eleven of the 100 fresh apps could not be examined.** That is not a false positive, and
+it is not nothing either: an app the engine cannot read is an app it says nothing about. It
+is recorded here rather than folded into the 0.
+
+**Next.** More rules written from these misses would repeat §6.5. 200 of the 300 new
+MalwareBazaar samples are unused — a fresh held-out set for the next change, which should
+be a new capability rather than another conjunction.
 
 ---
 

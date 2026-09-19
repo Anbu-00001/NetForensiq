@@ -690,7 +690,10 @@ BEHAVIOURS = [
         'lookalikes': ('Commercially packed legitimate apps — banking apps in particular — share '
                        'this layout. Duan et al. found commercial packers "widely used by many '
                        'developers to pack and protect their intellectual property", and the F-Droid corpus this was measured on contains no packed '
-                       'apps at all, so its zero benign firings overstate how clean this is.'),
+                       'apps at all, so its zero benign firings overstate how clean this is. The first '
+                       'held-out test found two more lookalikes — a speech engine beside a ZIP of voice '
+                       'data and an instrument app beside a PNG — both native-code apps with a thin Java '
+                       'layer; payloads in a recognised format (ZIP, PNG, audio, fonts) are now excluded.'),
     },
 ]
 

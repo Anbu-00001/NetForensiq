@@ -684,6 +684,20 @@ def rule_unknown_long_channel(session):
             continue
         if not flow.bytes_sent or not flow.bytes_received:
             continue  # one-directional: a stalled connection, not a channel
+        # A refused or unanswered connection is not a channel either, and the
+        # byte check above cannot see that: bytes are frame lengths, so a bare
+        # 54-byte RST/ACK from the target counts as "received". A TCP connection
+        # that completed its handshake (RFC 9293 s.3.5) has the initiator sending
+        # at least SYN and ACK and the responder at least SYN-ACK and one more
+        # segment; a SYN answered by RST is one packet each way.
+        #
+        # Found on a real Mirai capture (malware-traffic-analysis.net,
+        # 2025-12-17): the bot's sweep of TCP/37215 — the Huawei HG532 exploit
+        # port — left 3,768 SYN→RST flows, 1 packet each way, that this rule
+        # reported as 3,768 "unidentified channels" against one host. The bot's
+        # real C2 conversation (23 packets out, 19 back) is unaffected.
+        if flow.packets_sent < 2 or flow.packets_received < 2:
+            continue
 
         findings.append(Detection(
             session=session, flow=flow,
@@ -1541,9 +1555,27 @@ def analyse_session(session, clear_existing=True, dispatch_alerts=True):
                 per_flow[finding.flow_id], SEVERITY_WEIGHT[finding.severity],
             )
 
+    # Reset every flow first, then raise the flagged ones.
+    #
+    # This used to reset only flows not yet analysed, so on a *re*-analysis a
+    # flow flagged by an earlier run kept its old risk score after the finding
+    # behind it was gone. Measured on a real Mirai capture after a rule fix:
+    # 3,820 flows still scored as risky with findings against 52 of them — the
+    # "Flagged flows" card, the timeline's flagged band and the graph's red
+    # edges all read this column, so all three kept showing findings that no
+    # longer existed.
+    #
+    # It also issued one UPDATE per flagged flow — 3,769 statements on that
+    # capture. Flows are grouped by score instead: at most one statement per
+    # severity weight, in chunks under SQLite's bound-parameter limit. The final
+    # state is the same as before for a first analysis.
+    session.flows.update(risk_score=0, is_analyzed=True)
+    by_score = defaultdict(list)
     for flow_id, score in per_flow.items():
-        Flow.objects.filter(pk=flow_id).update(risk_score=score, is_analyzed=True)
-    session.flows.filter(is_analyzed=False).update(is_analyzed=True, risk_score=0)
+        by_score[score].append(flow_id)
+    for score, flow_ids in by_score.items():
+        for start in range(0, len(flow_ids), 900):
+            Flow.objects.filter(pk__in=flow_ids[start:start + 900]).update(risk_score=score)
 
     by_severity = defaultdict(int)
     by_rule = defaultdict(int)

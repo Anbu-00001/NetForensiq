@@ -329,6 +329,22 @@ class OpaquePayloadScanTests(unittest.TestCase):
         found = [b['name'] for b in frameworks.opaque_payloads(path)]
         self.assertEqual(found, ['assets/core_profile.pak'])
 
+    def test_recognised_formats_are_not_opaque_whatever_their_entropy(self):
+        # The two held-out false positives: eSpeak's real ZIP of voice data and
+        # Accordion's real PNG. Compressed data is random-looking; it also says
+        # what format it is, and encrypted data does not.
+        from apk_engine import frameworks
+        import io, zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_STORED) as inner:
+            inner.writestr('voice.dat', os.urandom(1_200_000))
+        path = self._apk([('res/t8.zip', buf.getvalue()),
+                          ('res/KX.png', b'\x89PNG\r\n\x1a\n' + os.urandom(1_200_000)),
+                          ('res/clip.m4a', b'\x00\x00\x00\x20ftypM4A ' + os.urandom(1_200_000)),
+                          ('assets/dbliqgnjl.dat', os.urandom(1_200_000))])
+        found = [b['name'] for b in frameworks.opaque_payloads(path)]
+        self.assertEqual(found, ['assets/dbliqgnjl.dat'])
+
     def test_native_libraries_and_small_entries_are_not_read(self):
         from apk_engine import frameworks
         path = self._apk([('lib/arm64-v8a/libx.so', os.urandom(1_200_000)),

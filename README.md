@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-583_passing-1B6E3C?style=flat-square)](#-tests)
+[![Tests](https://img.shields.io/badge/tests-584_passing-1B6E3C?style=flat-square)](#-tests)
 [![Air-gapped](https://img.shields.io/badge/Runtime-air--gapped-1B6E3C?style=flat-square)](#-air-gapped-by-construction)
 [![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#-bsa-section-63-certificates)
 
@@ -280,7 +280,7 @@ flowchart TD
 
 ### The rule that keeps it honest
 
-**A signal may only raise a tier if it fired on _zero_ apps in the legitimate reference corpus.** Everything else is reported with its count and cannot move the verdict. The corpus is deliberately adversarial: F-Droid apps that legitimately install packages (F-Droid, Droid-ify, Aurora Store), create VPNs (NetGuard, RethinkDNS, AdAway, OpenVPN), handle SMS (Fossify Messages), automate through accessibility (Key Mapper) and run shell commands (Termux), plus a Play Store build of Flipkart pulled from a phone.
+**A signal may only raise a tier if it fired on _zero_ apps in the legitimate reference corpus.** Everything else is reported with its count and cannot move the verdict. The corpus is 201 examined F-Droid apps: 23 chosen because they legitimately do what malware does — install packages (F-Droid, Droid-ify, Aurora Store), create VPNs (NetGuard, RethinkDNS, AdAway, OpenVPN), handle SMS (Fossify Messages), automate through accessibility (Key Mapper), run shell commands (Termux) — plus 200 sampled at random. Benign firings seen on the earlier 31-app corpus, which included a Play Store build of Flipkart and seven locally built apps no longer on disk, are carried forward rather than lost: re-measuring cannot validate a signal by losing the evidence against it.
 
 Measured on that corpus (`backend/apk_engine/data/baselines.json`, regenerate with `python -m apk_engine evaluate`):
 
@@ -294,43 +294,29 @@ Measured on that corpus (`backend/apk_engine/data/baselines.json`, regenerate wi
 
 The judge's sample from KANAD S.H.I.E.L.D. 2026 (`com.mrram.loader`, delivered as "PENSION CARD VERIFICATION") reaches **tier 3 — Hostile downloader**, on its own `MainActivity` feeding a `PackageInstaller` session while `InstallVpnService` routes `0.0.0.0/0` and `::/0` into a local VPN, plus a Cloudflare quick-tunnel stage-2 URL and five forged-header indicators. Flipkart reaches **tier 1**. Under the previous additive score it was the other way round: Flipkart scored 100/100 "Remote access trojan", on a root *check* inside NPCI's UPI library.
 
-### Measured against real corpora (18 Sep 2026)
+### Measured against real corpora (19 Sep 2026)
 
-Both halves were measured, because a tool that reports only the half it does well is not reporting. Full method and caveats in [research/151 §8.9–8.13](research/151_WHAT_MAKES_THIS_DIFFERENT.md).
+Both halves were measured, on corpora kept apart before anything was examined, because a detection rate on the samples a rule was written from proves nothing. Full method, every intermediate result and the two findings that went against us are in [research/154](research/154_APK_DETECTION_REBASELINE.md).
 
-**False positives — 300 unseen F-Droid packages, held out.** Sampled deterministically from the F-Droid index (seed fixed, index-published SHA-256 verified on every download, none overlapping the baseline corpus), then run in `--check` mode so nothing was written and nothing was fitted:
+| | Corpus | Result |
+|---|---|---|
+| **Detection — unseen malware** | 100 MalwareBazaar APKs, selected by excluding the design corpus *before* any was examined | **64 / 100 = 64.0%** (95% CI 53.8–73.4) |
+| **False positives — unseen legitimate apps** | 100 F-Droid APKs sampled with a new seed, examined only after the last engine change | **0 / 100** (one-sided 95% bound 3.0%); 11 could not be examined |
+| In-sample, for comparison only | the 200 MalwareBazaar APKs the rules were built from | 163 / 200 = 81.5% |
 
-| Result | Count |
-|---|---|
-| Reached tier 2 or above (**false positives**) | **0 / 299** |
-| Tier 1 — no harmful behaviour established | 299 |
-| Tier 0 — could not be examined | 1 (`pw.faraday.faraday`, exceeded the 6 GB memory cap) |
+Unseen malware by tier: 4 — known harmful software: **2** · 3 — harmful behaviour demonstrated: **17** · 2 — built to evade inspection: **45** · 1 — nothing established: **31** · 0 — could not be examined: **5**.
 
-Every signal permitted to raise a tier fired on **zero** of the 299: all eight AXML indicators, all seven ZIP indicators, `cert.debug_certificate`, and all three validated behaviour rules. The one that matters most, `zip.encryption_flag_on_package`, is **0 / 299 legitimate against 71 / 195 malicious**.
+**How it got here, and what did not help.** The engine was at **34%** with five behaviour rules and baselines measured on 31 apps. Adding five more rules changed **no tier at all** — a rule that has never been measured against legitimate software cannot raise one, by design. Re-measuring the baselines on the larger corpus is what moved it: ten ZIP/AXML tampering indicators fire on 0 of 201 legitimate apps and on 114 of 200 malicious ones, and once validated they took unseen-malware detection to **63%**. Two further rules, NFC card relay and packed payload, projected to ~82% on the design set and added **one point** on unseen malware: they were fitted to one campaign that the held-out set does not contain. The held-out test also caught three defects before they shipped — a Qt app flagged because framework code was read as the developer's, and two native-code apps whose compressed data looked "packed" — each fixed and recorded.
 
-**Detection — 200 MalwareBazaar packages.** The 200 most recent APK samples as of 18 Sep 2026 (first seen 8 Jul – 17 Sep 2026; Copybara, IRATA, NGate and Herodotus among the labelled families, 168 unlabelled but confirmed malicious), taken without filtering by family or by what we already detect, examined in a sandbox with no network:
-
-| Tier | Samples | |
-|---|---:|---|
-| 4 — Known harmful software | 10 | indicator identity match |
-| 3 — Harmful behaviour demonstrated | 8 | validated behaviour rule |
-| 2 — Built to evade inspection | 50 | validated integrity indicator |
-| 1 — No harmful behaviour established | **127** | **missed** |
-| 0 — Could not be examined | 5 | |
-
-**68 of 200 (34%) reached tier 2 or above; 63.5% were missed.** That number is published rather than buried: it is the first sensitivity figure this project has had, and no scoring tool in this space publishes one at all.
-
-**What the misses do and do not tell us.** Every one of the 127 had DEX code and none was truncated, so none was resource-only and none escaped indexing. **59 of 127 fired exactly one capability** (our rules require combinations, by design), 14 fired none, and 10 fired six or more without matching a rule.
-
-That does **not** show the misses are unpacked. A packer ships a small stub DEX that decrypts the real payload at run time, and a stub looks exactly like "DEX present, one capability fired". An earlier version of this section concluded "none were packed, so it is a rule gap, not a blind spot"; the evidence never supported that, and it is withdrawn. How many misses are a rule gap and how many are a packing blind spot is an open question, and is being measured ([research/151 §8.14](research/151_WHAT_MAKES_THIS_DIFFERENT.md)).
+**The gap between 81.5% and 64% is the finding.** Rules written from a corpus score well on that corpus. The number to quote is the one on malware the engine had never seen.
 
 ### What these numbers do and do not support
 
-The false-positive bound improves by an order of magnitude with corpus size — the exact one-sided 95% upper bound for zero firings is **9.2% at n=31**, **1.0% at n=299**, **0.92% at n=323** (the two corpora merged, no overlap).
+The false-positive bound depends on corpus size — the exact one-sided 95% upper bound for zero firings is **9.2% at n=31**, **3.0% at n=100**, **1.5% at n=201**. The 100-app figure is the only one measured on apps the engine had not been adjusted against; the 201-app baseline is zero by construction.
 
 But F-Droid is a cleaner population than the field: its builds carry **89% fewer tracking libraries** than their Google Play equivalents (University of Oxford, 2025), and developers routinely ship a stripped FOSS variant there. The app that broke the old scorer was a *Play* build of Flipkart, whose merged manifest declares components under `com.facebook`, `in.juspay` and `org.npci.upi` — exactly the class F-Droid under-represents.
 
-So the supported claim is **"fired on none of 300 legitimate F-Droid builds"**. It is *not* "fires on fewer than 1% of Android apps", and that stronger sentence is not made anywhere in this repository.
+So the supported claims are **"caught 64 of 100 unseen MalwareBazaar APKs"** and **"flagged none of 100 unseen F-Droid apps"**. They are *not* "detects 64% of Android malware" or "fires on fewer than 3% of Android apps" — MalwareBazaar is what researchers upload, and F-Droid is cleaner than the Play Store — and those stronger sentences are not made anywhere in this repository.
 
 ### Two design decisions worth reading
 
@@ -524,7 +510,7 @@ The running container needs **no network**. Verified under `--network none`: a s
 ## 🧪 Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 583 backend tests
+docker exec netforensiq python manage.py test    # 584 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 ```
 
@@ -588,8 +574,8 @@ NetForensiq/
 
 This project was built for a hackathon and it is **not finished**. Stated plainly, because a forensics tool that oversells itself is worse than none:
 
-- **Detection is measured, and it is 34%.** On 200 current MalwareBazaar APK samples, 68 reached tier 2 or above and **127 were missed**. Five behaviour rules do not cover modern Android malware, and the misses are published in [research/151 §8.9](research/151_WHAT_MAKES_THIS_DIFFERENT.md) as a work list rather than smoothed over.
-- **The shipped baselines still rest on 31 apps.** `data/baselines.json` was measured on 31 legitimate apps and one malicious sample, which bounds a clean signal's false-positive rate at ~9.2%, not zero. The 300-app held-out run confirms zero false positives at a ~1.0% bound, but it was a `--check` run and did not rewrite the baselines: 8 of the original 31 samples are no longer on this machine, so that measurement cannot be reproduced as-is.
+- **Detection on unseen malware is 64%, and 36% is missed.** Of 100 MalwareBazaar APKs never examined before, 31 reached no tier and 5 could not be examined. The next gain needs a new analysis capability and a fresh held-out set — 200 unused samples are available — not more rules written from the same misses ([research/154](research/154_APK_DETECTION_REBASELINE.md)).
+- **The shipped baselines rest on 201 F-Droid apps, one signal carried forward.** `data/baselines.json` was measured on 201 legitimate and 194 malicious apps. `cert.debug_certificate` keeps the six benign firings seen on the earlier 31-app corpus, whose locally built apps are no longer on disk, so a debug-signed APK cannot raise a tier on the strength of their absence.
 - **Two signals are mislabelled by that small corpus.** `cert.malformed_country` carries `validated` status from 0/31 yet fired on 15 of 299 unseen apps (it does not reach the tier path today, so nothing is wrong in output); `cap.dynamic_code_loading` was 0/31 but is 1/299. Both are corrected in [research/151 §8.13](research/151_WHAT_MAKES_THIS_DIFFERENT.md).
 - **The benign corpus is cleaner than the field.** F-Droid builds carry 89% fewer tracking libraries than their Play equivalents, so the false-positive bound is optimistic for Play Store apps.
 - **Static analysis only.** No detonation, no decompilation, no emulation. It reads the manifest, the certificate and DEX strings — nothing more is claimed.

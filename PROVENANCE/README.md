@@ -5,62 +5,62 @@ checkable by anyone, without trusting this repository, GitHub, or its author.
 
 ## What is here
 
-| file | what it is |
-|---|---|
-| `manifest.sha256` | SHA-256 of every authored file — code, tests, research notes, documentation — one per line, sorted by path. Third-party data, captures and samples are deliberately not listed. |
-| `manifest.sha256.ots` | An [OpenTimestamps](https://opentimestamps.org/) proof that `manifest.sha256` existed at the time it was stamped, anchored to the Bitcoin blockchain. |
+```
+PROVENANCE/stamps/
+└── 2026-09-19T0322Z/          one directory per stamp, named by UTC time
+    ├── manifest.sha256        SHA-256 of every authored file at that moment
+    └── manifest.sha256.ots    OpenTimestamps proof, anchored to Bitcoin
+```
 
-Only the manifest's hash left the author's machine to make the proof. Nothing about
-the code was sent anywhere.
+Each manifest lists code, tests, research notes and documentation — one file per
+line, sorted by path. Third-party data, captures and samples are deliberately not
+listed. Only a manifest's hash ever left the author's machine; nothing about the
+code was sent anywhere.
+
+**Stamps are frozen.** A stamp is never rebuilt or overwritten, because an early
+proof is only worth anything if it still describes the code as it was then. New work
+gets a new directory beside the old ones, so `stamps/` is a timeline: the earliest
+entry is the earliest proof of authorship, and each later one shows the work growing.
 
 ## Why this settles "who wrote it first"
 
 A repository's commit dates are whatever the committer's clock said, and a copy can
 be re-committed under any name with any date. A Bitcoin-anchored timestamp cannot be
-backdated: it proves the manifest — and so every file hash in it — existed no later
-than the block that recorded it.
+backdated: it proves a manifest — and so every file hash in it — existed no later than
+the block that recorded it.
 
 So if a copy of this code turns up elsewhere:
 
 1. `python scripts/provenance_check.py <copy>` shows which of its files are
-   NetForensiq's, including files whose licence header was removed or that were
-   renamed or edited.
-2. `sha256sum <file>` on any matched original gives a hash that appears in
-   `manifest.sha256`.
-3. The `.ots` proof shows that manifest existed at the stamped time.
+   NetForensiq's, including files whose licence header was removed, renamed or edited.
+2. `sha256sum <file>` on a matched original gives a hash that appears in a manifest.
+3. That manifest's `.ots` proof shows it existed at the stamped time.
 
-## Verifying the timestamp
+## Verifying
 
-**Without installing anything:** open <https://opentimestamps.org/>, drop in
-`manifest.sha256.ots` together with `manifest.sha256`, and the page verifies the
-attestation in the browser.
-
-**From the command line:**
+**Without a Bitcoin node** — checks every stamp against two independent public block
+explorers, which must agree:
 
 ```bash
-pip install opentimestamps-client
-ots info    PROVENANCE/manifest.sha256.ots     # what the proof commits to
-ots verify  PROVENANCE/manifest.sha256.ots     # full check; needs a Bitcoin node
+pip install opentimestamps-client          # for the proof format
+python scripts/verify_timestamp.py
 ```
 
-A freshly made proof is *pending*: the calendar servers have accepted the hash and
-it reaches the blockchain within a few hours. `ots upgrade PROVENANCE/manifest.sha256.ots`
-then replaces the pending attestation with the complete Bitcoin one, after which the
-proof no longer depends on the calendar servers at all. Commit the upgraded file.
+**In a browser** — open <https://opentimestamps.org/> and drop in a stamp's
+`manifest.sha256.ots` together with its `manifest.sha256`.
 
-## Keeping it current
+**With a Bitcoin node** — `ots verify PROVENANCE/stamps/<time>/manifest.sha256.ots`.
 
-The manifest describes the code at the moment it was built. After significant work:
+A new stamp is *pending* for a few hours while the calendar servers wait for Bitcoin to
+confirm it. `ots upgrade <file>.ots` then embeds the complete Bitcoin attestation, after
+which the proof no longer depends on the calendar servers at all. Commit the upgraded file.
+
+## Adding a stamp
 
 ```bash
-python scripts/provenance_manifest.py             # rebuild
-ots stamp PROVENANCE/manifest.sha256              # re-stamp (hash only is sent)
+python scripts/provenance_manifest.py --check      # what changed since the latest stamp
+python scripts/provenance_manifest.py --snapshot   # freeze a new stamp and ots-stamp it
 ```
-
-Each stamp is an independent point in the timeline; keeping the old proofs (e.g.
-under a dated name) shows the project's history of existence as well as its current
-state. `python scripts/provenance_manifest.py --check` reports whether the manifest
-is out of date.
 
 ## Stronger still, in India
 
@@ -68,7 +68,6 @@ Copyright in software arises automatically on creation under the Copyright Act, 
 where a computer program is a literary work. Registration with the Copyright Office
 is optional, but under section 48 the Register of Copyrights is *prima facie* evidence
 of the particulars entered in it — the strongest formal record available. The
-manifest and timestamp here are independent evidence that supports, but does not
-replace, registration.
+stamps here are independent evidence that supports, but does not replace, registration.
 
 *Not legal advice.*

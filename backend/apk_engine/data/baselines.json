@@ -1,15 +1,340 @@
 {
- "measured_at": "2026-09-18T11:14:41+00:00",
+ "measured_at": "2026-09-19T04:14:15+00:00",
  "engine_version": "2.0.0",
  "corpus": {
-  "benign": 31,
-  "malicious": 1,
-  "description": "Legitimate: 23 open-source F-Droid apps chosen because they legitimately install packages, create VPNs, handle SMS, automate through accessibility or run shell commands; Flipkart (Play Store build pulled from a phone); 7 locally built apps. Malicious: the KANAD S.H.I.E.L.D. 2026 judge's sample (com.mrram.loader).",
+  "benign": 201,
+  "malicious": 194,
+  "description": "MalwareBazaar APK corpus + F-Droid benign, sandboxed",
   "manifest": [
+   {
+    "sha256": "104447278779517e2b397a18d501685ae61a9da84abe1c180ff9bb67a5a0f0fc",
+    "label": "malicious",
+    "name": "104447278779517e2b397a18d501685ae61a9da84abe1c180ff9bb67a5a0f0fc.apk"
+   },
+   {
+    "sha256": "2654e2389e20457172d935b2919b0c8f6712399075362c4f1e9fc26321abfec4",
+    "label": "malicious",
+    "name": "2654e2389e20457172d935b2919b0c8f6712399075362c4f1e9fc26321abfec4.apk"
+   },
+   {
+    "sha256": "2a46a2565d4f50facb1f9bbceb6ea5941324e9316c61e8a125f6f012d0de7e57",
+    "label": "malicious",
+    "name": "2a46a2565d4f50facb1f9bbceb6ea5941324e9316c61e8a125f6f012d0de7e57.apk"
+   },
+   {
+    "sha256": "4764bcd6e6c4ac95d292c1594dada626ff1b7d5d7f2cdc7bb0e0552e499e4a41",
+    "label": "malicious",
+    "name": "4764bcd6e6c4ac95d292c1594dada626ff1b7d5d7f2cdc7bb0e0552e499e4a41.apk"
+   },
+   {
+    "sha256": "5f034b7fdbb48074a41158643b0ba93f2605459ee6f46f9328475f63144312ee",
+    "label": "malicious",
+    "name": "5f034b7fdbb48074a41158643b0ba93f2605459ee6f46f9328475f63144312ee.apk"
+   },
+   {
+    "sha256": "7b44413023a95b795cf0541d775293023039c3378582d6e158cc628d21f03f82",
+    "label": "malicious",
+    "name": "7b44413023a95b795cf0541d775293023039c3378582d6e158cc628d21f03f82.apk"
+   },
+   {
+    "sha256": "88acd27341a6883b0f7ba55d1e388ce6d007287c4fc66dbdcb95535eb2f0079c",
+    "label": "malicious",
+    "name": "88acd27341a6883b0f7ba55d1e388ce6d007287c4fc66dbdcb95535eb2f0079c.apk"
+   },
+   {
+    "sha256": "8dfb0686ea46ce428422587f9c835d30a4a39da23c428bca0aba4d716613f1eb",
+    "label": "malicious",
+    "name": "8dfb0686ea46ce428422587f9c835d30a4a39da23c428bca0aba4d716613f1eb.apk"
+   },
+   {
+    "sha256": "99ff6dadba47b36cd4a3fe2876055f8d04d445131bcb19f362ab19fc1e4848a1",
+    "label": "malicious",
+    "name": "99ff6dadba47b36cd4a3fe2876055f8d04d445131bcb19f362ab19fc1e4848a1.apk"
+   },
+   {
+    "sha256": "795fecbf7fe157736c04ba2421c4792f02556d5e95a734d5a2f489757bd81878",
+    "label": "malicious",
+    "name": "WbZGBRLqkJ.HzZDrIKGXIq.AqwxlOjQY"
+   },
+   {
+    "sha256": "f602b76aeb430fd77e90580b6adcff6e6e042553a86cf7ec9bff91baa2082d44",
+    "label": "malicious",
+    "name": "X.God.X"
+   },
+   {
+    "sha256": "0780b268543e774f7b7c6d03892b8e675795b744d5d4f4487a018c51df7c9fb6",
+    "label": "malicious",
+    "name": "app.map.gallery.center"
+   },
+   {
+    "sha256": "6f3fe9e52707f0b23de3cff685b08f708d0d05611d333d9ec57908733d851d71",
+    "label": "benign",
+    "name": "app.mlauncher"
+   },
+   {
+    "sha256": "fb51669d1379b997949dcd37dc6f4bd96ee59dea391120387dd5b9924e2a07fd",
+    "label": "benign",
+    "name": "ardash.doodledudette"
+   },
+   {
+    "sha256": "bc37c876e0de8e0224222d094a53f2b51c148ac57c47041eac2ae47a69013643",
+    "label": "benign",
+    "name": "at.bitfire.davdroid"
+   },
+   {
+    "sha256": "cbdd50676bc0270666deb0a78a36e3a25e8e504af091c09ff151ad9714dfed24",
+    "label": "benign",
+    "name": "at.h4x.amsprung"
+   },
+   {
+    "sha256": "c3751de467a138e27d6d34c6f249033b1a6f9ca307b2715c168e9c146c851003",
+    "label": "benign",
+    "name": "au.com.wallaceit.reddinator"
+   },
+   {
+    "sha256": "b2bc6d34c0c63b77be89d1c82b20512ad0519839665264c1b7ef13714fee4aaf",
+    "label": "malicious",
+    "name": "b2bc6d34c0c63b77be89d1c82b20512ad0519839665264c1b7ef13714fee4aaf.apk"
+   },
+   {
+    "sha256": "b75594885b4382ff7fdce4cfa890bb3c47b576bdf47a3ebe5f08352fc1df5790",
+    "label": "malicious",
+    "name": "b75594885b4382ff7fdce4cfa890bb3c47b576bdf47a3ebe5f08352fc1df5790.apk"
+   },
+   {
+    "sha256": "bae4aab5f67d249b6ce12cfdcc804ac1fcb0ea0a11a8fbdd27298f1e070537bc",
+    "label": "malicious",
+    "name": "bae4aab5f67d249b6ce12cfdcc804ac1fcb0ea0a11a8fbdd27298f1e070537bc.apk"
+   },
+   {
+    "sha256": "8b2fd5c6b19332c5c342dcffa304ebb39811b0377cfdc8863c93ff60c3cd23f2",
+    "label": "benign",
+    "name": "bilalsul.rzr"
+   },
+   {
+    "sha256": "a812cba48749a1bd14931d235f75f54f52710463eb4cecb1b4ded8d82be93a42",
+    "label": "malicious",
+    "name": "br.minimap.system"
+   },
+   {
+    "sha256": "d926b06468cb707be9f6e1c39b355e0e8e4b9602222c8fb09083f11948b8476d",
+    "label": "benign",
+    "name": "cc.zachy.pulse"
+   },
+   {
+    "sha256": "69a9f9175da5d58587cec8d90c020c9d5b3a175a1ad5295bf8c0ee4f0c8f0f8f",
+    "label": "benign",
+    "name": "ch.cryptobit.letterbox"
+   },
+   {
+    "sha256": "aca80d5cb30fc780cd2fbc977fcfa16e2f47ec55463d3152ae848629ae558253",
+    "label": "benign",
+    "name": "ch.swissbitcoinpay.checkout"
+   },
+   {
+    "sha256": "4400cf63092bdd2f75ff9c6e50cee2ed683d6d21fef37f3ccc092b2e9328b986",
+    "label": "benign",
+    "name": "ch.ulys.k19player"
+   },
+   {
+    "sha256": "61af149986db26f8e4d084e994cf43bc2595ed7668393401cef7a15afa999b57",
+    "label": "malicious",
+    "name": "com.Sam.RtoEchallan"
+   },
+   {
+    "sha256": "af996dac49b7ead11e64abf6f5a5983065afa4245f1550e76081fa461ebe1dc0",
+    "label": "benign",
+    "name": "com.activitytrace"
+   },
+   {
+    "sha256": "f7271ed23a7dd3fba8e1fe9c21c85c97acf698ababda5538895b6ac4371d3d0a",
+    "label": "benign",
+    "name": "com.adeeteya.markdown_editor"
+   },
+   {
+    "sha256": "b0a980b60f1b8f05ef60a5f6d06b9dd581b40759734f0f82a34bdea9c5a41957",
+    "label": "malicious",
+    "name": "com.ajzrp.srud9uc1ogiud"
+   },
+   {
+    "sha256": "a0b4a64e803cdfe3aeb3b356e5c3b44d30183ddff006fc32ca95980344f39b05",
+    "label": "benign",
+    "name": "com.amanoteam.kurt"
+   },
+   {
+    "sha256": "35e0338dac1bf026f22d91e1b096c1c6eff1424ad7d6be52a7f8d3fe50987530",
+    "label": "benign",
+    "name": "com.amaze.filemanager"
+   },
+   {
+    "sha256": "1666d5be9d32b681fc10a2cd3e41eecb9d1ab913658248d560ca5bca6f2e036d",
+    "label": "malicious",
+    "name": "com.andriodakb.registerrs"
+   },
+   {
+    "sha256": "23282313ee3edb3443ae8c0296b9b6ddf52501983093fd289f46d99e7d180402",
+    "label": "malicious",
+    "name": "com.android.gplay"
+   },
+   {
+    "sha256": "1a9a54eb8b3ed707852eace623b935bc687c46d5e0cfa793751e778dacd8b62b",
+    "label": "malicious",
+    "name": "com.android.s4protect"
+   },
+   {
+    "sha256": "a15e50a753028ff9db51885705d6348113dac5b653cd2bd00dcfd8b97da7566a",
+    "label": "malicious",
+    "name": "com.android.s4protect"
+   },
+   {
+    "sha256": "e95a624d496acffdaf87ec8fba2d5e5fc662b5870ce69bc45505434109092bf3",
+    "label": "malicious",
+    "name": "com.android.s4protect"
+   },
+   {
+    "sha256": "57726a55e900f8e0237dfb3d6d3b5cb54acb5f88d19a30be3207f4f4575c4964",
+    "label": "malicious",
+    "name": "com.android.system.qspaas"
+   },
+   {
+    "sha256": "7834f2efa3912d964764357bbf96752ba2f4ea2712c814664a1bd32ee95616e3",
+    "label": "malicious",
+    "name": "com.android.system.qspaas"
+   },
+   {
+    "sha256": "a3242742c9028388ecf7beecf81a749b772f83b83ab9a809d2229284642be229",
+    "label": "malicious",
+    "name": "com.android.system.qspaas"
+   },
+   {
+    "sha256": "75ac27f46332584b7c8ded625e75c6a019d7d90575f622922596ec0590db92ea",
+    "label": "malicious",
+    "name": "com.android.system.qspas10"
+   },
+   {
+    "sha256": "47a7bd1706e47bc08fc564d823781994a21e1cb9e7d82c0e35155bffc965c8a8",
+    "label": "benign",
+    "name": "com.anysoftkeyboard.languagepack.catalan"
+   },
+   {
+    "sha256": "0fb0f515f99a0b2b7fd5c9d1d959def541c50611e334f401c045d96a4b63b418",
+    "label": "benign",
+    "name": "com.anysoftkeyboard.languagepack.luxembourgish"
+   },
+   {
+    "sha256": "54f14272fc6bad75f0b83984f701fce73fa73f0d9de209c161094f27836cea9b",
+    "label": "malicious",
+    "name": "com.aotmgn.x6zvwv"
+   },
+   {
+    "sha256": "939a3db851e7f7648babfe390bb8d93338ba57870d66e1a6b846e5e1a3207440",
+    "label": "malicious",
+    "name": "com.app.dnhembau"
+   },
+   {
+    "sha256": "8ffa7288a604109650def2ff3d1f44e535545278eebecd148c0ddbf56d873b3c",
+    "label": "benign",
+    "name": "com.aragaer.jtt"
+   },
+   {
+    "sha256": "3bad63c6c09ed4923e93712de4fa315b6e296d4cb1061f5b4e5c4fcd30dcaf96",
+    "label": "malicious",
+    "name": "com.arkham.intelligence"
+   },
+   {
+    "sha256": "5be608a563a02c94dbf3b1812b3aa0685a6f8228b5dc74c773cc3c912adef7ba",
+    "label": "malicious",
+    "name": "com.arlosoft.macrodroid"
+   },
+   {
+    "sha256": "ea6b8fb0ca9fba2a6a130408065e9e534b5f3d0b89029948a2a7eca52fe05312",
+    "label": "benign",
+    "name": "com.armanmaurya.archiv"
+   },
+   {
+    "sha256": "c8504f2f6663c14578086e24ff8d1b8b9af2432208b1a0ce3bda03da39c54b67",
+    "label": "benign",
+    "name": "com.ashkanrafiee.balance"
+   },
+   {
+    "sha256": "20dddd28e02010568cf9c6b905eaead6252091338925c8923f5458528051b0b9",
+    "label": "benign",
+    "name": "com.atul.musicplayer"
+   },
    {
     "sha256": "fd9c75d90d0f4a7c132b9b4a5a2cf1992a45e03b8d8ff988b7dcfbc0db2c4d11",
     "label": "benign",
     "name": "com.aurora.store"
+   },
+   {
+    "sha256": "01227a8b5dca01ecac7177051e6d2a3cf5e12ce7ca9cbb06040d8bcb9cfcc6a2",
+    "label": "malicious",
+    "name": "com.batch.android.runtime"
+   },
+   {
+    "sha256": "fc341a1770ea2e616a604f1c301dde223b19409da8f9584fe3fc94ecf59c86e0",
+    "label": "malicious",
+    "name": "com.batch.helper"
+   },
+   {
+    "sha256": "0eecec45de0da3ff1358004b51e2960d9178551643a6ed44f6496ea9ec999c19",
+    "label": "benign",
+    "name": "com.beemdevelopment.aegis"
+   },
+   {
+    "sha256": "9d0f2f33327c470bfb073fda6e2d1c0b1658bf490eec005a9943a96faeb81773",
+    "label": "malicious",
+    "name": "com.befuqewa.gagifuduwi"
+   },
+   {
+    "sha256": "64d6152ff3a5c84ee45ca96b3c0003e058965371f6a6c5060e56a54300e69a01",
+    "label": "benign",
+    "name": "com.best.deskclock"
+   },
+   {
+    "sha256": "3f9be47be031b7b5728f7f465a787c54cc8c4a48c230c9f848cbae5460e28f26",
+    "label": "benign",
+    "name": "com.blankdev.sidestep"
+   },
+   {
+    "sha256": "cf4a87199150e3af850f280e70cd6c897375e681b82b53982bdb46e67c42e0fa",
+    "label": "benign",
+    "name": "com.blogspot.developersu.ns_usbloader"
+   },
+   {
+    "sha256": "8e3aaccdcfec00f697fd658758bea1bf41ce5f09ecebea1788161c29a9f9f9bb",
+    "label": "malicious",
+    "name": "com.bnker.installer"
+   },
+   {
+    "sha256": "9fa440bbc07fac1618a9a41e3e575370d5bf5065762802856f5397dc63bcc73e",
+    "label": "benign",
+    "name": "com.brentpanther.ethereumwidget"
+   },
+   {
+    "sha256": "89e459ee69f2350f5006fb514d7a7e7f2f9b4e590c3b03b1f4e66c0ffc16d1a2",
+    "label": "benign",
+    "name": "com.brouken.player"
+   },
+   {
+    "sha256": "2290af43f9cecfcfcb7dc0a11318c7fb0b94f43356bd20b9ef8516dea0b05e3a",
+    "label": "malicious",
+    "name": "com.busisu.dufopu"
+   },
+   {
+    "sha256": "f19df82abf0d66389467746f519557e81ca5b373a97e23da7e414204e4931242",
+    "label": "malicious",
+    "name": "com.bwfospen.vovrentqm"
+   },
+   {
+    "sha256": "55a0620136e283d47d3cc32858af08bb23ba77a70c7541c75e1150825906402b",
+    "label": "malicious",
+    "name": "com.camu.lucotefa"
+   },
+   {
+    "sha256": "417406b7e03f1c125d48996a24d0224a013d396d1c5e3e82ff79a34fe5d14aaf",
+    "label": "malicious",
+    "name": "com.cartao.protectnew"
    },
    {
     "sha256": "0cdb855b05a602caf3a5c3e07ceb37dd947d39e455e60cdaf5c01e0724e4cb0e",
@@ -17,14 +342,129 @@
     "name": "com.celzero.bravedns"
    },
    {
-    "sha256": "a2f0881ee30301ebc69991e5ff150d682baffed7e0f6b239de460eda8791b12f",
-    "label": "benign",
-    "name": "com.consentlens.consentlens"
+    "sha256": "4c05e3e80d6e2340c623b5bb8341cee85bf23143dde689a2f91ce680a473a9d0",
+    "label": "malicious",
+    "name": "com.chingusapk.juan"
    },
    {
-    "sha256": "4663196214d8be157f87da3d73290f49cd3148b5ab72686dd983f956fe602093",
+    "sha256": "5d53aa219c7f3e699972d1a52c215e278d75ff464c7ad5171c0017303b382593",
+    "label": "malicious",
+    "name": "com.cigiqi.goxinomaxu"
+   },
+   {
+    "sha256": "a951da343ca91f10512d888802123cb040c4be72dc3d3eb58ce8ddfab80d78ff",
     "label": "benign",
-    "name": "com.flipkart.android"
+    "name": "com.clavierhaus.gnubg"
+   },
+   {
+    "sha256": "c894fe9d308b33110e2217444c0d498fcfd304899190144d828e3f8ed4b7cf2f",
+    "label": "benign",
+    "name": "com.colnix.fta"
+   },
+   {
+    "sha256": "dadf878d71926beebc94c50a6a93f1af7ec1650da318381234d308b2f76f68c1",
+    "label": "malicious",
+    "name": "com.core.essential"
+   },
+   {
+    "sha256": "43169ca3b2d8be9ebe9dd71a63c7009c0fea47076a059774865358a965cb8cd5",
+    "label": "malicious",
+    "name": "com.cpj7.bcjy72a4q2mxw2"
+   },
+   {
+    "sha256": "4b8a2fdaad0f3e6e6325d3deef163526e470c9a88a23f73e491bd228f3548641",
+    "label": "malicious",
+    "name": "com.crypto.miner"
+   },
+   {
+    "sha256": "3e2714f7dfef98119395d53dbe50f61d1d4989e39b58786f8fba17c7d9c443e7",
+    "label": "benign",
+    "name": "com.daniebeler.pfpixelix"
+   },
+   {
+    "sha256": "6a6cb684cc24e2fd34b9b277f0e0fdc089c2735812d4e3be5a687b2e423db8a7",
+    "label": "benign",
+    "name": "com.digitalfishfun.openshift"
+   },
+   {
+    "sha256": "276a326f3efe26af53087202ed4d72e47de8c0aee910ce679ea498058c1f1bc1",
+    "label": "malicious",
+    "name": "com.dqygovw.gvgeezj"
+   },
+   {
+    "sha256": "d442c8a34f8dd0426bcae81408f232844fb50902fcf2e8dbb1c4c96938d91a7e",
+    "label": "malicious",
+    "name": "com.e0alnp.pe8rg4"
+   },
+   {
+    "sha256": "f56063a46f46ca953302884ff5d11614ae35ab7eb34c92dad57c324c3a502027",
+    "label": "benign",
+    "name": "com.emmanuelmess.simplecleanup"
+   },
+   {
+    "sha256": "ef831906cd67e85d6fa62998993f5cf46f54490a50fdf95d54edbd3df09be31c",
+    "label": "benign",
+    "name": "com.enclavd.app"
+   },
+   {
+    "sha256": "92d605cf12194302820a7e71e368690217e5ffc2bacf808084616ece5b89bfc2",
+    "label": "malicious",
+    "name": "com.example.dps_radar"
+   },
+   {
+    "sha256": "58be307aaf77f9f113adf63ec2b9589b9787e1ca62ad356b6cd13e15e25b1e30",
+    "label": "benign",
+    "name": "com.example.muzei.muzeiapod"
+   },
+   {
+    "sha256": "b9c87afb1c2c1679be543959884f6b5b75e22004e8127e084c7c4339629ea870",
+    "label": "malicious",
+    "name": "com.example.u7e5f3218e9"
+   },
+   {
+    "sha256": "3a59035ce30ac0f26bf49d3a0175e530812968614d3870099742258fb336ce6b",
+    "label": "malicious",
+    "name": "com.fenixeye.rvl"
+   },
+   {
+    "sha256": "8bad0bba338929b0d492809c221304722b2cc8c7da23c500c2e99a2d059cc36d",
+    "label": "malicious",
+    "name": "com.five.segipu"
+   },
+   {
+    "sha256": "3e6c73fd0acd0eeeb2394c2ad20b95266f6ff1529c7f87fd8a6819468274fa96",
+    "label": "benign",
+    "name": "com.fiveseven.tabataxtreme"
+   },
+   {
+    "sha256": "a072534d67134969b8d6a439012c81ea25ec378dea5eb63319901598b5313340",
+    "label": "benign",
+    "name": "com.flauschcode.broccoli"
+   },
+   {
+    "sha256": "0fa3360a6a00ec8d3c988f4f81be8e79674bb8cf58c9350237062eb60f54bf4a",
+    "label": "malicious",
+    "name": "com.flmao.zmpelbh"
+   },
+   {
+    "sha256": "45f232ed48389196190252e0abb31606422d0894ff48c593571662579b087686",
+    "label": "malicious",
+    "name": "com.follow.clash"
+   },
+   {
+    "sha256": "bd0fbe51f684895d8e1778203875cd0850af5387ec036811c540b13ce3ec0a11",
+    "label": "benign",
+    "name": "com.forrestguice.suntimeswidget"
+   },
+   {
+    "sha256": "66dc00d303cf379796529c5634401327ff739a71c3c18c8ad6f7c05b8e21bfd9",
+    "label": "malicious",
+    "name": "com.foso.nacojosega"
+   },
+   {
+    "sha256": "6839eebcf528034a31016f8c05553332428e2fe64decc9a9abec33922b422ffe",
+    "label": "benign",
+    "name": "com.frabon.rememberthedate"
    },
    {
     "sha256": "92cd3a81c7a8d066e517a50932fe85424de7752cb72e76032174d53ec36a2741",
@@ -32,9 +472,144 @@
     "name": "com.fsck.k9"
    },
    {
-    "sha256": "6bb80ebb624808108b2acca44acfba4764afad5a0e56e0eac5a5bc8c013931ff",
+    "sha256": "d925bd9a7e6d71e02f34624223878a090efd5f9ae2c55e80efb14e53cf3c4c7e",
+    "label": "malicious",
+    "name": "com.fsnnd.hfvfhsdhsn.dhbvdh"
+   },
+   {
+    "sha256": "f885885e1abba77b387706cba13aa51ab632b4d525b8e78c16db0f4ad6396a4e",
+    "label": "malicious",
+    "name": "com.ftno.gf8zbhaxrume9a"
+   },
+   {
+    "sha256": "3e411037b7976f947afeefdc997c58b738c5b582abfa814c616f28e8ead507c8",
     "label": "benign",
-    "name": "com.guardianpulse.guardian_pulse"
+    "name": "com.game.caverncravers"
+   },
+   {
+    "sha256": "d46d76996a2f2f1486c2c1bcb5b8f0ef776b2731c10287a54c973ae0ced7cff2",
+    "label": "benign",
+    "name": "com.gasperpintar.smokingtracker"
+   },
+   {
+    "sha256": "353cb0c51872233d56376bcc3d2276a3653e069433f7ad629cac82eaaa1c2778",
+    "label": "benign",
+    "name": "com.github.cvzi.wallpaperexport"
+   },
+   {
+    "sha256": "0675529a7bfc042caa9bb534d0deda458be461f4bb6f149949755f83cdc1fae4",
+    "label": "benign",
+    "name": "com.github.msx80.turnsofwar"
+   },
+   {
+    "sha256": "ed44fd844d7ce7afa84f7902b68233b08a6b82c137de117bcf6ad19c1fa4ef6f",
+    "label": "benign",
+    "name": "com.gitlab.ardash.appleflinger.android"
+   },
+   {
+    "sha256": "1e5c2b9f5f4314b5c10d2685ad9ffcca9f6e2194cdfbbd61013dad2a71810fb8",
+    "label": "malicious",
+    "name": "com.glass.node.liquidity"
+   },
+   {
+    "sha256": "db41ad11e4e5666b8693df84d91143694538cd38c007899a6cbb9fad13532825",
+    "label": "benign",
+    "name": "com.goodecho.app"
+   },
+   {
+    "sha256": "35d220d4bfeec29b788e018405b60f42f63d8003ba673a09465b2be8a0456667",
+    "label": "malicious",
+    "name": "com.google.android.system.service"
+   },
+   {
+    "sha256": "9df642b7dfda8641fa3ea66ee98e7179865f3a080d64a2b72eaf5188570a5b46",
+    "label": "malicious",
+    "name": "com.google.android.system.service"
+   },
+   {
+    "sha256": "2798eaf66df2622553e60127f47e760b566a5cb88b084fed8d05f9298f9db532",
+    "label": "malicious",
+    "name": "com.goti.app"
+   },
+   {
+    "sha256": "2ace553de3d8c370341faaff1c128effbda2777cbcd5d399b7bfb2fc98b8909c",
+    "label": "malicious",
+    "name": "com.gtr.team"
+   },
+   {
+    "sha256": "25e6a6bac0859c785063eed88c04cfbb1c30613c9b549d846d43d1920db172e9",
+    "label": "malicious",
+    "name": "com.gzzeuw.znu5po"
+   },
+   {
+    "sha256": "b8ee43950d3fd8473a78e85494af0800f9f0ba50be49a1d55aff8362ab2d4b9c",
+    "label": "benign",
+    "name": "com.hegocre.nextcloudpasswords"
+   },
+   {
+    "sha256": "dca1705c1e7f2857c9967f066787e1df34e493481583325628a4a5321aab0869",
+    "label": "malicious",
+    "name": "com.hggtt.bchfqj"
+   },
+   {
+    "sha256": "3408f14720eff6ff93e402f85cae60b17793eab8ccd501a17fa0eaa51a087f0d",
+    "label": "malicious",
+    "name": "com.hubicipher.gesacosetu.iharalpha"
+   },
+   {
+    "sha256": "895a9274620e8d9c48ddf330df8b9d7331322ea659c35d8808c381add741a89a",
+    "label": "malicious",
+    "name": "com.imjustafriendlyguy.firmware"
+   },
+   {
+    "sha256": "20e2c56d71fcaa1efa7a37e8e30211cd80fb7ff9394ba32df8d435e5c85eb963",
+    "label": "malicious",
+    "name": "com.iranbot.loadd"
+   },
+   {
+    "sha256": "1e32a4aeb7dcb9bfb40d98093207e263206e454fc03d5a29852107f50071c577",
+    "label": "benign",
+    "name": "com.jkcarino.ankieditor"
+   },
+   {
+    "sha256": "3283e3790bbd2d69359ccc3f57497f90a22078273083c3d32feff91a08687a5c",
+    "label": "malicious",
+    "name": "com.juioytredhsknc.jdnbbjueimsn"
+   },
+   {
+    "sha256": "ffe57f0d2d663e09e06cc3fad7ca621bbe154b0b9e74171aa3559a04566472e4",
+    "label": "malicious",
+    "name": "com.juioytredhsknc.jdnbbjueimsn"
+   },
+   {
+    "sha256": "58f991075ff0809d22c56c7bd6790d7c771b5e81f2faa8ea71219a843ca3a037",
+    "label": "benign",
+    "name": "com.kaizen.khushu"
+   },
+   {
+    "sha256": "d1be32436de14e0bec637e09e3bb60deb91b65272d54089fa997e1486be6a907",
+    "label": "benign",
+    "name": "com.katsuyamaki.DroidOSFOSSKeyboardTrackpad"
+   },
+   {
+    "sha256": "410a5cbaabc1cdee003ac2fd1d6c1ca8b58c9eb75cd7c671dfa163653b5ae712",
+    "label": "malicious",
+    "name": "com.kira.malware"
+   },
+   {
+    "sha256": "c6528aba9265127234f36dab178d1688b541c1878ba3093ddd7d5b84535a9d76",
+    "label": "malicious",
+    "name": "com.kisa.octagonpanel"
+   },
+   {
+    "sha256": "974974cb3771f3511b28056d6170d30536eefe022304eeaac4e47d4b598f76b0",
+    "label": "malicious",
+    "name": "com.kit.kitty"
+   },
+   {
+    "sha256": "65e87f7feeb1ca342249ca10a7739d5fe743ae00203678abaddbbd837c034385",
+    "label": "benign",
+    "name": "com.kn.paper_foss_theme"
    },
    {
     "sha256": "862f87a30baef06181f049adf7c460611605b25a807eaf3c25841a9dd84bed9e",
@@ -42,9 +617,64 @@
     "name": "com.kunzisoft.keepass.libre"
    },
    {
+    "sha256": "d7a68d080965ffe517c4a33ccb13f14ecce8e80c80b2d76d972cc07cf7f88992",
+    "label": "benign",
+    "name": "com.kunzisoft.keyboard.switcher"
+   },
+   {
+    "sha256": "e6222c89a1b447e0519a49c6e403f94034c678d96a20245d7b0084a2d7593412",
+    "label": "benign",
+    "name": "com.lesspass.android"
+   },
+   {
+    "sha256": "3025b73044e8ab985e531aac27416c85d17e599636fdcd1e3c6e2ec6b2923675",
+    "label": "benign",
+    "name": "com.limecore.workouttracker"
+   },
+   {
+    "sha256": "fe3ff838ec928e7c55fa3d14cb5de84b6472c10f2be5523288f8b04805332c91",
+    "label": "benign",
+    "name": "com.lindevhard.android.raspfinder"
+   },
+   {
+    "sha256": "20b717d37f5cbec14aae02f9e0d47f642e72288f26982c2e555fb942748dbc95",
+    "label": "malicious",
+    "name": "com.liquidity.sweeps.core"
+   },
+   {
+    "sha256": "b0d512312d455018d08dd82628824fd4464e2170fbc5fe5abb06767825259859",
+    "label": "malicious",
+    "name": "com.liquidity.sweeps.core"
+   },
+   {
     "sha256": "da3070f3f18bdbed1eab666677afd39e4b19a60c70f0bfca68a5730147f81f10",
     "label": "benign",
     "name": "com.looker.droidify"
+   },
+   {
+    "sha256": "01397bdb5462c276b4d9294cab2bd32b1ae24653f94df5d0f08812bc836a2219",
+    "label": "benign",
+    "name": "com.ltrademark.hourly"
+   },
+   {
+    "sha256": "a709559e33100af7786ea3adb171afe2f1d0708ee5affe65d68b70a7a779671a",
+    "label": "malicious",
+    "name": "com.luzpvwir.xcyumjjmuf"
+   },
+   {
+    "sha256": "7190b3f31040c6a31d44241eef5ff5fcad0ee6beda9c703b52f819a6e727ea86",
+    "label": "benign",
+    "name": "com.madlonkay.orgro"
+   },
+   {
+    "sha256": "b2147036ddcd61ab9966ce38ac5ee5992628c5b6f82faffa05a232f9bb4e24e6",
+    "label": "benign",
+    "name": "com.matt.bolton"
+   },
+   {
+    "sha256": "3137876e14b1e16f462ddb72f0edfdc460460911294b5fd4ef5e5e152080052d",
+    "label": "malicious",
+    "name": "com.megemu.nevozizo"
    },
    {
     "sha256": "1aa6e7ce15a3d4ec8fbec2571b1f96d509a798fb93c0206351162d547a50950a",
@@ -52,24 +682,264 @@
     "name": "com.mendhak.gpslogger"
    },
    {
-    "sha256": "1b4bdccb764f1b9cc6637018754aa5600a9fb01a006f203348d5097e6ca8dd36",
-    "label": "benign",
-    "name": "com.mpowernet.shesafe"
-   },
-   {
-    "sha256": "664e43ef02578bb6c44956471e1275f276e33e5af39ed50694f926241278f49a",
+    "sha256": "139b70aee8e4aa8b0f7ed08410d831293a14fc029520a68afdd325091375f5aa",
     "label": "malicious",
-    "name": "com.mrram.loader"
+    "name": "com.metasploit.stage"
    },
    {
-    "sha256": "2d08059c9a0a94ef4316e5c8491e3c6aee99a87b58bb796163c44e08deb1615c",
+    "sha256": "bc9d0aa62a77be5e9024913a8e31b0f060ca6089615a992f982f07a0df6d6c9a",
     "label": "benign",
-    "name": "com.nextcloud.client"
+    "name": "com.moi.lumine"
    },
    {
-    "sha256": "9a0ba5a2a1c6e5261e5fda3098d320da8c40192b31a921fa6c39097f25599217",
+    "sha256": "ea61dd44be70142c8c307c36e8438b37e6147f55fdc27599b0b6e0592bfc7bde",
+    "label": "malicious",
+    "name": "com.money.funytun"
+   },
+   {
+    "sha256": "36ef3a11514f39f0143155711a4ca40ec546031a675a94c3b65dbae2c6d86e52",
+    "label": "malicious",
+    "name": "com.mqi1zd.wkbnod"
+   },
+   {
+    "sha256": "bb23f0cc167c69eb971d2069f8e3c06751a3f9c9e66a34ea12ea30a46dc00d72",
+    "label": "malicious",
+    "name": "com.muku.nuninicopu"
+   },
+   {
+    "sha256": "0e0f6e98af559b306e418566132316b255e425e55b535c14bdb579edc563c640",
+    "label": "malicious",
+    "name": "com.mwul.overexposure"
+   },
+   {
+    "sha256": "85a9b1a98c80d9c6b3dbf5cecbde63a64d82d5c9089c2b9d9b674f1cb0d749b3",
+    "label": "malicious",
+    "name": "com.my.newproject150"
+   },
+   {
+    "sha256": "80041b31bf3866c0ba96140aea6bf559f536d58b4655aec8742bb562578dd710",
     "label": "benign",
-    "name": "com.nexus.nexus"
+    "name": "com.nathanatos.Cuppa"
+   },
+   {
+    "sha256": "a80aae5e0b59f12089ae6cebf314d651cdf7e4ff7ba6db5327627d1fa480b45c",
+    "label": "benign",
+    "name": "com.nathaniel.motus.cavevin"
+   },
+   {
+    "sha256": "a710209edb0b786d20eed3ac5c656546e40da8a07e9f771014434cf656934778",
+    "label": "malicious",
+    "name": "com.newcartao.protegido"
+   },
+   {
+    "sha256": "778d80c1ef9f0fa2bc2165b5db6c22734896e88be493c3ed2381726e009fec14",
+    "label": "malicious",
+    "name": "com.nextwave.platform"
+   },
+   {
+    "sha256": "8a9f9f3f3e38327bebc5096ba195d1d93c61bc277734fb18c4ce2f281bd08f3e",
+    "label": "malicious",
+    "name": "com.nexus.pay"
+   },
+   {
+    "sha256": "cba19f8eedf90c332224bcd8f0df9be0e1dbd4324c67c79eef19d547c33ef331",
+    "label": "malicious",
+    "name": "com.nhh5h2.jbq1mf"
+   },
+   {
+    "sha256": "2d7b54d28d1d1cfe3253d6cc0c2882ca0c0b5fc5f358d252124e8009e33d7e74",
+    "label": "benign",
+    "name": "com.noirgym.app"
+   },
+   {
+    "sha256": "20fbd73d688c4458e00668df492de296dc836a480237ad7aeece700aa0a63448",
+    "label": "malicious",
+    "name": "com.noye.sozucucu"
+   },
+   {
+    "sha256": "3ca4bd601320b58c7e6c5ee5b348b30e638b881a43451149ff7d0d06c7c7417e",
+    "label": "malicious",
+    "name": "com.nvh.hong"
+   },
+   {
+    "sha256": "73b15967d647c685b592bc03fc4983bee7f3009d526fd69b2a743bb3dd964429",
+    "label": "benign",
+    "name": "com.nvllz.stepsy"
+   },
+   {
+    "sha256": "c655d5061c781b466d510c74e8c819c4cf937ae119e3c2949b324459a3e24c08",
+    "label": "benign",
+    "name": "com.oksigenia.oksigenia_sos"
+   },
+   {
+    "sha256": "13bd0b75039576c6b5f249e507cb5de04300c83b2971edd94686659848c504c7",
+    "label": "malicious",
+    "name": "com.om.divisionally"
+   },
+   {
+    "sha256": "d300e348a236c6fc23bceae84fdbd6deecf8f41565c032c0d062733fcb066a6e",
+    "label": "malicious",
+    "name": "com.ombththz.ufqsuqx"
+   },
+   {
+    "sha256": "db2c9949fae4e779f1d988d38b67ed9b3612dbf11c1159c791093aeef9cdab2c",
+    "label": "malicious",
+    "name": "com.oupplf.hjxwoz"
+   },
+   {
+    "sha256": "fbd8b50d4c36272586ce75a99b775d1322cabf6076d8b2f28e4fce718b7dca0c",
+    "label": "malicious",
+    "name": "com.oxw4rbi.imwm4ey132m"
+   },
+   {
+    "sha256": "3da5005749afcafd5d55d1ccdeca715e85e47c934df3c0843a567bc4fe4af1a9",
+    "label": "malicious",
+    "name": "com.pahayevu.gidipaqunu"
+   },
+   {
+    "sha256": "a913025f88467bee1cecb483c80e163cb664d173a9ffa042d134632ed4dcf9bb",
+    "label": "benign",
+    "name": "com.paultirk.yatoo"
+   },
+   {
+    "sha256": "c1202a1501f1f6cedec89fcd1904cee6fbfc6ca41ed12bb6dabdb047e37ee022",
+    "label": "malicious",
+    "name": "com.pbbdvp.oiegylu"
+   },
+   {
+    "sha256": "25667ae1985d40a41e1e02fa1e1eb0067b9f4013b0701db84fea48f4538adae5",
+    "label": "malicious",
+    "name": "com.pfpbbzqfvzd.xh"
+   },
+   {
+    "sha256": "9b56a65de5047abefb18afb69bf1390aab199e9d27540535038fc5d9ba480659",
+    "label": "malicious",
+    "name": "com.pihimlnnn.ylumbby.ujbgvixed"
+   },
+   {
+    "sha256": "2d5c8851bbdb3cf421b9749ca95c1d4ade9e0d02cb25fd967890c3ebaeaec909",
+    "label": "malicious",
+    "name": "com.piwahumo.suwozenu"
+   },
+   {
+    "sha256": "43c1da576e0b2b6c3a6d5233d57053f1f691340305acbee10e0268c11b9d8e9f",
+    "label": "benign",
+    "name": "com.polar.mirror"
+   },
+   {
+    "sha256": "d2fccb0885f792a00d27ecd216b619fe944bbcb3ac72058793d6da14a02bf1f5",
+    "label": "benign",
+    "name": "com.poppingmoon.aria"
+   },
+   {
+    "sha256": "8c5e495c1e26a4bb6aee1a881ace6e7f139e03509cf09f98d7c687710899d383",
+    "label": "malicious",
+    "name": "com.qahopuzo.jogumatayo"
+   },
+   {
+    "sha256": "aaf4e8b47462c7631297f47a6da2e589741d69417bd601b6a6d68dc0a085dce9",
+    "label": "malicious",
+    "name": "com.qipc.lpfuocto"
+   },
+   {
+    "sha256": "c0cc0d0f7978f7b472c43edf8a27837a71dbfbc4a04a473c9b53c0ad385ac8c1",
+    "label": "benign",
+    "name": "com.quaap.phonefonefun"
+   },
+   {
+    "sha256": "034e2e2209562fb625a236dd4149f2c6ff23548514c4896edd272a5db9ae5724",
+    "label": "benign",
+    "name": "com.quantum_prof.vtscansuite"
+   },
+   {
+    "sha256": "7514ecdca4f3931057c316de6018b9b7ef4c930cdb6d65768478b946e438c593",
+    "label": "malicious",
+    "name": "com.reaver.loadd"
+   },
+   {
+    "sha256": "373be940d0c3ad87a06f643ef32cd90802a2e610955517409dd81b67db948503",
+    "label": "benign",
+    "name": "com.saionji.mysensor"
+   },
+   {
+    "sha256": "b59efc328b0e3495d0b1cfb31acdcb86669816146515f709e791ac6c1e73361b",
+    "label": "benign",
+    "name": "com.sanrou.noppadiceroller"
+   },
+   {
+    "sha256": "3109ce6a87b8bf0639afbf1be80947d01105c359eacbd31fb401efdc40f3cdcc",
+    "label": "benign",
+    "name": "com.schwegelbin.openbible"
+   },
+   {
+    "sha256": "3afc23a8c65013bef5ff095aa0ef9248c54038e414371c99e1226551ae8dd65a",
+    "label": "benign",
+    "name": "com.seiko.keystoreviewer"
+   },
+   {
+    "sha256": "9ecda8119716ad4a113788fc50589e068f078be02423b6b0859fc5f1f29d5cda",
+    "label": "malicious",
+    "name": "com.sekbvy.gnrvheym"
+   },
+   {
+    "sha256": "073d2db099f44e570d048618aa7b8688932fc75105f6b98d3f6240478540afb8",
+    "label": "benign",
+    "name": "com.shalenmathew.quotesapp"
+   },
+   {
+    "sha256": "db33b6ea477814f431767e8dae86cebce23366bf6db0bbe0b0a84bc36b51c985",
+    "label": "benign",
+    "name": "com.shezik.drawanywhere"
+   },
+   {
+    "sha256": "62e31f61c10947f54b6a2599ea03c9c18e81574d28669d905d89522ddf4c98e0",
+    "label": "benign",
+    "name": "com.sidhant.wallet"
+   },
+   {
+    "sha256": "fe6024e4f876bfaa002040531aa381f45ea126909bd7089394a1b759245ec6de",
+    "label": "benign",
+    "name": "com.signalsense.app"
+   },
+   {
+    "sha256": "eb10d5b5e9cd1de213775cac3dd8dfb8dbc953390cb9bd91f93406c449508934",
+    "label": "benign",
+    "name": "com.simplemobiletools.thankyou"
+   },
+   {
+    "sha256": "c740a368327a12be3855e6b35fba91ab2b3e7e2499da4c894ebdc6564b08413b",
+    "label": "benign",
+    "name": "com.skyd.anivu"
+   },
+   {
+    "sha256": "ec822bbf23e6da1211a196496b85c1b38a5d7faa29b11d1fc026f455c3199c44",
+    "label": "benign",
+    "name": "com.spisoft.quicknote"
+   },
+   {
+    "sha256": "a509a39b456f8b881d9b29d6e3cd6ac12d03db3d7da76315ffb894a5b138e684",
+    "label": "malicious",
+    "name": "com.sragv.ccmaprgu"
+   },
+   {
+    "sha256": "ccdd05ca03ec0a0c3c566e51417950242b0a0a57b11351bfb18f7aeae1994f7b",
+    "label": "benign",
+    "name": "com.sunilpaulmathew.translator"
+   },
+   {
+    "sha256": "7d19af16438b9afaf91740d6515162b6410ca73ff1255834b7f7d002114d6a68",
+    "label": "malicious",
+    "name": "com.svz1q.inqbuya3545u0"
+   },
+   {
+    "sha256": "a147ac3a675da1ec0db59393517a973908171bbb8a8eab69e5f5f7ebab04006e",
+    "label": "benign",
+    "name": "com.tasomaniac.openwith.floss"
+   },
+   {
+    "sha256": "53b7128250ca70ca2ebadbc4a9cdb2aa4a3d0b4a2ac9e6b7c0a302706d59d95d",
+    "label": "malicious",
+    "name": "com.tehufosi.moqofexoki"
    },
    {
     "sha256": "e6265a57eb5ca363808488e3b01955958bed93bc0c8a0d281849b363b11027ec",
@@ -77,9 +947,294 @@
     "name": "com.termux"
    },
    {
-    "sha256": "f3fc06d56065aebac7fa7f70308243bbf3b4a53731f078654c4e931f893a7e87",
+    "sha256": "f05781226bb84205caa5b5aa6a511afcb8df86de8bc4b53e33b7de34c2940e8a",
     "label": "benign",
-    "name": "com.walarm.app"
+    "name": "com.terokarvinen.x54ask"
+   },
+   {
+    "sha256": "f97375101ae562d551e3c21063e0d08fae791092ce89a403d43eca18fd5e0c95",
+    "label": "benign",
+    "name": "com.thomaskuenneth.mintime"
+   },
+   {
+    "sha256": "e422e435a5abc7a2476dd7320954433f55e5f229abe0aaffa6b909d5bd3064c2",
+    "label": "malicious",
+    "name": "com.titanpihuwijahi.nofohotudivela"
+   },
+   {
+    "sha256": "119ba3addc1501b0229e52f8e7cb0b029ed32760851fa7a18cfc8c13dbaa4c02",
+    "label": "benign",
+    "name": "com.tiwa.pl"
+   },
+   {
+    "sha256": "5ca144a51031485cc0873bb0ff41f4fec11a695b01d298bdafe625db3f7ad4de",
+    "label": "benign",
+    "name": "com.tmendes.birthdaydroid"
+   },
+   {
+    "sha256": "9ae222d41bbca0931e87cc2cc2fcfc6f78177c75775c1b940f2f4d1d6757dd58",
+    "label": "benign",
+    "name": "com.tomatodev.timerdroid"
+   },
+   {
+    "sha256": "75e58444958079b49e40e6632ebeedb6fb34893074f054e95334b3403dd0db41",
+    "label": "malicious",
+    "name": "com.tpsecurity.app16103ce0"
+   },
+   {
+    "sha256": "1663597cf04f37d8d431461cb76abd702189aaad0d7456aeb65e410b8a1c2141",
+    "label": "malicious",
+    "name": "com.tpsecurity.app1aa1253d"
+   },
+   {
+    "sha256": "08ea5fb9dcba73ecdae3f2be5f65699b54b884d7a8ce6761df987776cbebf221",
+    "label": "malicious",
+    "name": "com.tpsecurity.app2953457e"
+   },
+   {
+    "sha256": "2e09605fa2efa85a78d09dcd10c93066a8b59bc4c298afc641a9458d9eef33b1",
+    "label": "malicious",
+    "name": "com.tpsecurity.app4021c6fd"
+   },
+   {
+    "sha256": "38b878f4c6c75cf3688237e281e73e3c308a8c2e141136d4dbc5f2f2e84454d5",
+    "label": "malicious",
+    "name": "com.tpsecurity.app5d63e973"
+   },
+   {
+    "sha256": "8d70d43722123ab377c20831205a144349a2b99ed17f020b46526894e4cb9ecf",
+    "label": "malicious",
+    "name": "com.tpsecurity.app70777ed1"
+   },
+   {
+    "sha256": "0a13c4120719d0a487f5d87f907d777afc0c65280c4f057c880bb92e3dab2219",
+    "label": "malicious",
+    "name": "com.tpsecurity.app7eb6832b"
+   },
+   {
+    "sha256": "1eb5bb9aa31283022a2becd5d9eebadf4079225dffc08365a34d3a77983735fd",
+    "label": "malicious",
+    "name": "com.tpsecurity.app80f4f21d"
+   },
+   {
+    "sha256": "eb7b4fd1b521ad8478fbd73edf92875e4f34f33603f4cf8e7df4d07aa6a5b9f2",
+    "label": "malicious",
+    "name": "com.tpsecurity.app8764c96b"
+   },
+   {
+    "sha256": "0ca219d3094181a696ba6954721f4cc5a5cde5118dd952c90afa6b73ddeb48a3",
+    "label": "malicious",
+    "name": "com.tpsecurity.app8be1354b"
+   },
+   {
+    "sha256": "df93ee1354bdd5c55c445c824939aa5f5ffcad7d6c88605682019d9bae913ac9",
+    "label": "malicious",
+    "name": "com.tpsecurity.app95596127"
+   },
+   {
+    "sha256": "8b6af3482082d536735832f86608391ecc5e084e9a1f7ad49f2d1a42a55670e5",
+    "label": "malicious",
+    "name": "com.tpsecurity.appa903e8b7"
+   },
+   {
+    "sha256": "a79e64478d72b40b5b54c8ce58b216eab1c5d69d3d9b935961e81d8c7018bcfe",
+    "label": "malicious",
+    "name": "com.tpsecurity.appac6ce80a"
+   },
+   {
+    "sha256": "e7b5067808ac92a0e7817dce59b133229c3cc9f6edef31fc33c39c3003d7d9b6",
+    "label": "malicious",
+    "name": "com.tpsecurity.appb7c0964f"
+   },
+   {
+    "sha256": "dc555e16349e6d310d2150e806123ec540f3bec39fc0e48998d7e4f69358014d",
+    "label": "malicious",
+    "name": "com.tpsecurity.appb99e3f89"
+   },
+   {
+    "sha256": "6135b2d76f1f6e3f42366fbb8d272dd6b738363b12deb58d3e70cf0f218b0d5e",
+    "label": "malicious",
+    "name": "com.tpsecurity.appc20c4960"
+   },
+   {
+    "sha256": "9d21f632e535adaece073408e7c95c9b828e4b7c72d1564b1a86713eb934d063",
+    "label": "malicious",
+    "name": "com.tpsecurity.appcaf7ba4e"
+   },
+   {
+    "sha256": "b86efabb6340e399c02ed246902d10ef58bc116630e2c1ee4783e515d5b224a0",
+    "label": "malicious",
+    "name": "com.tpsecurity.appd38dbb22"
+   },
+   {
+    "sha256": "3f43a355e101d91086a95d1fba39a22212b6581248e95688bab26c4410170016",
+    "label": "malicious",
+    "name": "com.tpsecurity.appfd97df77"
+   },
+   {
+    "sha256": "da9a5798c533ab17e5ea89b7c2dcda8c50fa2ba0dbdffa84e4813d40486bee70",
+    "label": "malicious",
+    "name": "com.tpsecurity.appfdec02f1"
+   },
+   {
+    "sha256": "000f3363ebf6b2ad599dfb7022fae11dc157465aaefd9f35f3dadd1b5fabd111",
+    "label": "malicious",
+    "name": "com.transport.gov.in"
+   },
+   {
+    "sha256": "e729ffe392bfbbd341208c6b777a46bf7259696967cbc4a59e6ace121fa7da8e",
+    "label": "benign",
+    "name": "com.tripperdee.salmontracker"
+   },
+   {
+    "sha256": "81ffff3d8bfbcec3fd8e1ab33c282bb20d6769e4bdf172560e30c3304e5f61ad",
+    "label": "benign",
+    "name": "com.trisven.safenotes"
+   },
+   {
+    "sha256": "bf47d0e803271cfcd512943f3072b453cca96d89ff91fb4fbcf6b28c91242314",
+    "label": "benign",
+    "name": "com.tss.android"
+   },
+   {
+    "sha256": "76bc2cfa58c82672d1cbe9112bcec4e8e7935a53b1db21b0f5731cf96fadcde6",
+    "label": "malicious",
+    "name": "com.udfm.carbunculationlovell"
+   },
+   {
+    "sha256": "ee4169ae62236462925b7ef0934d2fd4e10d8d64f97ce4555d625aa390c73041",
+    "label": "malicious",
+    "name": "com.uisy.cache.installertest.x2524707f.x60097e0f"
+   },
+   {
+    "sha256": "2072c29a227b8cd181ad8fe67a07f75c4de34fed5f824706316bcb6bd804bda7",
+    "label": "malicious",
+    "name": "com.ukolfh.kfrcaespe"
+   },
+   {
+    "sha256": "7cf365d61e59d5c3dd50295b1d5a0c360da9eba1b4dc00cdc0f1ceee4a5cc412",
+    "label": "malicious",
+    "name": "com.upy2dl.ptroa5"
+   },
+   {
+    "sha256": "36b0d46f13932e1988c6944f2f3ada82a1a04457c62647e95594f42c8ebff5c0",
+    "label": "benign",
+    "name": "com.urik.keyboard"
+   },
+   {
+    "sha256": "d5aacf3d66f6b12b051e76b574be5d7658670f9a95d9372f08de3c4f14f09538",
+    "label": "benign",
+    "name": "com.vincent_falzon.discreetlauncher"
+   },
+   {
+    "sha256": "f08d2f7d2b4675c07eb825ac77e9ad334ffd4f5deb28890abdd897ce130f96ab",
+    "label": "benign",
+    "name": "com.viscouspot.gitsync"
+   },
+   {
+    "sha256": "9e9bbc587df1ca7d228791996f906303c720ad04ceb1692dbdae1f31b050f38a",
+    "label": "malicious",
+    "name": "com.vofo.nigemisecu"
+   },
+   {
+    "sha256": "7a134d98693d47f8c6824110bce75ab4e6727df6df4dc42b9922f93643728cb9",
+    "label": "malicious",
+    "name": "com.vq7iv8.zbuw7g"
+   },
+   {
+    "sha256": "1d28002e36d7e26f394269f04377a2381255959c94d4f91c132b7d93872fdb6b",
+    "label": "malicious",
+    "name": "com.vubejaze.kirivu"
+   },
+   {
+    "sha256": "4f8ca3ffd6f6caaade29205c682e8f579f3d9f48825668f69502f641dab70c15",
+    "label": "benign",
+    "name": "com.vulnerabbity.geoperion"
+   },
+   {
+    "sha256": "24851be6e9e50db7b646c2b80969817c070e11cb841a81ed57c4a7427d2c5464",
+    "label": "benign",
+    "name": "com.w2sv.filenavigator"
+   },
+   {
+    "sha256": "049adafe2b168d59f8bc48e1809392a525475778b5f9d3576a6fcfbacf47b899",
+    "label": "malicious",
+    "name": "com.wupo.cavaqi"
+   },
+   {
+    "sha256": "d7c4f4f6b3cb4255775b4a29a10ed7d51dc641bda7a375c7a05d4f5681fe2758",
+    "label": "malicious",
+    "name": "com.xapifuru.yibeyepupa"
+   },
+   {
+    "sha256": "d4f8a97e84b394ec132eb3027e2a61584b3cd0b86326dc071823847654385fbd",
+    "label": "benign",
+    "name": "com.xmission.trevin.android.notes"
+   },
+   {
+    "sha256": "658d3515ae8e199255ed1785650b3704080acdea1d5b47d458c98def6e2f95af",
+    "label": "benign",
+    "name": "com.xnotes"
+   },
+   {
+    "sha256": "909332d884fb5233ead6b7a574251fefcd12a98491562f267275359967bb72f3",
+    "label": "malicious",
+    "name": "com.xphantom.secure"
+   },
+   {
+    "sha256": "ca43f3f8fdbaeb9164fe8176358c51f7a39e9ae6a6941e1fb3563ff1d53b531c",
+    "label": "malicious",
+    "name": "com.xphantom.secure"
+   },
+   {
+    "sha256": "eedb2bc06789ac949c6b67bdb4e42c7f7005b0484692def13ffb8809060605f3",
+    "label": "malicious",
+    "name": "com.xphantom.secure"
+   },
+   {
+    "sha256": "6963d22462fb4525e0e3208190906f545b8e507753b2146ffc9f5f7183042fa0",
+    "label": "malicious",
+    "name": "com.yekosoca.nadadoveru"
+   },
+   {
+    "sha256": "03a49341e60a8fe546ffbe996102e6b594840ba332f56959c6929f858d38ab70",
+    "label": "malicious",
+    "name": "com.yile.fayuho"
+   },
+   {
+    "sha256": "424d16cdbae8c830a8ad03a5eb1e95aaa3f4d6aba56748fcc2c7c79da83f79c1",
+    "label": "malicious",
+    "name": "com.yvxosb.sjydzd"
+   },
+   {
+    "sha256": "467227502142463f2a89e7b229f9812ee03a85b44b3ef2c02dc1ce58d45d6eb8",
+    "label": "malicious",
+    "name": "com.ze7s.dy0tc88mvecaq3"
+   },
+   {
+    "sha256": "b5e8b4ae37f13f2f0d5395712afb4c8f8b71034915d2a76ef2bbc0297b555aa0",
+    "label": "malicious",
+    "name": "com.zirex"
+   },
+   {
+    "sha256": "16315bf26cd319afe126804780c8d2284b2fc02d1b735b8e0ef182dd8658661b",
+    "label": "benign",
+    "name": "com.zoffcc.applications.toloshare"
+   },
+   {
+    "sha256": "5baaef4c3aad7d78959554a977f358fb37eae685034df70fa43c4b4618cba3a9",
+    "label": "malicious",
+    "name": "combiner.watchdogx.tracker"
+   },
+   {
+    "sha256": "5ca44e9d67c45a8faec4126d26c4568d8f441f8617f90fb9d4b62efa523771a1",
+    "label": "benign",
+    "name": "cz.mod42.diktafon"
+   },
+   {
+    "sha256": "d5b948179c8cc33e4cbeebe0369c7dca452d968646a588d730341c3879d64880",
+    "label": "malicious",
+    "name": "d5b948179c8cc33e4cbeebe0369c7dca452d968646a588d730341c3879d64880.apk"
    },
    {
     "sha256": "3ce86b641d1627820d8f05606a3fb58d966ffa8360c234563b3c5e1bd3a8490a",
@@ -87,9 +1242,124 @@
     "name": "de.blinkt.openvpn"
    },
    {
+    "sha256": "49ebbfc3ac0696fb37dbbed18af61eacbf5030da5cd8cbfa62fe2397ab81a4fd",
+    "label": "benign",
+    "name": "de.blocklink.pigrid"
+   },
+   {
+    "sha256": "6b0255c66feb01b5b79ff8f70deccd9fdd36383d24c10f985cc89cf72e050487",
+    "label": "benign",
+    "name": "de.ccc.events.badge.card10"
+   },
+   {
+    "sha256": "69fedb4fcc538e40a73d6117a1e01a83d81fbdaf578e8c2f13329079a0f14300",
+    "label": "benign",
+    "name": "de.cyb3rko.pincredible"
+   },
+   {
+    "sha256": "421f0d40c627e320c3fb5f316e5ec2824360a596ecb81edb9c9b5c133b195f68",
+    "label": "benign",
+    "name": "de.determapp.android"
+   },
+   {
+    "sha256": "4e772fa3ee16fd619cc0cb827777998ebba9b1ab86c2979dbf4697d02ab6e4e8",
+    "label": "benign",
+    "name": "de.doen1el.calibreWebCompanion"
+   },
+   {
+    "sha256": "13ea888028f84bad020f14a642c81b68768733816799941702186a08fe2e7a82",
+    "label": "benign",
+    "name": "de.drmaxnix.birthdaycountdown"
+   },
+   {
+    "sha256": "3ae39524abafcd791871f4d38954fe7095572442eae9f527b8fe553b0dc3fb81",
+    "label": "benign",
+    "name": "de.hauke_stieler.geonotes"
+   },
+   {
+    "sha256": "428c26249c706bd79610d03a1a985dcc0efd9dd5469fc9be92c703459a4d5f93",
+    "label": "benign",
+    "name": "de.markusfisch.android.binaryeye"
+   },
+   {
+    "sha256": "e6eec9c6527703ca21ec9820adebcbdd3486a7b1443942aff38e4c63ba65f785",
+    "label": "benign",
+    "name": "de.micmun.android.nextcloudcookbook"
+   },
+   {
+    "sha256": "2fdeff88bb7efa714131e9b79e8d9c0569a87f8b2bd1d7b717398b83b921b7ec",
+    "label": "benign",
+    "name": "de.neuwirthinformatik.alexander.mtuo"
+   },
+   {
+    "sha256": "11908519d6b8eddea3183d3807d8e85f5efed0d0e3ae97d316d4be9674a2707e",
+    "label": "benign",
+    "name": "de.saschahlusiak.freebloks"
+   },
+   {
+    "sha256": "95284042975852ca13c831eae627968f2b1e3f3c9af7665b9b56523237c345a3",
+    "label": "benign",
+    "name": "de.schliweb.makeacopy"
+   },
+   {
+    "sha256": "ff952f33bf27328caebb9ec9df979396c725a45cea5c516d81d9a309d6a77169",
+    "label": "malicious",
+    "name": "dev.akamai.worker.v0b50903"
+   },
+   {
+    "sha256": "3ef4326e2c1d7ef0a51f1335c016d9a65012f7bffec820b2deaf84ae92e3c044",
+    "label": "malicious",
+    "name": "dev.akamai.worker.v435f1e7"
+   },
+   {
+    "sha256": "aecc2a0406df2c9d1d3072c922645576d7af3ce807c43c9de0f362a989d6f306",
+    "label": "benign",
+    "name": "dev.cyberme0w.openbike"
+   },
+   {
+    "sha256": "2ef0efd29f3dc74b3c852e3bdf910ff0d585abfa3ce7c4536a6939dff1d82138",
+    "label": "benign",
+    "name": "dev.leonlatsch.photok"
+   },
+   {
+    "sha256": "2e9fead1aa91b0ed48e733db864d1baf59c836f0e29f358fdafa92e73203e52f",
+    "label": "benign",
+    "name": "dev.mlg.quedalle"
+   },
+   {
+    "sha256": "03d7823c598211808f2b81f6dae8ffad62a3c880cea64863fd3cd2084d91d577",
+    "label": "benign",
+    "name": "dev.sebaubuntu.athena"
+   },
+   {
+    "sha256": "a97158e51c6099f9a85df0a265c969fad2210b7c815559f9afa24d38e500b230",
+    "label": "benign",
+    "name": "dev.yashgarg.qbit"
+   },
+   {
+    "sha256": "5dae73c8f31dc760b4f856f996b99b45fc4055a75f5db96544adbfe3bdece963",
+    "label": "benign",
+    "name": "edu.berkeley.boinc"
+   },
+   {
+    "sha256": "b02b8e6feac8c1474f6676b24528567fab2048dcb362037ee9f9c05b1b592a3c",
+    "label": "malicious",
+    "name": "es.loom.linen"
+   },
+   {
+    "sha256": "e51c40a4a2fd503e7797780398a1d96e31f3b7536eb8187b71083d044ea6ce9e",
+    "label": "benign",
+    "name": "eu.dorfbrunnen.momkin"
+   },
+   {
     "sha256": "158b4308da0006298d22ed557adbff24b282fddeb1bc0b3468829a60f405a8c4",
     "label": "benign",
     "name": "eu.faircode.netguard"
+   },
+   {
+    "sha256": "d0bbc3244c840d17ee068ac7b6b4bfe3924c0a2fe35d7dced38557cbce2132ee",
+    "label": "benign",
+    "name": "eu.ryuu.screeps"
    },
    {
     "sha256": "0da5d9e1b4fe1e6560720f12ae00149d7c4a4a8aff4ab10163e6f95dd833aa8a",
@@ -97,14 +1367,119 @@
     "name": "eu.siacs.conversations"
    },
    {
-    "sha256": "6ce8ee6c3a5a76ab2928f3f3b6e3934c352a3fd6bf76b7ff3dc291c6cbd928de",
-    "label": "benign",
-    "name": "im.vector.app"
+    "sha256": "eace462d061a20fb4ba49f7b349994d15f72cc86b749ba3d8af2f35c4418eab0",
+    "label": "malicious",
+    "name": "fdgfhfgjhfgj.dfgdfgdfhfjfgj.sdgdfgdfhd"
    },
    {
-    "sha256": "6111c9b110039aefc99837e1553e876e31290530cdbdb0f789b8b327f277a97c",
+    "sha256": "8eb0a3e1e5f4c2ff5bf73fa0ff7c03a0d6c79a050ede67b37050bb59101d60fb",
     "label": "benign",
-    "name": "io.devicefarmer.minicap"
+    "name": "fr.fdesousa.bikesharinghub"
+   },
+   {
+    "sha256": "7dc13af46b0a40f7a7206b03aa90c2606b09731b95d3d360e8bc818588af308d",
+    "label": "benign",
+    "name": "fr.unix_experience.owncloud_sms"
+   },
+   {
+    "sha256": "495a5ef312cfd6d178b8426e0b65d6dd8d75bb21ca8e587de3d4f8dc293a8216",
+    "label": "malicious",
+    "name": "gravity.dolphin.signal"
+   },
+   {
+    "sha256": "bbeda401f4f9a07b641a05dd87a59d55bcaea161b161c12dd24a92fee132c905",
+    "label": "benign",
+    "name": "hashengineering.groestlcoin.wallet_test"
+   },
+   {
+    "sha256": "6215b1d608efa8a3784d9736c4dea06fbc074375938cee6eb525f0c2c9b8a0ad",
+    "label": "malicious",
+    "name": "helpme.android.org"
+   },
+   {
+    "sha256": "92d593e3ca8726c8f274e87a4c96bac5eccec30c818b7dd0ad9ceb387fc7c5b4",
+    "label": "benign",
+    "name": "hu.kadatsoft.smsreply"
+   },
+   {
+    "sha256": "f5dd32d9cd13e497aa32d37c499abb6e69e955a3ff8e143b8e3074139eb0cf77",
+    "label": "benign",
+    "name": "ie.delilahsthings.soothingloop"
+   },
+   {
+    "sha256": "effee0474582c2da48ee22bccdde87acba0599416321e261d039ad016b167fc4",
+    "label": "malicious",
+    "name": "ignite.warrior.respect"
+   },
+   {
+    "sha256": "f0d69c519ed9a1ad78751bdff0e9fcd943d11ef4b91134dad054a8b0993e46d0",
+    "label": "malicious",
+    "name": "ignite.warrior.respect"
+   },
+   {
+    "sha256": "cf52769d27dc4e715dbfced7e2f3fce52cab09da0645bca83ffc8c66860726f4",
+    "label": "benign",
+    "name": "in.sunilpaulmathew.ashell"
+   },
+   {
+    "sha256": "af1921d76af0af901b0416430b0d92e53c199e13eee53e82f9c4635700f519b1",
+    "label": "benign",
+    "name": "info.metadude.android.fediday.schedule"
+   },
+   {
+    "sha256": "6cb61c956b475a410460f67ffb94fb651f1edb785551a119053d6fb0279ceb89",
+    "label": "benign",
+    "name": "invalid.lena.scrcpy"
+   },
+   {
+    "sha256": "d1f855f3cd4f89c16b42e83700e94391b0d105fa9ddcc5e8b222471ae5a89fb1",
+    "label": "malicious",
+    "name": "io.falcon.desk.hub"
+   },
+   {
+    "sha256": "925df9434b6a61925a83d9c4ea4d158e52971c4972d73bb5f4922df9abb57a2c",
+    "label": "benign",
+    "name": "io.github.acidefluorhydrique.carrot"
+   },
+   {
+    "sha256": "79b3267ae3011a6dd1b6fd22be7bab57e7696a694b1383f9c2f34f40e35ba23c",
+    "label": "benign",
+    "name": "io.github.akarimarisa.tumblrdownloader"
+   },
+   {
+    "sha256": "7d0347ab89bd859269c45d0643402f0e4bab2120ff5c813af93c89a6145cd433",
+    "label": "benign",
+    "name": "io.github.ephemera42.tapjackingbypass"
+   },
+   {
+    "sha256": "97a6bcaf97036b3660d04377721ebc8a0c91d2c014b059490d7834d72baecf16",
+    "label": "benign",
+    "name": "io.github.ewoc2026.ewoc"
+   },
+   {
+    "sha256": "a97cc4947ef28e54cffe31fb2682a78b8c03df4d7f5c7695ccfed6f79514662a",
+    "label": "benign",
+    "name": "io.github.hufrea.keysh"
+   },
+   {
+    "sha256": "d1bcd913a300335d77a88f15476bb6bb546a308ae5f90f2d769224b6e393bf79",
+    "label": "benign",
+    "name": "io.github.janekbt.Meditate"
+   },
+   {
+    "sha256": "a68e5e61934ab1ee9b3fc926c2d148337de695227d10421ca8637575c169ff65",
+    "label": "benign",
+    "name": "io.github.kkoshin.muse"
+   },
+   {
+    "sha256": "7bae71f086843ea59591199ad5ad71d2e4bc6612ca0593efb3531b01ae4639a9",
+    "label": "benign",
+    "name": "io.github.luantak.fokuslauncher"
+   },
+   {
+    "sha256": "5eaf49ba136b7dece2eb970904c8358f5ce9e76e0e621be9ef4b0954b2ea90f2",
+    "label": "benign",
+    "name": "io.github.pedrolcl.vmpk"
    },
    {
     "sha256": "d565271d6390618d83821fff1bc6770099191d2b6a6d9d37ea7e541a297917a1",
@@ -112,9 +1487,149 @@
     "name": "io.github.sds100.keymapper"
    },
    {
-    "sha256": "27f1eb82d288a9939b7c0bdd0fb94f78749824ffc753d32d421e01cbe487e5e0",
+    "sha256": "c1ea21ca153c664107d82abb4ccff07edf4ec6b62054a7ddaabcade348319047",
     "label": "benign",
-    "name": "net.osmand.plus"
+    "name": "io.github.teccheck.fastlyrics"
+   },
+   {
+    "sha256": "7c00c68bd70c21f805819beee3c388af3df021f04c96520ed105aefdc0428b01",
+    "label": "benign",
+    "name": "io.github.tjg1.nori"
+   },
+   {
+    "sha256": "32076454e6bcae047a7c477696af37178475280b2c4f32cc3c3c59e58b37fb08",
+    "label": "malicious",
+    "name": "io.prime.agent.xp2"
+   },
+   {
+    "sha256": "1e99972b1d84b131eb55a6b49f64871c5c0c6a1bb2a099a84313001b69dc53e8",
+    "label": "malicious",
+    "name": "io.qzwvyj.ywltn"
+   },
+   {
+    "sha256": "464fee5a6d85370e8764f0e682ef01cf2d9cef3efb7e4bbdf0146a94cc83ff4a",
+    "label": "malicious",
+    "name": "io.smart.evolve"
+   },
+   {
+    "sha256": "100d18a17a30117da14edb6922c8f5affc19f8da5029457049d725b01def10a6",
+    "label": "malicious",
+    "name": "ir.avanegar.core"
+   },
+   {
+    "sha256": "4d0f7a96a4859f47820ffa8e08b89ff7c7159fa3414a1cfe88db4949d65e48a4",
+    "label": "malicious",
+    "name": "ir.avanegar.core"
+   },
+   {
+    "sha256": "9947cc375f9244b282552e5655f9a685d8b6701918b89e0847916287a388e475",
+    "label": "malicious",
+    "name": "ir.avanegar.core"
+   },
+   {
+    "sha256": "bf70fa02c3a8ee82ee2dfc5ee77407aeb41cad33d77b6d61b0a9fa12fd3743bb",
+    "label": "malicious",
+    "name": "ir.avanegar.core"
+   },
+   {
+    "sha256": "d8b187b4de961b07b9b0abc5a68bd4603a8a1d5bc85a5dad969582391f4c10e0",
+    "label": "malicious",
+    "name": "ir.greynode.pulsetrack"
+   },
+   {
+    "sha256": "60648a8e5ee28177de38e6ea40c17481b95a63e6aa4ca466754bc7e7f08bd2ab",
+    "label": "malicious",
+    "name": "ir.novinarya"
+   },
+   {
+    "sha256": "b891d85ac6d3cbd98f0178bb9b8768931bc4af6d3de5b45908d3a7632ef3c037",
+    "label": "malicious",
+    "name": "ir.novinarya"
+   },
+   {
+    "sha256": "fdbee28882e9c13941fc4fc4575935af1ab37ca84114ec4bc039b50f770ce218",
+    "label": "malicious",
+    "name": "ir.novinarya"
+   },
+   {
+    "sha256": "d0796f3779b94f66948aa6e3ecc6eb4b31460412f2467bfe05dfdf9299042816",
+    "label": "malicious",
+    "name": "ir.shahab_zarrin.instaup"
+   },
+   {
+    "sha256": "4aa1b73a418f18190cc6af143a8fb689fc5c125fb62e31ab3f46735a70b2cb76",
+    "label": "benign",
+    "name": "it.belloworld.mercurygram.plugin.tor"
+   },
+   {
+    "sha256": "a2756e785eca8e171b42a037af183f4cf649d51a28dddb695ed1efc6a89f207d",
+    "label": "benign",
+    "name": "it.eldavo.ylih"
+   },
+   {
+    "sha256": "e084a327fde5523b1803040fc1ea40be84bc8434913d37d01083890c351dec96",
+    "label": "malicious",
+    "name": "mGTwN.nuBWfRFUlLx.zSKVjTLM"
+   },
+   {
+    "sha256": "97ac037a5b9173ae32ad5aa6b5d73e53170927b58c57392b5926d111c25989a2",
+    "label": "benign",
+    "name": "me.ahmetcetinkaya.whph"
+   },
+   {
+    "sha256": "e54b11ef0fb6ede9d35e31151a702a3933f9d591cf603ebb9886306d608e918c",
+    "label": "benign",
+    "name": "me.rosuh.easywatermark"
+   },
+   {
+    "sha256": "0ed2bdca1aba5f0aa9b460314668ee74511d57e54adecb06a5595aa227db6a30",
+    "label": "malicious",
+    "name": "metrseh.lugaf.hchbb"
+   },
+   {
+    "sha256": "394e9cc44f80f3defe9dfc4750938f42805f0329ba4d65a205ac9e110731d716",
+    "label": "malicious",
+    "name": "monitorport.activephoto.rightcache"
+   },
+   {
+    "sha256": "cb5ff609d5ee1d44831fecffc932a3e9bd97354a594cf0e84da5fad2f570ab3e",
+    "label": "benign",
+    "name": "net.activitywatch.android"
+   },
+   {
+    "sha256": "c522a752519580c37574684d86abfe3c4666ac72d837825ac21d6cfe937d7817",
+    "label": "malicious",
+    "name": "net.akamai.agent.vefffa9f"
+   },
+   {
+    "sha256": "0a53ab4c4ba552e6c2bbfd879735c0c0a9b7c027243bdad81efc5ff942b05551",
+    "label": "malicious",
+    "name": "net.bjrvbhq.qihmme"
+   },
+   {
+    "sha256": "4d9724d7b0782295deec078bf0f6e8da05af94d758332afa7fc0a8a0543228e9",
+    "label": "malicious",
+    "name": "net.cmogjk.hzfmpvto"
+   },
+   {
+    "sha256": "8e6fcaef781f4617de69701cd0b0abfc33c14cd21d4c142370e150570bcab71b",
+    "label": "benign",
+    "name": "net.liujiacai.flauth"
+   },
+   {
+    "sha256": "0c877a93b403a8b78c9bae76cd6f74a78f97dbad4f0b9e549ce0393eab18fb58",
+    "label": "malicious",
+    "name": "net.nccjus.kedkgbv"
+   },
+   {
+    "sha256": "8703ee8685a47d4085b737b29aaa0f6f7898985b41963bd15d7027c75a609a3e",
+    "label": "malicious",
+    "name": "net.nccjus.kedkgbv"
+   },
+   {
+    "sha256": "8fa0ea2a0da20123788425537181d63d50bdef5d7fec308f79e25fa94358eade",
+    "label": "benign",
+    "name": "net.retiolus.natinfo"
    },
    {
     "sha256": "ca5672ca8c7174554ca0b07b5b26e505817a05142f571cf2abe67e790c30249c",
@@ -122,14 +1637,84 @@
     "name": "net.sourceforge.opencamera"
    },
    {
+    "sha256": "f97b7f79a681d5ee44309366a9080f55840f2fb0bca03ed34c8526cee907d99e",
+    "label": "benign",
+    "name": "net.tigr.soulcalc"
+   },
+   {
+    "sha256": "e7009d45dfab9ec1b5c658fa04ef7bc1a3f069e9780681a9dc986bf3ebc2a740",
+    "label": "benign",
+    "name": "net.viggers.zade.wallpaper"
+   },
+   {
+    "sha256": "ce28498675c7c1c92e14850875dc36d5c96fd8a8ced11ccf9dc0eed08a523afc",
+    "label": "malicious",
+    "name": "net.wqrmv.efjnohaq"
+   },
+   {
+    "sha256": "4a30a14572a04fc46e7623176aff981cc1d4349e11ec092bee6d1b19340a6cd1",
+    "label": "malicious",
+    "name": "net.yfdlsavj.gwrlfwd"
+   },
+   {
     "sha256": "0de00a58a0dbb4c4b6befc9fe1f5e53800993484baab955824798f46fbf3338e",
     "label": "benign",
     "name": "org.adaway"
    },
    {
+    "sha256": "1a8fd8e6ebe4b8e3db408ff5bae32c75616fa338bd3d82b8acdc94c2c30160e6",
+    "label": "benign",
+    "name": "org.asdtm.fas"
+   },
+   {
+    "sha256": "8286e4796ea647c6dfa7fb09452f278cb2ec81638eafcef2cfb8108737d11120",
+    "label": "malicious",
+    "name": "org.atqbbvkc.iacwc"
+   },
+   {
+    "sha256": "f84154829462767e464f41dd63d1513547e728eced3af90a6561f1e7e1611723",
+    "label": "malicious",
+    "name": "org.avsobts.dohtlj"
+   },
+   {
+    "sha256": "408091917d3a6be7f0286aabcfed2251893968f580d47cb6ae0f7feeb48b65f5",
+    "label": "benign",
+    "name": "org.bibledit.android"
+   },
+   {
+    "sha256": "59f868acb1204722e8b8b1d37121b249e672ae328933c17dfd49eb21beeb3849",
+    "label": "benign",
+    "name": "org.bienvenidoainternet.app"
+   },
+   {
+    "sha256": "ae8aa96794fc55d58916d8fe3a217912fbcc9edd5ec9fb72c547f90d97d3c0ea",
+    "label": "benign",
+    "name": "org.billthefarmer.notes"
+   },
+   {
+    "sha256": "4a565da9688d76c357200baf1a80d9aa7eb7b342859e1c94870a346235675b58",
+    "label": "benign",
+    "name": "org.blackcandy.androidApp"
+   },
+   {
     "sha256": "4b0ad16aac912abefa95f27241ab5e7958a306749c811ba71034e6c1824cc136",
     "label": "benign",
     "name": "org.briarproject.briar.android"
+   },
+   {
+    "sha256": "785c6f865c92dc23f90574c58d8f02acb92e2be6e2560621f69ad64c2bc4c9d8",
+    "label": "benign",
+    "name": "org.droidtr.keyboard"
+   },
+   {
+    "sha256": "d8e8facd48fd6898e3f0b81723b38a25e94eb8667926ca61f2171ea253460a1b",
+    "label": "benign",
+    "name": "org.fcitx.fcitx5.android.plugin.hangul"
+   },
+   {
+    "sha256": "4376d2d58978e4a11d73e033ccb9e619a30a8ead75b19c9442d50ae5fd5a4168",
+    "label": "benign",
+    "name": "org.fcitx.fcitx5.android.plugin.rime"
    },
    {
     "sha256": "985f5181d48bb6bafd54083a048b391271e0ab28385881cc41294fb01a222762",
@@ -157,66 +1742,508 @@
     "name": "org.fossify.voicerecorder"
    },
    {
-    "sha256": "0051538a0c2107a78bdd839a17b3213a09193ba4e0c579611c4a71136bec6f88",
+    "sha256": "c44682b31c2318e1f2f59f02f2239e78ba531a9479a104f4a6775090351e1dc0",
     "label": "benign",
-    "name": "org.orca.advisory"
+    "name": "org.framasoft.peertube"
+   },
+   {
+    "sha256": "749b704b38bc74f960ec738cc423ba558984840364550724732e80d349dc3f3f",
+    "label": "benign",
+    "name": "org.gdroid.gdroid"
+   },
+   {
+    "sha256": "54309c4a921395685813364c4d471fe29b508f1e6dbf02f08865ce8b308da7c1",
+    "label": "benign",
+    "name": "org.glucosio.android"
+   },
+   {
+    "sha256": "39cf634622d15b5139c8646de73d0e69191cc89c4ff3fe6ebfbe71c672a2200f",
+    "label": "malicious",
+    "name": "org.gmobqabo.iemydqvl"
+   },
+   {
+    "sha256": "78c7072cf27c7491ceda110ebd11bd754a0f9843424dfe33bed47db84f580c6a",
+    "label": "benign",
+    "name": "org.jdfossapps.android.shopwithmom"
+   },
+   {
+    "sha256": "734fd240b2f026007fc4f4434f2c75207456f5d2934d49930947eb4c0246418c",
+    "label": "benign",
+    "name": "org.juanro.autumandu"
+   },
+   {
+    "sha256": "1b2f35f99dff9c26812c3650b6c2754dabd85b024dcd692e6f2c3aea698b8bda",
+    "label": "benign",
+    "name": "org.ligi.passandroid"
+   },
+   {
+    "sha256": "3b8fe047eb32e46a08e1f7a323356b89540b0fd16a0a1fb8f594b4cea1deab90",
+    "label": "benign",
+    "name": "org.lyrion.squeezelite"
+   },
+   {
+    "sha256": "7a7b765f34293871dc03bcf49ee407a3de436ccde24eac0eed229500f950445d",
+    "label": "benign",
+    "name": "org.mazhuang.guanggoo"
+   },
+   {
+    "sha256": "c5061b4ffd1b5d876be219d3a13bc92c62aa0789b5154924add9d374591ab22d",
+    "label": "malicious",
+    "name": "org.mozilla.firefox"
+   },
+   {
+    "sha256": "46516ccd16b4adf03f4f01d3879a6619cddaef33a3e0252c6627a1a4681cecbe",
+    "label": "benign",
+    "name": "org.mult.daap"
+   },
+   {
+    "sha256": "e4eb7c7c256f033b091c8bf194d6cbb5063b222c3bf0aa16bd19d9231a8146a5",
+    "label": "benign",
+    "name": "org.nuclearfog.smither"
+   },
+   {
+    "sha256": "7e9eedcab864fbbd80c89f5763d31d201f7a5d175e7ccd9ea9bea4be17671cbd",
+    "label": "malicious",
+    "name": "org.ohngstfa.xpgafsv"
+   },
+   {
+    "sha256": "feb9b827dc88560b77f810dfcc7ebe6882e1d2b82be7f0e13a395b528777862a",
+    "label": "benign",
+    "name": "org.proninyaroslav.opencomicvine"
    },
    {
     "sha256": "1d66d19eedbab969b1be2e44e0ea35f5f8921cbe83b5c5ac810767ca1a84b7e8",
     "label": "benign",
     "name": "org.schabi.newpipe"
+   },
+   {
+    "sha256": "82f83d9ea572240acabe45bcff9809f724d26f474896b150dcfd49d84037d8c6",
+    "label": "benign",
+    "name": "org.secuso.privacyfriendlymemory"
+   },
+   {
+    "sha256": "945d7a6eb3ef9631612b4728312d65e7dae4fdb73dcab2e7d0c6313dbf38e350",
+    "label": "malicious",
+    "name": "org.sol.tools.lite"
+   },
+   {
+    "sha256": "aa190597df0954c2610884e81c602cba251b581c243f12e7fc46341f94051b4e",
+    "label": "benign",
+    "name": "org.stingle.photos"
+   },
+   {
+    "sha256": "47834a24aae3b3173b5d2b9af49152e604e978cd8e8f3c52dad42ad479325c5d",
+    "label": "benign",
+    "name": "org.ttrssreader"
+   },
+   {
+    "sha256": "a4117583d175e81e653892c26ea8fb6c3013a7c4c92d3e310179dd69b0d30f7e",
+    "label": "malicious",
+    "name": "org.uh51.wtyz"
+   },
+   {
+    "sha256": "0bed413d2a7a45c5c37c5cbd19efe3e49ab33725740aaf143324cf796ffcfaa9",
+    "label": "benign",
+    "name": "org.woheller69.audio_analyzer_for_android"
+   },
+   {
+    "sha256": "c5821f4e13a1378fe16d5a86582edb4a9fc739a36e356e727bfc8938d7cca3f7",
+    "label": "benign",
+    "name": "org.xphnx.iconsubmit"
+   },
+   {
+    "sha256": "e56e9712e67939d564406b945116b486094151155ec3973c69969f208bca4307",
+    "label": "benign",
+    "name": "org.zerodogg.migraineLog"
+   },
+   {
+    "sha256": "c9eeea657951f694067f125222dea62f5a7a5c88e44d9c4b2c75de5e5ae5aab1",
+    "label": "benign",
+    "name": "org99managers.futsal_edition"
+   },
+   {
+    "sha256": "9450373187894925be70cc62b7d91adefda11b369e39c524f8cb6fad7e6302d8",
+    "label": "malicious",
+    "name": "pgurou.iyqbx.jjzbszxo"
+   },
+   {
+    "sha256": "7957a7ba6dd7ae12df53704c3fc54510cc06a17ebbfcb356bcd65979e4f7d74f",
+    "label": "benign",
+    "name": "player.efis.pfd.ink"
+   },
+   {
+    "sha256": "54d9e39694d8e3ea65a40c211b7f31f5274263007d757d3f351d2cd5060a58ff",
+    "label": "benign",
+    "name": "player.phonograph.plus"
+   },
+   {
+    "sha256": "68ce835a70760369ea7b48da34ce3484738b4d20b90af63b471127adab97e57b",
+    "label": "malicious",
+    "name": "pophall.rootchat.seedmanager"
+   },
+   {
+    "sha256": "2dbcfb3b86ef108709d44d6a9213c095bb2ea51797ad5ff3e0e61bc99e8e0326",
+    "label": "malicious",
+    "name": "pxkwwz.zeavpz.lbqcrg"
+   },
+   {
+    "sha256": "63898fa3645e69a333f8ea158d0c4e7bb20a4265f0d4597f50ee2ffffc9df820",
+    "label": "malicious",
+    "name": "ru.su25n.s0w62d"
+   },
+   {
+    "sha256": "62530637f576b2b9c49077d3e8e7cbaee882b6bdd048b1e5d4a909248c52c133",
+    "label": "benign",
+    "name": "se.arctosoft.vault"
+   },
+   {
+    "sha256": "5cdf118db5d2e57c9c7ff3eb8b4de744762bf7e5ca8652b20dc3d0159f1627d8",
+    "label": "benign",
+    "name": "se.bitcraze.crazyfliecontrol2"
+   },
+   {
+    "sha256": "e705548bb935333cc8c3094f27dd570a9e2c2c101a65321f7a3dfb37c3f9a1c6",
+    "label": "malicious",
+    "name": "ssdljsb.apk"
+   },
+   {
+    "sha256": "a1416a250bf7219f95961f484421dda844b5013b5561c4a40591489dcfcdd384",
+    "label": "malicious",
+    "name": "store.pandaac.task9d"
+   },
+   {
+    "sha256": "a3fd761b29f06ea987cccef2e3be1748f830c01c2f6e5133fc1027f06df9cb4c",
+    "label": "benign",
+    "name": "systems.sieber.droid_scep"
+   },
+   {
+    "sha256": "f651876e9185c206d770229b0cb312b7ae620225e0e6768709b93d4258bbbced",
+    "label": "malicious",
+    "name": "teuq.lbnn.zzo"
+   },
+   {
+    "sha256": "b9bee1949f9bc39533450ae234f316f72f8f481cb348e4e9646cce6f818aa295",
+    "label": "malicious",
+    "name": "trades.signals.more"
+   },
+   {
+    "sha256": "4d2c5b65444286b34b268e464042c8e21cd646aaed629705b965e6e228e7d451",
+    "label": "benign",
+    "name": "trailence.org"
+   },
+   {
+    "sha256": "906da7b19525db9424118a057bed3bd26cbbc3d0d14e5fdcfc1d3369f854dfe7",
+    "label": "benign",
+    "name": "tw.com.daxia.virtualsoftkeys"
+   },
+   {
+    "sha256": "6af5634511b96d2f4e92255fab614aa1eb5f0fb8963375f2c0b7e82ebeac4982",
+    "label": "malicious",
+    "name": "ufufcs.hztpflz"
+   },
+   {
+    "sha256": "e5fa297d6ad6db8d44ecf767ce77ffc91147400c14f7c944699666f0157c653c",
+    "label": "malicious",
+    "name": "uplift.shadow.planet"
+   },
+   {
+    "sha256": "d37cefad15632534100b0ae55e37fcb162a9a797dceafe77f5ab037191816374",
+    "label": "benign",
+    "name": "us.materialio.app"
+   },
+   {
+    "sha256": "9aba4c1cb52dfe02019267b37b13bbb5cc77597224782951929eb476061bce6a",
+    "label": "benign",
+    "name": "v4lpt.vpt.f023.MYC"
+   },
+   {
+    "sha256": "44f9d5c684fb6f34465cd7593709a37cadb57aaf41430b0d043fa593e4faacab",
+    "label": "malicious",
+    "name": "video.lotus19.ridenovel31"
+   },
+   {
+    "sha256": "b9fd307d5a43dec31b053d3061920cfe73935900482f95049bbe6fbdf022aeb9",
+    "label": "malicious",
+    "name": "wmhfnq.mvicfbs"
+   },
+   {
+    "sha256": "48b2095d9f746bb60ddf126365a9bb9ebaeae36f21dc1b5fa2213eafbdc9f18b",
+    "label": "malicious",
+    "name": "xyIBgcE.FKnaCEV.XDKUPweO"
+   },
+   {
+    "sha256": "166ebdca75a1d171717ce1aa12571b0b627ebde7c3006058a704288cbe1aa413",
+    "label": "benign",
+    "name": "xyz.deepdaikon.xeonjia"
+   },
+   {
+    "sha256": "05607cc8b4f63c7efc903b5ee90df3bcb9ccf6fbe9adc1bf4a015ea939a71619",
+    "label": "benign",
+    "name": "zatrit.skinbread"
    }
   ],
-  "not_examined": []
+  "not_examined": [
+   {
+    "file": "com.nextcloud.client.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "im.vector.app.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "net.osmand.plus.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "com.frequent.habits.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "com.github.umer0586.droidpad.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "com.ismartcoding.plain.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "com.livefast.eattrash.raccoonforfriendica.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "com.owncloud.android.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "com.pilcrowmd.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "de.moekadu.metronomenext.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "dev.atajan.lingva_android.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "eu.faircode.email.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "infrared.tilematch.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "io.github.patricksmill.quicknotes.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "lying.fengfeng.foodrecords.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "net.yukh.currency.apk",
+    "label": "benign",
+    "reason": "TimeoutExpired: Command '['/usr/local/bin/python3-analysis', '-m', 'apk_engine', 'examine', '--apk', '/benign2/net.yukh.currency.apk', '--max-memory-mb', '2048', '--max-cpu-seconds', '960']' timed out after 900 seconds"
+   },
+   {
+    "file": "org.disspair.disspair.apk",
+    "label": "benign",
+    "reason": "The examination failed: MemoryError: "
+   },
+   {
+    "file": "org.grating.recolldroid.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "org.mian.gitnex.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "pw.faraday.faraday.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "rocks.langhaarschneider.subsonicster.apk",
+    "label": "benign",
+    "reason": "The examination failed: MemoryError: "
+   },
+   {
+    "file": "site.leos.apps.lespas.apk",
+    "label": "benign",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "11a44b1a227a702bdef562c1d10251a42285b88d2156fe2b1888c175bf06dc2f.apk",
+    "label": "malicious",
+    "reason": "AndroidManifest.xml structure could not be checked: unpack requires a buffer of 4 bytes; version name: 'Name'"
+   },
+   {
+    "file": "184ed09b7a83640f182566d2cc4bc2d30c8a67f33715e4db1e61642e2c168d12.apk",
+    "label": "malicious",
+    "reason": ""
+   },
+   {
+    "file": "3103a55e5f39fe474143496e5ebdfb5a2b2be924ab4cc51517b59b930a927290.apk",
+    "label": "malicious",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "512191a429f16b01a16d73ee97ef57f7699dfbdf4ea77ec445288fb33d3663a6.apk",
+    "label": "malicious",
+    "reason": "Code could not be indexed: "
+   },
+   {
+    "file": "6044b2da11979e55dbb73af4310e037a6a2c121458ebdd064fb7e3e2eee557ba.apk",
+    "label": "malicious",
+    "reason": ""
+   },
+   {
+    "file": "ad613fc80699e19ba1c887056153c3f86ba100b6c1cd362635b60e8078da5a16.apk",
+    "label": "malicious",
+    "reason": ""
+   }
+  ]
  },
  "signals": {
   "axml.attribute_names": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 11,
    "benign_examples": []
   },
   "axml.attribute_size": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 28,
+   "benign_examples": []
+  },
+  "axml.attribute_start": {
+   "benign_fired": 0,
+   "malicious_fired": 14,
+   "benign_examples": []
+  },
+  "axml.bad_magic": {
+   "benign_fired": 0,
+   "malicious_fired": 0,
+   "benign_examples": []
+  },
+  "axml.junk_between_elements": {
+   "benign_fired": 0,
+   "malicious_fired": 0,
    "benign_examples": []
   },
   "axml.string_count_mismatch": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 11,
+   "benign_examples": []
+  },
+  "axml.unknown_chunk": {
+   "benign_fired": 0,
+   "malicious_fired": 21,
+   "benign_examples": []
+  },
+  "axml.zero_size_namespace_end": {
+   "benign_fired": 0,
+   "malicious_fired": 0,
    "benign_examples": []
   },
   "beh.accessibility_control_with_overlay": {
-   "benign_fired": 1,
-   "malicious_fired": 0,
+   "benign_fired": 2,
+   "malicious_fired": 11,
    "benign_examples": [
-    "com.consentlens.consentlens"
+    "com.katsuyamaki.DroidOSFOSSKeyboardTrackpad",
+    "tw.com.daxia.virtualsoftkeys"
+   ]
+  },
+  "beh.accessibility_types_into_other_apps": {
+   "benign_fired": 0,
+   "malicious_fired": 11,
+   "benign_examples": []
+  },
+  "beh.adb_payload_dropper": {
+   "benign_fired": 4,
+   "malicious_fired": 3,
+   "benign_examples": [
+    "com.fsck.k9",
+    "org.adaway",
+    "org.briarproject.briar.android",
+    "org.fdroid.fdroid"
+   ]
+  },
+  "beh.dropper_with_bundled_payload": {
+   "benign_fired": 2,
+   "malicious_fired": 4,
+   "benign_examples": [
+    "com.madlonkay.orgro",
+    "com.skyd.anivu"
    ]
   },
   "beh.hides_launcher_icon": {
    "benign_fired": 1,
-   "malicious_fired": 0,
+   "malicious_fired": 7,
    "benign_examples": [
-    "com.mpowernet.shesafe"
+    "com.forrestguice.suntimeswidget"
    ]
   },
   "beh.install_from_quick_tunnel": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 0,
    "benign_examples": []
   },
   "beh.install_under_network_blackout": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 9,
    "benign_examples": []
+  },
+  "beh.nfc_card_relay": {
+   "benign_fired": 0,
+   "malicious_fired": 24,
+   "benign_examples": []
+  },
+  "beh.packed_code_payload": {
+   "benign_fired": 0,
+   "malicious_fired": 38,
+   "benign_examples": []
+  },
+  "beh.runtime_code_from_network": {
+   "benign_fired": 0,
+   "malicious_fired": 25,
+   "benign_examples": []
+  },
+  "beh.screen_capture_to_network": {
+   "benign_fired": 1,
+   "malicious_fired": 18,
+   "benign_examples": [
+    "eu.siacs.conversations"
+   ]
   },
   "beh.sms_to_telegram_bot": {
    "benign_fired": 0,
-   "malicious_fired": 0,
+   "malicious_fired": 1,
    "benign_examples": []
   },
   "cap.accessibility_actions": {
-   "benign_fired": 8,
-   "malicious_fired": 1,
+   "benign_fired": 80,
+   "malicious_fired": 70,
    "benign_examples": [
     "com.aurora.store",
     "eu.faircode.netguard",
@@ -225,92 +2252,167 @@
     "org.fossify.messages",
     "org.fossify.phone",
     "org.fossify.voicerecorder",
-    "com.consentlens.consentlens"
+    "app.mlauncher",
+    "bilalsul.rzr",
+    "ch.swissbitcoinpay.checkout"
    ]
   },
   "cap.accessibility_service": {
-   "benign_fired": 5,
-   "malicious_fired": 0,
+   "benign_fired": 11,
+   "malicious_fired": 31,
    "benign_examples": [
     "com.celzero.bravedns",
     "io.github.sds100.keymapper",
-    "com.consentlens.consentlens",
-    "com.mpowernet.shesafe",
-    "org.orca.advisory"
+    "app.mlauncher",
+    "com.activitytrace",
+    "com.katsuyamaki.DroidOSFOSSKeyboardTrackpad",
+    "com.moi.lumine",
+    "com.viscouspot.gitsync",
+    "io.github.hufrea.keysh",
+    "io.github.luantak.fokuslauncher",
+    "net.activitywatch.android"
    ]
   },
+  "cap.accessibility_text_entry": {
+   "benign_fired": 0,
+   "malicious_fired": 19,
+   "benign_examples": []
+  },
   "cap.boot_start": {
-   "benign_fired": 20,
-   "malicious_fired": 0,
+   "benign_fired": 51,
+   "malicious_fired": 70,
    "benign_examples": [
-    "com.aurora.store",
     "com.celzero.bravedns",
     "com.fsck.k9",
     "com.looker.droidify",
     "com.mendhak.gpslogger",
-    "com.nextcloud.client",
     "de.blinkt.openvpn",
     "eu.faircode.netguard",
     "eu.siacs.conversations",
-    "im.vector.app"
+    "io.github.sds100.keymapper",
+    "org.adaway",
+    "org.briarproject.briar.android"
+   ]
+  },
+  "cap.bundled_package": {
+   "benign_fired": 4,
+   "malicious_fired": 6,
+   "benign_examples": [
+    "com.madlonkay.orgro",
+    "com.skyd.anivu",
+    "invalid.lena.scrcpy",
+    "org.bibledit.android"
+   ]
+  },
+  "cap.contactless_card_read": {
+   "benign_fired": 1,
+   "malicious_fired": 24,
+   "benign_examples": [
+    "ch.swissbitcoinpay.checkout"
    ]
   },
   "cap.device_admin": {
-   "benign_fired": 2,
-   "malicious_fired": 0,
+   "benign_fired": 3,
+   "malicious_fired": 18,
    "benign_examples": [
     "com.aurora.store",
-    "io.github.sds100.keymapper"
+    "io.github.sds100.keymapper",
+    "app.mlauncher"
    ]
   },
   "cap.dynamic_code_loading": {
    "benign_fired": 0,
-   "malicious_fired": 0,
+   "malicious_fired": 35,
+   "benign_examples": []
+  },
+  "cap.encrypted_code_payload": {
+   "benign_fired": 0,
+   "malicious_fired": 38,
    "benign_examples": []
   },
   "cap.hides_launcher_icon": {
    "benign_fired": 1,
-   "malicious_fired": 0,
+   "malicious_fired": 7,
    "benign_examples": [
-    "com.mpowernet.shesafe"
+    "com.forrestguice.suntimeswidget"
    ]
   },
   "cap.install_packages": {
-   "benign_fired": 13,
-   "malicious_fired": 1,
+   "benign_fired": 19,
+   "malicious_fired": 32,
    "benign_examples": [
     "com.aurora.store",
     "com.fsck.k9",
     "com.looker.droidify",
-    "com.nextcloud.client",
     "eu.siacs.conversations",
-    "im.vector.app",
-    "net.osmand.plus",
     "org.adaway",
     "org.briarproject.briar.android",
-    "org.fdroid.fdroid"
+    "org.fdroid.fdroid",
+    "org.fossify.contacts",
+    "org.fossify.messages",
+    "org.fossify.voicerecorder"
+   ]
+  },
+  "cap.minimal_permission_set": {
+   "benign_fired": 141,
+   "malicious_fired": 90,
+   "benign_examples": [
+    "com.kunzisoft.keepass.libre",
+    "de.blinkt.openvpn",
+    "net.sourceforge.opencamera",
+    "org.adaway",
+    "org.fossify.contacts",
+    "org.fossify.voicerecorder",
+    "at.h4x.amsprung",
+    "au.com.wallaceit.reddinator",
+    "bilalsul.rzr",
+    "ch.cryptobit.letterbox"
+   ]
+  },
+  "cap.network_use": {
+   "benign_fired": 188,
+   "malicious_fired": 162,
+   "benign_examples": [
+    "com.aurora.store",
+    "com.celzero.bravedns",
+    "com.fsck.k9",
+    "com.kunzisoft.keepass.libre",
+    "com.looker.droidify",
+    "com.mendhak.gpslogger",
+    "com.termux",
+    "de.blinkt.openvpn",
+    "eu.faircode.netguard",
+    "eu.siacs.conversations"
    ]
   },
   "cap.notification_listener": {
-   "benign_fired": 2,
-   "malicious_fired": 0,
+   "benign_fired": 7,
+   "malicious_fired": 21,
    "benign_examples": [
     "io.github.sds100.keymapper",
-    "com.walarm.app"
+    "app.mlauncher",
+    "cc.zachy.pulse",
+    "com.activitytrace",
+    "io.github.luantak.fokuslauncher",
+    "io.github.teccheck.fastlyrics",
+    "net.activitywatch.android"
    ]
   },
   "cap.overlay_window": {
-   "benign_fired": 3,
-   "malicious_fired": 0,
+   "benign_fired": 6,
+   "malicious_fired": 13,
    "benign_examples": [
-    "im.vector.app",
     "org.schabi.newpipe",
-    "com.consentlens.consentlens"
+    "com.katsuyamaki.DroidOSFOSSKeyboardTrackpad",
+    "com.kunzisoft.keyboard.switcher",
+    "com.shezik.drawanywhere",
+    "org.droidtr.keyboard",
+    "tw.com.daxia.virtualsoftkeys"
    ]
   },
   "cap.query_installed_apps": {
-   "benign_fired": 10,
-   "malicious_fired": 0,
+   "benign_fired": 18,
+   "malicious_fired": 43,
    "benign_examples": [
     "com.aurora.store",
     "com.celzero.bravedns",
@@ -321,88 +2423,107 @@
     "org.adaway",
     "org.briarproject.briar.android",
     "org.fdroid.fdroid",
-    "com.consentlens.consentlens"
+    "app.mlauncher"
    ]
   },
   "cap.quick_tunnel_url": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 0,
    "benign_examples": []
   },
   "cap.root_detection_strings": {
-   "benign_fired": 1,
-   "malicious_fired": 0,
+   "benign_fired": 2,
+   "malicious_fired": 9,
    "benign_examples": [
-    "com.flipkart.android"
+    "com.zoffcc.applications.toloshare",
+    "io.github.kkoshin.muse"
+   ]
+  },
+  "cap.screen_capture": {
+   "benign_fired": 1,
+   "malicious_fired": 18,
+   "benign_examples": [
+    "eu.siacs.conversations"
    ]
   },
   "cap.shell_exec": {
-   "benign_fired": 13,
-   "malicious_fired": 0,
+   "benign_fired": 36,
+   "malicious_fired": 48,
    "benign_examples": [
     "com.aurora.store",
     "com.celzero.bravedns",
     "com.fsck.k9",
-    "com.nextcloud.client",
     "com.termux",
     "de.blinkt.openvpn",
-    "im.vector.app",
     "io.github.sds100.keymapper",
-    "net.osmand.plus",
-    "org.adaway"
+    "org.adaway",
+    "org.briarproject.briar.android",
+    "org.fdroid.fdroid",
+    "app.mlauncher"
    ]
   },
   "cap.sms_read": {
-   "benign_fired": 2,
-   "malicious_fired": 0,
+   "benign_fired": 5,
+   "malicious_fired": 35,
    "benign_examples": [
     "org.fossify.messages",
-    "com.flipkart.android"
+    "cc.zachy.pulse",
+    "com.oksigenia.oksigenia_sos",
+    "fr.unix_experience.owncloud_sms",
+    "hu.kadatsoft.smsreply"
    ]
   },
   "cap.sms_receiver": {
-   "benign_fired": 1,
-   "malicious_fired": 0,
+   "benign_fired": 3,
+   "malicious_fired": 47,
    "benign_examples": [
-    "org.fossify.messages"
+    "org.fossify.messages",
+    "fr.unix_experience.owncloud_sms",
+    "hu.kadatsoft.smsreply"
    ]
   },
   "cap.sms_send": {
    "benign_fired": 5,
-   "malicious_fired": 0,
+   "malicious_fired": 33,
    "benign_examples": [
     "io.github.sds100.keymapper",
     "org.fossify.messages",
-    "com.flipkart.android",
-    "com.guardianpulse.guardian_pulse",
-    "org.orca.advisory"
+    "cc.zachy.pulse",
+    "com.oksigenia.oksigenia_sos",
+    "hu.kadatsoft.smsreply"
    ]
+  },
+  "cap.targets_pre_marshmallow": {
+   "benign_fired": 0,
+   "malicious_fired": 2,
+   "benign_examples": []
   },
   "cap.telegram_bot_api": {
    "benign_fired": 0,
-   "malicious_fired": 0,
+   "malicious_fired": 1,
    "benign_examples": []
   },
   "cap.vpn_catch_all_route": {
    "benign_fired": 1,
-   "malicious_fired": 1,
+   "malicious_fired": 17,
    "benign_examples": [
     "com.celzero.bravedns"
    ]
   },
   "cap.vpn_interface": {
-   "benign_fired": 4,
-   "malicious_fired": 1,
+   "benign_fired": 5,
+   "malicious_fired": 31,
    "benign_examples": [
     "com.celzero.bravedns",
     "de.blinkt.openvpn",
     "eu.faircode.netguard",
-    "org.adaway"
+    "org.adaway",
+    "com.moi.lumine"
    ]
   },
   "cert.debug_certificate": {
    "benign_fired": 6,
-   "malicious_fired": 0,
+   "malicious_fired": 11,
    "benign_examples": [
     "com.consentlens.consentlens",
     "com.mpowernet.shesafe",
@@ -410,22 +2531,66 @@
     "io.devicefarmer.minicap",
     "com.nexus.nexus",
     "org.orca.advisory"
-   ]
+   ],
+   "carried_forward": {
+    "from_corpus_benign": 31,
+    "measured_at": "2026-09-18T11:14:41+00:00",
+    "why": "These apps fired this signal in the previous corpus and are no longer on disk, so the larger corpus cannot contradict them. Kept so re-measuring cannot validate a signal by losing the evidence against it."
+   }
   },
   "cert.malformed_country": {
+   "benign_fired": 11,
+   "malicious_fired": 10,
+   "benign_examples": [
+    "com.activitytrace",
+    "com.limecore.workouttracker",
+    "com.oksigenia.oksigenia_sos",
+    "com.shezik.drawanywhere",
+    "in.sunilpaulmathew.ashell",
+    "io.github.luantak.fokuslauncher",
+    "net.liujiacai.flauth",
+    "net.retiolus.natinfo",
+    "org.framasoft.peertube",
+    "org.juanro.autumandu"
+   ]
+  },
+  "zip.empty_filename": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 0,
+   "benign_examples": []
+  },
+  "zip.encryption_flag_on_package": {
+   "benign_fired": 0,
+   "malicious_fired": 71,
+   "benign_examples": []
+  },
+  "zip.entry_sets_differ": {
+   "benign_fired": 0,
+   "malicious_fired": 0,
    "benign_examples": []
   },
   "zip.header_mismatch": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 40,
+   "benign_examples": []
+  },
+  "zip.oversized_filename": {
+   "benign_fired": 0,
+   "malicious_fired": 9,
+   "benign_examples": []
+  },
+  "zip.path_collisions": {
+   "benign_fired": 0,
+   "malicious_fired": 34,
    "benign_examples": []
   },
   "zip.unknown_compression_method": {
    "benign_fired": 0,
-   "malicious_fired": 1,
+   "malicious_fired": 36,
    "benign_examples": []
   }
- }
+ },
+ "notes": [
+  "Benign firing counts for 1 signal(s) were carried forward from the 31-app corpus measured 2026-09-18T11:14:41+00:00, because the apps that fired them are no longer on disk. See tools/merge_baselines.py."
+ ]
 }
