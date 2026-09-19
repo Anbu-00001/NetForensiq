@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
 Where does this app keep its logic — and did we actually read it?
 
@@ -106,6 +108,70 @@ def gaps(found, dex_bytes):
 PAYLOAD_DIRS = ('assets/', 'res/raw/')
 PAYLOAD_MAGIC = {b'PK\x03\x04': 'archive', b'dex\n': 'dex'}
 MAX_ENTRIES_CHECKED = 400
+
+
+# An opaque payload: a large entry whose bytes are indistinguishable from random.
+#
+# Measured on 19 Sep 2026, the design corpus: a DEX under 100 KB beside an entry of
+# at least 1 MB at entropy >= 7.99 fired on 38 of 200 malicious samples and on 0 of
+# 300 F-Droid apps — and the counts did not move across any threshold tried between
+# 7.98 and 7.99, 500 KB and 1 MB, or 100 KB and 200 KB of DEX, which is the reason
+# to trust it is describing a structure rather than a fitted cut.
+#
+# Deliberately NOT filtered by extension. The first version of this measurement
+# excluded .dat and .pak as "naturally compressed" and missed exactly the samples
+# it was looking for: the payloads were named dbliqgnjl.dat, core_profile.pak and
+# util_index.cache. A name is the payload's author's choice.
+#
+# The entropy window is the first 64 KB, the same window the measurement used. A
+# real compressed format also scores high, which is why this is only ever read
+# together with a stub-sized DEX (behaviours._encrypted_code_payload).
+OPAQUE_MIN_BYTES = 1_000_000
+OPAQUE_MIN_ENTROPY = 7.99
+OPAQUE_WINDOW = 65536
+OPAQUE_MAX_CHECKED = 64
+
+
+def _entropy(data):
+    if not data:
+        return 0.0
+    import math
+    from collections import Counter
+    n = len(data)
+    return -sum(c / n * math.log2(c / n) for c in Counter(data).values())
+
+
+def opaque_payloads(apk_path):
+    """
+    Large entries outside lib/ whose first 64 KB are statistically random.
+
+    Bounded twice: only entries of at least 1 MB are read, only their first 64 KB,
+    and at most OPAQUE_MAX_CHECKED of them — a package cannot make this read more
+    than 4 MB however it is built.
+    """
+    found = []
+    try:
+        archive = zipfile.ZipFile(apk_path)
+    except Exception:
+        return found
+    checked = 0
+    for info in archive.infolist():
+        if checked >= OPAQUE_MAX_CHECKED:
+            break
+        name = info.filename
+        if (info.is_dir() or info.file_size < OPAQUE_MIN_BYTES or name.startswith('lib/')
+                or (name.startswith('classes') and name.endswith('.dex'))):
+            continue
+        checked += 1
+        try:
+            with archive.open(info) as handle:
+                head = handle.read(OPAQUE_WINDOW)
+        except Exception:
+            continue
+        score = _entropy(head)
+        if score >= OPAQUE_MIN_ENTROPY:
+            found.append({'name': name, 'size': info.file_size, 'entropy': round(score, 4)})
+    return found
 
 
 def bundled_payloads(apk_path):

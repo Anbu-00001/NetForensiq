@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 from django.core.management.base import BaseCommand
 from capture.provenance import write_manifest, KIND_SYNTHETIC
 from capture.synthetic import build_mixed_capture, SCENARIOS, generate_benign

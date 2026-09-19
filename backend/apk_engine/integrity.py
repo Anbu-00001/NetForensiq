@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
 Was this package built to defeat analysis tools?
 
@@ -36,7 +38,11 @@ INDICATORS = {
         'Compression method field forged',
         'An entry declares a compression method that is neither stored (0) nor deflate (8). '
         'Android installs such packages regardless; general-purpose tools refuse the entry.',
-        ('zimperium-2023-compression', 'konfety-2025', 'apkinspector'),
+        # GhostBat forged this field the other way — declaring STORE for data that
+        # is deflated — which is the same indicator seen from the opposite side, and
+        # is why the rule tests "neither 0 nor 8" rather than a specific value.
+        ('zimperium-konfety-2025', 'cyble-ghostbat-2025', 'zimperium-2023-compression',
+         'konfety-2025', 'apkinspector'),
     ),
     'zip.header_mismatch': (
         'Local and central headers disagree',
@@ -64,7 +70,10 @@ INDICATORS = {
         'Encryption flag set on an unencrypted package',
         'General-purpose bit 0 is set, so tools treat the APK as password-protected, while '
         'Android ignores the flag and installs it.',
-        ('konfety-2025',),
+        # Primary source added 19 Sep 2026: this was carrying a news article alone,
+        # and it is the highest-coverage integrity indicator in the corpus
+        # (73 of 200 malicious samples, 0 of 300 legitimate ones).
+        ('zimperium-konfety-2025', 'konfety-2025'),
     ),
     'zip.oversized_filename': (
         'Entry name longer than Android accepts',

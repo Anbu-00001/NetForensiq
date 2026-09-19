@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
 Behaviour rules, against a stand-in code map.
 
@@ -7,6 +9,7 @@ matter most: they are the legitimate apps that hold one half of a rule — an ap
 store that installs packages, a firewall that routes everything into a VPN.
 """
 
+import os
 import unittest
 
 from apk_engine.behaviours import detect_behaviours, detect_capabilities
@@ -53,7 +56,8 @@ class FakeSite:
 class FakeCodeMap:
     """Answers the queries the detectors make, from a table the test writes."""
 
-    def __init__(self, calls=None, strings=None, libraries=()):
+    def __init__(self, calls=None, strings=None, libraries=(), dex_bytes=None):
+        self.dex_bytes = dex_bytes
         self.call_table = calls or {}
         self.string_table = strings or {}
         # (dotted prefix, library name) pairs, as CodeMap holds them.
@@ -240,3 +244,130 @@ class BehaviourTests(unittest.TestCase):
             self.assertTrue(rule['sources'], rule['id'])
             self.assertTrue(rule['lookalikes'], rule['id'])
             self.assertTrue(rule['attack'], rule['id'])
+
+
+ISODEP = ('Landroid/nfc/tech/IsoDep;', 'transceive')
+BLOB = {'name': 'assets/dbliqgnjl.dat', 'size': 5_531_000, 'entropy': 7.9991}
+
+
+def _perms(count):
+    return [{'name': f'android.permission.P{i}'} for i in range(count)]
+
+
+class NfcRelayTests(unittest.TestCase):
+    """CERT Polska (NGate) and Cleafy (SuperCard X): read the card, relay it, ask for little."""
+
+    def test_all_three_parts_are_needed(self):
+        few = dict(IDENTITY, permissions=_perms(4))
+        _c, beh = run(few, calls={ISODEP: [FakeSite()], NETWORK: [FakeSite()]})
+        self.assertIn('beh.nfc_card_relay', beh)
+        _c, beh = run(few, calls={ISODEP: [FakeSite()]})                  # no network
+        self.assertNotIn('beh.nfc_card_relay', beh)
+        _c, beh = run(few, calls={NETWORK: [FakeSite()]})                 # no card read
+        self.assertNotIn('beh.nfc_card_relay', beh)
+
+    def test_a_payment_terminal_with_a_full_permission_set_does_not_match(self):
+        # The one legitimate IsoDep + network app in the corpus declared 17.
+        terminal = dict(IDENTITY, permissions=_perms(17))
+        _c, beh = run(terminal, calls={ISODEP: [FakeSite()], NETWORK: [FakeSite()]})
+        self.assertNotIn('beh.nfc_card_relay', beh)
+
+    def test_threshold_is_inclusive_and_no_permissions_at_all_does_not_count(self):
+        from apk_engine.behaviours import MINIMAL_PERMISSIONS
+        caps, _ = run(dict(IDENTITY, permissions=_perms(MINIMAL_PERMISSIONS)))
+        self.assertTrue(caps['cap.minimal_permission_set']['present'])
+        caps, _ = run(dict(IDENTITY, permissions=_perms(MINIMAL_PERMISSIONS + 1)))
+        self.assertFalse(caps['cap.minimal_permission_set']['present'])
+        caps, _ = run(dict(IDENTITY, permissions=[]))
+        self.assertFalse(caps['cap.minimal_permission_set']['present'])
+
+    def test_a_library_reading_cards_is_not_the_app_reading_cards(self):
+        few = dict(IDENTITY, permissions=_perms(4))
+        _c, beh = run(few, calls={ISODEP: [FakeSite(kind='library')], NETWORK: [FakeSite()]})
+        self.assertNotIn('beh.nfc_card_relay', beh)
+
+
+class PackedPayloadTests(unittest.TestCase):
+    """Stub DEX beside an opaque payload — evasion evidence, tier 2, no PHA claim."""
+
+    def test_stub_dex_beside_a_random_blob_matches(self):
+        caps, beh = run(dict(IDENTITY, opaque_payloads=[BLOB]), dex_bytes=72_000)
+        self.assertTrue(caps['cap.encrypted_code_payload']['present'])
+        self.assertIn('beh.packed_code_payload', beh)
+        self.assertEqual(beh['beh.packed_code_payload']['tier'], 2)
+        self.assertIsNone(beh['beh.packed_code_payload']['pha'])
+
+    def test_a_full_sized_dex_is_an_app_not_a_loader(self):
+        caps, _ = run(dict(IDENTITY, opaque_payloads=[BLOB]), dex_bytes=3_400_000)
+        self.assertFalse(caps['cap.encrypted_code_payload']['present'])
+
+    def test_a_stub_dex_with_no_payload_is_not_packing(self):
+        caps, _ = run(dict(IDENTITY, opaque_payloads=[]), dex_bytes=15_000)
+        self.assertFalse(caps['cap.encrypted_code_payload']['present'])
+
+    def test_unknown_dex_size_never_matches(self):
+        caps, _ = run(dict(IDENTITY, opaque_payloads=[BLOB]))            # dex_bytes None
+        self.assertFalse(caps['cap.encrypted_code_payload']['present'])
+
+
+class OpaquePayloadScanTests(unittest.TestCase):
+    """frameworks.opaque_payloads on real ZIP bytes."""
+
+    def _apk(self, entries):
+        import tempfile, zipfile
+        handle = tempfile.NamedTemporaryFile(suffix='.apk', delete=False)
+        with zipfile.ZipFile(handle, 'w', zipfile.ZIP_STORED) as z:
+            for name, data in entries:
+                z.writestr(name, data)
+        self.addCleanup(__import__('os').unlink, handle.name)
+        return handle.name
+
+    def test_random_bytes_are_found_whatever_the_name(self):
+        from apk_engine import frameworks
+        path = self._apk([('assets/core_profile.pak', os.urandom(1_200_000)),
+                          ('assets/background.dat', b'\x00' * 1_200_000)])
+        found = [b['name'] for b in frameworks.opaque_payloads(path)]
+        self.assertEqual(found, ['assets/core_profile.pak'])
+
+    def test_native_libraries_and_small_entries_are_not_read(self):
+        from apk_engine import frameworks
+        path = self._apk([('lib/arm64-v8a/libx.so', os.urandom(1_200_000)),
+                          ('assets/small.bin', os.urandom(400_000))])
+        self.assertEqual(frameworks.opaque_payloads(path), [])
+
+    def test_a_corrupt_archive_yields_nothing_rather_than_raising(self):
+        from apk_engine import frameworks
+        path = self._apk([])
+        with open(path, 'wb') as fh:
+            fh.write(b'not a zip')
+        self.assertEqual(frameworks.opaque_payloads(path), [])
+
+
+
+class FrameworkAttributionTests(unittest.TestCase):
+    """
+    Framework bootstrap code is the framework's, not the developer's.
+
+    Regression for the first false positive the held-out benign set produced:
+    a Qt app whose only "runtime code loading" and "network use" were Qt's own
+    QtLoader and clipboard code, attributed to nobody and so counted as the app's.
+    """
+
+    def _codemap_with_known_namespaces(self):
+        from apk_engine.codemap import CodeMap, WELL_KNOWN_NAMESPACES
+        cm = CodeMap.__new__(CodeMap)
+        cm._libraries = sorted(WELL_KNOWN_NAMESPACES.items(), key=lambda p: -len(p[0]))
+        cm._app_prefixes = ('priv.wh201906.',)
+        cm.identity = {'package': 'priv.wh201906.serialtest'}
+        return cm
+
+    def test_qt5_and_qt6_bindings_are_attributed_to_qt(self):
+        cm = self._codemap_with_known_namespaces()
+        for cls in ('Lorg/qtproject/qt5/android/bindings/QtLoader;',
+                    'Lorg/qtproject/qt5/android/QtNative;',
+                    'Lorg/qtproject/qt/android/QtNative;'):
+            self.assertEqual(cm.attribute(cls)['kind'], 'library', cls)
+
+    def test_the_developer_s_own_code_is_still_the_app_s(self):
+        cm = self._codemap_with_known_namespaces()
+        self.assertEqual(cm.attribute('Lpriv/wh201906/serialtest/Main;')['kind'], 'app')

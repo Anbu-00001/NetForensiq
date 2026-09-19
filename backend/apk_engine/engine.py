@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
 One examination, start to finish.
 
@@ -132,6 +134,7 @@ def examine(apk_path, container_path=None, original_name='', baselines=None):
     if identity is not None:
         # Facts the capability detectors need that do not come from the manifest.
         identity['bundled_packages'] = frameworks.bundled_payloads(apk_path)
+        identity['opaque_payloads'] = frameworks.opaque_payloads(apk_path)
 
     examined_manifest = bool(identity and identity.get('package'))
     examined_code = False

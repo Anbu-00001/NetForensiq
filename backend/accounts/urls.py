@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import { Box, Typography, Tooltip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { usePosture } from '../../services/posture';

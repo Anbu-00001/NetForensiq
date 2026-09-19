@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 from django.core.management.base import BaseCommand, CommandError
 from capture.privileges import can_capture
 from capture.service import run_live_capture

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import { useRef, useState } from 'react';
 import {
   Box, Typography, Button, TextField, Alert, LinearProgress,

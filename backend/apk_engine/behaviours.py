@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
 Capabilities (what the code can do) and behaviours (documented combinations).
 
@@ -330,6 +332,78 @@ def _query_installed_apps(ctx):
     return evidence, lib
 
 
+def _contactless_card_read(ctx):
+    """
+    Exchanges APDUs with an ISO 14443-4 card through IsoDep.
+
+    IsoDep is the contactless smartcard technology — payment cards, transit
+    cards, identity documents. Plain NFC tags go through Ndef or NfcA, so an app
+    calling IsoDep.transceive is talking to a card rather than reading a sticker.
+    CERT Polska's analysis of NGate: "the phone behaves as a reader to a real
+    card tapped by the victim".
+    """
+    return _api(ctx, 'Landroid/nfc/tech/IsoDep;', 'transceive')
+
+
+# See _minimal_permission_set. The one fitted number in the NFC relay rule.
+MINIMAL_PERMISSIONS = 10
+
+
+def _minimal_permission_set(ctx):
+    """
+    Declares MINIMAL_PERMISSIONS or fewer permissions in total.
+
+    Neutral on its own — most small utilities qualify. It exists for one rule.
+    Cleafy describes SuperCard X's "focused functionality and consequent
+    minimalistic permission model", declaring "only the essential
+    android.permission.NFC permission"; CERT Polska found NGate declaring NFC,
+    INTERNET and ACCESS_NETWORK_STATE. A relay needs nothing else, and needing
+    nothing else is also how it avoids every permission-based check.
+
+    **The threshold is fitted, and says so.** In the design corpus the 24 relay
+    samples declared 4 to 9 permissions; the only legitimate app that both reads
+    contactless cards and uses the network — Swiss Bitcoin Pay, a payment
+    terminal — declares 17. Ten sits between them with room on the malicious
+    side, but it was chosen with both numbers in view, and a held-out set is what
+    tests whether it generalises.
+    """
+    declared = ctx.identity.get('permissions') or []
+    if not declared or len(declared) > MINIMAL_PERMISSIONS:
+        return [], 0
+    return [{'manifest': 'uses-permission', 'component': f'{len(declared)} declared in total'}], 0
+
+
+# A DEX this small cannot hold an app's logic; it can hold a loader.
+STUB_DEX_MAX_BYTES = 100_000
+
+
+def _encrypted_code_payload(ctx):
+    """
+    A stub-sized DEX beside a large entry that is statistically random.
+
+    The packing layout: a small loader in classes.dex whose job is to decrypt
+    the real code from somewhere else in the package at runtime. Zimperium on
+    Konfety: code "loaded at runtime from an encrypted asset bundled within the
+    APK. This encrypted file contains a secondary DEX". Duan et al. (NDSS 2018,
+    p.3): a packed app "packs its Java code as well as its native code ... into
+    binary resource files" and "still maintains a dummy Java component, which
+    acts solely as a dispatcher to launch the unpacking procedure".
+
+    What it proves is that the code the engine examined is not the code that
+    runs — evasion, not harm. Duan et al. also found that "both legitimate and
+    malicious apps are leveraging packing mechanisms", and commercially packed
+    legitimate apps are under-represented in an F-Droid corpus, where nothing is
+    packed. See frameworks.opaque_payloads for the measurement.
+    """
+    dex_bytes = getattr(ctx.codemap, 'dex_bytes', None)
+    blobs = ctx.identity.get('opaque_payloads') or []
+    if dex_bytes is None or dex_bytes >= STUB_DEX_MAX_BYTES or not blobs:
+        return [], 0
+    return [{'manifest': 'package entry',
+             'component': f"{b['name']} ({b['size']:,} bytes, entropy {b['entropy']}) "
+                           f"beside {dex_bytes:,} bytes of DEX"} for b in blobs[:3]], 0
+
+
 CAPABILITIES = [
     # (id, title, detector)
     ('cap.install_packages', 'Installs other packages', _install_packages),
@@ -358,6 +432,12 @@ CAPABILITIES = [
     ('cap.targets_pre_marshmallow', 'Targets API 22 or lower, below the runtime permission model',
      _targets_pre_marshmallow),
     ('cap.network_use', 'Uses networking APIs from its own code', _network_use),
+    ('cap.contactless_card_read', 'Exchanges APDUs with a contactless card (IsoDep)',
+     _contactless_card_read),
+    ('cap.minimal_permission_set', f'Declares {MINIMAL_PERMISSIONS} or fewer permissions',
+     _minimal_permission_set),
+    ('cap.encrypted_code_payload', 'Stub-sized DEX beside a large statistically random entry',
+     _encrypted_code_payload),
 ]
 
 
@@ -475,8 +555,16 @@ BEHAVIOURS = [
         'pha': 'hostile-downloader',
         'attack': ('T1407',),
         'sources': ('comcast-jackskid-2026', 'rescana-kimwolf-2026'),
+        # Measured 19 Sep 2026 against 201 F-Droid apps: fired on 4 legitimate apps
+        # (including K-9 Mail and AdAway) and 3 of 194 malicious. The conjunction is
+        # far less specific than the botnets it cites — those are defined by ADB on
+        # TCP/5555 and ELF payloads, which none of these three capabilities captures.
+        # The engine keeps it experimental, so it cannot raise a tier; the text below
+        # says what was measured rather than what was assumed when it was written.
         'lookalikes': ('Terminal emulators run shell commands, app stores install packages and '
-                       'many apps start at boot. Doing all three is the botnet dropper profile.'),
+                       'many apps start at boot — and some legitimate apps do all three: this '
+                       'fired on 4 of 201 F-Droid apps, including K-9 Mail and AdAway. It is '
+                       'context for an examiner, not evidence on its own.'),
     },
     {
         'id': 'beh.install_under_network_blackout',
@@ -549,6 +637,60 @@ BEHAVIOURS = [
         'attack': ('T1516', 'T1417.002'),
         'sources': ('cloak-and-dagger-2017', 'toxicpanda-2026'),
         'lookalikes': 'Automation and assistive apps combine the same APIs legitimately.',
+    },
+    # Added 19 Sep 2026. Both were measured on the design corpus before being
+    # written (research/154 §8): the relay rule matched 24 of 200 malicious
+    # samples, every one of them previously missed, and 0 of 300 F-Droid apps;
+    # the packing rule matched 38 and 0. Neither becomes evidence until the
+    # re-baseline validates it, and neither is claimed as a detection rate until
+    # the held-out corpus has been run.
+    {
+        'id': 'beh.nfc_card_relay',
+        'title': 'Reads contactless payment cards and relays them over the network',
+        'description': (
+            'The code exchanges APDUs with a contactless card through IsoDep, talks to the '
+            'network, and asks for almost nothing else. That is the NFC relay profile: the '
+            'victim taps their own card against their own phone and the malware forwards the '
+            'exchange to an attacker holding a second device at an ATM or payment terminal. '
+            'ESET documented NGate doing this with code from the NFCGate research tool; CERT '
+            'Polska found it relaying EMV data over a plain framed TCP protocol; Cleafy found '
+            'SuperCard X doing it over mTLS with a "minimalistic permission model" that avoids '
+            'the checks banking trojans trip. The transport varies between families, which is '
+            'why this requires network use rather than any one protocol.'),
+        'requires': ('cap.contactless_card_read', 'cap.network_use', 'cap.minimal_permission_set'),
+        'tier': 3,
+        'pha': 'spyware',
+        'attack': ('T1646',),
+        'sources': ('certpl-ngate-2025', 'cleafy-supercardx-2025'),
+        'lookalikes': ('Payment terminals, transit-card readers and identity-document scanners '
+                       'read contactless cards legitimately, and some use the network. The one '
+                       'such app in the evaluation corpus (a Bitcoin payment terminal) declares '
+                       '17 permissions; the relay samples declared 4 to 9. The permission '
+                       'threshold is what separates them, and it is the rule\'s weakest part.'),
+    },
+    {
+        'id': 'beh.packed_code_payload',
+        'title': 'Hides its code: a loader stub beside an encrypted payload',
+        'description': (
+            'The DEX is too small to be the application and sits beside a large entry whose '
+            'bytes are statistically random. That is the layout of a packer: the examined code '
+            'is a loader, and the code that runs is decrypted from the payload at runtime. '
+            'Zimperium documented Konfety loading "additional executable code ... at runtime '
+            'from an encrypted asset bundled within the APK"; Duan et al. describe a packed app '
+            'keeping "a dummy Java component, which acts solely as a dispatcher to launch the '
+            'unpacking procedure".'),
+        'requires': ('cap.encrypted_code_payload',),
+        # Tier 2 and no PHA category: this is evidence that the package conceals what it
+        # does from analysis, the same claim the integrity indicators make. It is not
+        # evidence of what the concealed code does.
+        'tier': 2,
+        'pha': None,
+        'attack': ('T1406',),
+        'sources': ('zimperium-konfety-2025', 'duan-ndss-2018'),
+        'lookalikes': ('Commercially packed legitimate apps — banking apps in particular — share '
+                       'this layout. Duan et al. found commercial packers "widely used by many '
+                       'developers to pack and protect their intellectual property", and the F-Droid corpus this was measured on contains no packed '
+                       'apps at all, so its zero benign firings overstate how clean this is.'),
     },
 ]
 

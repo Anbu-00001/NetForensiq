@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import { useEffect, useState } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
@@ -405,6 +407,24 @@ function LandingPage() {
         >
           NETFORENSIQ v{engine?.version ?? '—'}
         </Typography>
+        {/* Attribution comes from the engine, not from this file: the author is
+            written once, in backend/netforensiq_backend/provenance.py, and a
+            deployment shows whoever that says. */}
+        {engine?.provenance && (
+          <Typography
+            component="a"
+            href={engine.provenance.repository}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{
+              fontSize: 10.5, letterSpacing: 0.8, textDecoration: 'none',
+              fontFamily: "'JetBrains Mono', monospace", color: '#5A6068',
+              '&:hover': { color: '#111315' },
+            }}
+          >
+            © {engine.provenance.copyright.replace(/^Copyright \(c\) /, '')} · {engine.provenance.license}
+          </Typography>
+        )}
         <Box sx={{ flexGrow: 1 }} />
         <Typography
           sx={{

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
 Every published source a finding may cite, in one place.
 
@@ -73,6 +75,72 @@ SOURCES = {
         'title': 'Kimwolf botnet: Android TV box and IoT malware exploiting ADB on TCP/5555',
         'publisher': 'Rescana', 'date': '2026-01-06',
         'url': 'https://rescana.com/post/kimwolf-botnet-massive-android-tv-box-and-iot-malware-threat-exploiting-global-networks',
+        'verified': True,
+    },
+    # Added 19 Sep 2026, each opened and quoted directly rather than through a
+    # secondary report. The first two replace reliance on `konfety-2025`, which
+    # is a news article about the Zimperium work rather than the work itself;
+    # the integrity indicators these back are the ones the 19 Sep re-baseline
+    # activates, so they needed a primary source before being relied on.
+    'zimperium-konfety-2025': {
+        'title': 'Konfety Returns: Classic Mobile Threat with New Evasion Techniques — '
+                 '"The APK contains the bit 00 of the General Purpose Flags enabled. This '
+                 'causes some tools to incorrectly identify the APK (ZIP) as encrypted and '
+                 'subsequently request a password for decompression."',
+        'publisher': 'Zimperium zLabs', 'date': '2025-07-15',
+        'url': 'https://zimperium.com/blog/konfety-returns-classic-mobile-threat-with-new-evasion-techniques',
+        'verified': True,
+    },
+    'cyble-ghostbat-2025': {
+        'title': 'GhostBat RAT: Inside the Resurgence of RTO-Themed Android Malware — '
+                 '"modified the central directory and local file headers by altering the '
+                 'compression method value to \'STORE\', resulting in failed APK '
+                 'decompilation attempts"',
+        'publisher': 'Cyble', 'date': '2025-10-14',
+        'url': 'https://cyble.com/blog/ghostbat-rat-inside-the-resurgence-of-rto-themed-android-malware/',
+        'verified': True,
+    },
+    'zimperium-fantasyhub-2025': {
+        'title': 'Fantasy Hub: another Russian-based RAT as MaaS — "the SMS handler role '
+                 'unifies multiple powerful permissions such as Contacts, Camera, Files '
+                 'access into a single authorization step"',
+        'publisher': 'Zimperium zLabs', 'date': '2025-11-06',
+        'url': 'https://zimperium.com/blog/fantasy-hub-another-russian-based-rat-as-m-a-a-s',
+        'verified': True,
+    },
+    'certpl-ngate-2025': {
+        'title': 'Analysis of NGate malware campaign (NFC relay) — "the phone behaves as a '
+                 'reader to a real card tapped by the victim"; exfiltration over plain framed TCP',
+        'publisher': 'CERT Polska', 'date': '2025-11-03',
+        'url': 'https://cert.pl/en/posts/2025/11/analiza-ngate/',
+        'verified': True,
+    },
+    'cleafy-supercardx-2025': {
+        'title': 'SuperCard X: exposing a Chinese-speaker MaaS for NFC Relay fraud operation — '
+                 '"focused functionality and consequent minimalistic permission model"',
+        'publisher': 'Cleafy Labs', 'date': '2025-04-18',
+        'url': 'https://www.cleafy.com/cleafy-labs/supercardx-exposing-chinese-speaker-maas-for-nfc-relay-fraud-operation',
+        'verified': True,
+    },
+    'duan-ndss-2018': {
+        'title': 'Things You May Not Know About Android (Un)Packers: A Systematic Study based on '
+                 'Whole-System Emulation (Duan et al.)',
+        'publisher': 'NDSS Symposium 2018', 'date': '2018-02',
+        'url': 'https://www.ndss-symposium.org/wp-content/uploads/2018/02/ndss2018_04A-4_Duan_paper.pdf',
+        'verified': True,
+    },
+    'sms-default-handler-kitkat': {
+        'title': 'Getting Your SMS Apps Ready for KitKat — the four components an app must '
+                 'declare to be eligible as the default SMS handler',
+        'publisher': 'Android Developers Blog', 'date': '2013-10',
+        'url': 'https://android-developers.googleblog.com/2013/10/getting-your-sms-apps-ready-for-kitkat.html',
+        'verified': True,
+    },
+    'rfc9267': {
+        'title': 'RFC 9267 — Common Implementation Anti-Patterns Related to DNS Resource '
+                 'Record Processing',
+        'publisher': 'IETF (Independent Submission)', 'date': '2022-07',
+        'url': 'https://www.rfc-editor.org/rfc/rfc9267.html',
         'verified': True,
     },
     'zimperium-2023-compression': {
@@ -192,6 +260,7 @@ ATTACK = {
     'T1629.003': 'Impair Defenses: Disable or Modify Tools',
     'T1636.004': 'Protected User Data: SMS Messages',
     'T1513': 'Screen Capture',   # Mobile matrix, Collection — verified 19 Sep 2026
+    'T1646': 'Exfiltration Over C2 Channel',   # Mobile matrix, Exfiltration — verified 19 Sep 2026
 }
 
 

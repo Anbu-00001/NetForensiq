@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 from django.http import FileResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action

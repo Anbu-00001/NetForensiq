@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """
 The package's code, indexed so a finding can say *who* does something.
 
@@ -50,6 +52,16 @@ WELL_KNOWN_NAMESPACES = {
     'com.squareup.': 'Square libraries', 'io.reactivex.': 'RxJava', 'dagger.': 'Dagger',
     'org.apache.': 'Apache libraries', 'org.json.': 'JSON-java', 'org.bouncycastle.': 'Bouncy Castle',
     'org.chromium.': 'Chromium', 'io.flutter.': 'Flutter engine', 'com.facebook.react.': 'React Native',
+    # Qt for Android. Added 19 Sep 2026 after the held-out test put a legitimate
+    # F-Droid serial-port tool (priv.wh201906.serialtest) at tier 3: Qt's own
+    # QtLoader.loadApplication() calls DexClassLoader as its standard bootstrap,
+    # and QtNative's clipboard code calls Uri.parse, and with the namespace
+    # unknown both counted as the app's own — satisfying "loads code at runtime
+    # and talks to the network" without a line of the developer's code. The Qt 5
+    # bindings live at org.qtproject.qt5.android.bindings in qtbase's own tree
+    # (src/android/java/src/org/qtproject/qt5/android/bindings/QtLoader.java);
+    # Qt 6 moved them to org.qtproject.qt.android.
+    'org.qtproject.': 'Qt for Android (The Qt Company)',
 }
 
 # Framework and common-library entry points that take a host or URL.

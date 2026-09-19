@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """Django's command-line utility for administrative tasks."""
 import os
 import sys

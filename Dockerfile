@@ -51,6 +51,15 @@ RUN npm run build
 # ── stage 2: the runtime ──────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
 
+# Standard OCI annotations: `docker inspect` shows who made the image and where
+# its source lives, however it is re-tagged or mirrored. The values must match
+# backend/netforensiq_backend/provenance.py; capture/tests_provenance.py checks.
+LABEL org.opencontainers.image.title="NetForensiq" \
+      org.opencontainers.image.authors="Anbuchelvan Ganesan" \
+      org.opencontainers.image.source="https://github.com/Anbu-00001/NetForensiq" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.description="Offline network forensics and Android malware examination for police cybercrime investigation"
+
 # PYTHONUNBUFFERED so container logs appear as they happen rather than when a
 # buffer fills — the difference between watching an import and guessing at it.
 ENV PYTHONUNBUFFERED=1 \

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import { useState } from 'react';
 import { Box, Typography, TextField, Button, Alert, Grow } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';

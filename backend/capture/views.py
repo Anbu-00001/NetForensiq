@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 from collections import defaultdict
 
 from django.db.models import Count, F, Max, Q, Sum
@@ -1019,10 +1021,15 @@ def engine_info(request):
     version, not rule logic, thresholds or any data.
     """
     from .detection import INFORMATIONAL_THRESHOLDS, RULE_IDS, THRESHOLDS
+    from netforensiq_backend import provenance
     from netforensiq_backend.version import get_version
 
     return Response({
         'version': get_version(),
+        # Who made it and where the source lives, on every deployment. Public for
+        # the same reason as the rest of this endpoint: it is what the landing
+        # page shows before sign-in, and it is already in every source file.
+        'provenance': provenance.as_dict(),
         'rule_count': len(RULE_IDS),
         'threshold_count': len(THRESHOLDS),
         'heuristic_threshold_count': sum(

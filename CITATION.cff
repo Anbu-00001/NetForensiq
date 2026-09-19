@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use NetForensiq, or build on it, please cite it as below."
+title: "NetForensiq: network forensics and Android malware examination for police cybercrime investigation"
+authors:
+  - family-names: "Ganesan"
+    given-names: "Anbuchelvan"
+repository-code: "https://github.com/Anbu-00001/NetForensiq"
+url: "https://github.com/Anbu-00001/NetForensiq"
+license: MIT
+version: "1.0.0"
+date-released: "2026-09-19"
+keywords:
+  - network forensics
+  - pcap
+  - android malware
+  - digital forensics
+  - cybercrime
+  - law enforcement
+abstract: >-
+  Offline network-forensics and Android package examination for police
+  cybercrime units. Every verdict is tied to measured benign base rates and a
+  cited source, and every result states what was not examined. Built for
+  KANAD S.H.I.E.L.D. 2026 (Ahmedabad City Police).

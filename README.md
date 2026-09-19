@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-447_passing-1B6E3C?style=flat-square)](#-tests)
+[![Tests](https://img.shields.io/badge/tests-583_passing-1B6E3C?style=flat-square)](#-tests)
 [![Air-gapped](https://img.shields.io/badge/Runtime-air--gapped-1B6E3C?style=flat-square)](#-air-gapped-by-construction)
 [![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#-bsa-section-63-certificates)
 
@@ -524,7 +524,7 @@ The running container needs **no network**. Verified under `--network none`: a s
 ## 🧪 Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 564 backend tests
+docker exec netforensiq python manage.py test    # 583 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 ```
 
@@ -602,9 +602,23 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 
 ## 📄 License
 
-**MIT** — see [LICENSE](LICENSE). Third-party code and bundled reference data, with their licences and retrieval dates, are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+**MIT** — Copyright (c) 2026 Anbuchelvan Ganesan. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md). Third-party code and bundled reference data, with their licences and retrieval dates, are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-MIT is a deliberate choice, not a default: scapy (GPL-2.0-only) runs in the web process and androguard (Apache-2.0) runs in the APK engine, and those two licences cannot be combined in one program. MIT is compatible with both, and the engine runs as a **separate process** so the question never arises in the first place.
+NetForensiq is open on purpose: use it, fork it, build on it, commercially or not. The licence's one condition is that the copyright notice stays in every copy, and every source file carries it as a two-line SPDX header. If you build on this, say where it started — [NOTICE.md](NOTICE.md) has a one-line form of words, and GitHub's **Cite this repository** button uses [CITATION.cff](CITATION.cff).
+
+MIT is a deliberate choice, not a default: scapy (GPL-2.0-only) runs in the web process and androguard (Apache-2.0) runs in the APK engine, and those two licences cannot be combined in one program. MIT is compatible with both, and the engine runs as a **separate process** so the question never arises in the first place. It also rules out the stricter licences: a non-commercial or source-available licence adds restrictions GPL-2.0 forbids, and GPL-3.0/AGPL-3.0 are incompatible with GPL-2.0-only.
+
+### Authorship and provenance
+
+| | |
+|---|---|
+| [PROVENANCE/](PROVENANCE/) | SHA-256 manifest of every authored file, with an [OpenTimestamps](https://opentimestamps.org/) proof anchoring it to Bitcoin — verifiable by anyone, independent of this repository |
+| `scripts/provenance_check.py <dir-or-zip>` | Compares a suspected copy against NetForensiq by content: identical files, files whose licence header was stripped, renamed and edited files |
+| `scripts/add_spdx_headers.py --check` | Every source file carries the licence and copyright header |
+| `scripts/archive_github_traffic.py` | Keeps GitHub's clone/view/referrer counts beyond their 14-day window. GitHub reports counts, never identities; NetForensiq contains no tracking and never will |
+| `scripts/check_publish_safety.py` | Run before every push: refuses samples, captures, evidence, databases and secrets, detected by content not name |
+
+[RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) says how the tool is meant to be used; [SECURITY.md](SECURITY.md) says how to report a vulnerability privately.
 
 <div align="center">
 <sub>Reference captures from Netresec, malware-traffic-analysis.net and WRCCDC are used under their published terms and are marked <b>REFERENCE</b> — real traffic, never evidence.</sub>

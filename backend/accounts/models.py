@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.signals import post_init, post_save

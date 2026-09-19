@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import { Navigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser } from '../services/auth';
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import { useState } from 'react';
 import { Menu, MenuItem } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';

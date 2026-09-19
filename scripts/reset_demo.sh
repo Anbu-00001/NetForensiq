@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 #
 # One-Command Demo Reset Harness for NetForensiq
 # Use this script anytime before or during a live demonstration/presentation to ensure
