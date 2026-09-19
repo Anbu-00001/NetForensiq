@@ -1486,10 +1486,19 @@ def synthesise_corroboration(session, findings):
     return summaries
 
 
-@transaction.atomic
 def analyse_session(session, clear_existing=True, dispatch_alerts=True):
     """
     Run every rule over a completed capture and persist the findings.
+
+    **Rules run outside the write transaction.** They read flows and DNS
+    records and write nothing, and on a 223,000-flow capture they take about
+    43 seconds. This function used to be wrapped whole in `transaction.atomic`,
+    and Django is configured to BEGIN IMMEDIATE, so those 43 seconds were
+    43 seconds holding SQLite's single write lock while doing no writing —
+    long enough for an officer's sign-in to wait out its 30-second timeout and
+    fail (research/155 s.4.1). The findings are still written all-or-nothing:
+    the transaction now opens after the last rule has run and covers exactly
+    the writes.
 
     **Triage decisions survive re-analysis.** Re-running used to delete every
     rule-generated row and recreate it as NEW — which discarded triage_status,
@@ -1504,22 +1513,6 @@ def analyse_session(session, clear_existing=True, dispatch_alerts=True):
     thresholds change enough to alter the title, the finding is genuinely a
     different assertion and correctly arrives unreviewed.
     """
-    carried = {}
-    if clear_existing:
-        # Both methods are cleared, not just the rules: leaving the model's
-        # previous findings behind would accumulate a duplicate set on every
-        # re-run, and their triage decisions are carried forward the same way.
-        previous = session.detections.all()
-        for old_finding in previous:
-            if old_finding.triage_status != Detection.Triage.NEW:
-                carried[(old_finding.rule_id, old_finding.subject_ip, old_finding.title)] = {
-                    'triage_status': old_finding.triage_status,
-                    'reviewed_by_id': old_finding.reviewed_by_id,
-                    'reviewed_at': old_finding.reviewed_at,
-                    'review_note': old_finding.review_note,
-                }
-        previous.delete()
-
     findings = []
     for rule in RULES:
         findings.extend(rule(session))
@@ -1531,6 +1524,82 @@ def analyse_session(session, clear_existing=True, dispatch_alerts=True):
     # is capped at MEDIUM, so it never outranks a rule that cited a threshold.
     findings.extend(statistical_anomalies(session))
 
+    # bulk_create bypasses Model.save(), so the rank must be set here or
+    # every finding sorts as 0.
+    for finding in findings:
+        finding.severity_rank = SEVERITY_WEIGHT.get(finding.severity, 0)
+
+    restored, carried_count, per_flow = _write_findings(
+        session, findings, clear_existing)
+
+    by_severity = defaultdict(int)
+    by_rule = defaultdict(int)
+    for finding in findings:
+        by_severity[finding.severity] += 1
+        by_rule[finding.rule_id] += 1
+
+    # Push to whatever is listening, once the findings are on disk. After the
+    # write, so an alert never describes a finding that failed to persist; and
+    # after bulk_create rather than inside it, because a SIEM that is down must
+    # not roll back an analysis. Returns [] when no sink is configured, which
+    # is the default and is not an error.
+    # Live monitoring calls this every window and does its own dispatching, so
+    # that it can alert on findings that are new *since the last window* rather
+    # than re-announcing the same beacon every thirty seconds until someone
+    # mutes the channel.
+    from .alerting import dispatch
+
+    deliveries = (
+        [result.as_dict() for result in dispatch(findings, session=session)]
+        if dispatch_alerts else []
+    )
+
+    return {
+        'total': len(findings),
+        'triage_decisions_carried_forward': restored,
+        'triage_decisions_lost': max(carried_count - restored, 0),
+        'by_severity': dict(by_severity),
+        'by_rule': dict(by_rule),
+        'flows_flagged': len(per_flow),
+        # Reported to the caller so a failed push is visible where the analysis
+        # is read, rather than only in a log nobody opens.
+        'alerts': deliveries,
+    }
+
+
+@transaction.atomic
+def _write_findings(session, findings, clear_existing):
+    """
+    The only part of an analysis that writes, in one transaction.
+
+    Kept deliberately short. SQLite has one writer, Django opens transactions
+    with BEGIN IMMEDIATE, and everything else that writes — a sign-in, a
+    triage decision, an audit entry — waits behind whatever is open. The rules
+    that produced `findings` took about 43 seconds on a large capture and
+    wrote nothing; they now run before this is called.
+
+    Returns (restored, carried_count, per_flow).
+    """
+    carried = {}
+    if clear_existing:
+        # Both methods are cleared, not just the rules: leaving the model's
+        # previous findings behind would accumulate a duplicate set on every
+        # re-run, and their triage decisions are carried forward the same way.
+        #
+        # Read inside this transaction rather than before the rules ran, so a
+        # decision recorded by an investigator while the rules were running is
+        # carried forward rather than deleted.
+        previous = session.detections.all()
+        for old_finding in previous:
+            if old_finding.triage_status != Detection.Triage.NEW:
+                carried[(old_finding.rule_id, old_finding.subject_ip, old_finding.title)] = {
+                    'triage_status': old_finding.triage_status,
+                    'reviewed_by_id': old_finding.reviewed_by_id,
+                    'reviewed_at': old_finding.reviewed_at,
+                    'review_note': old_finding.review_note,
+                }
+        previous.delete()
+
     # Restore analyst decisions before the rows are written.
     restored = 0
     for finding in findings:
@@ -1539,11 +1608,6 @@ def analyse_session(session, clear_existing=True, dispatch_alerts=True):
             for field, value in prior.items():
                 setattr(finding, field, value)
             restored += 1
-
-    # bulk_create bypasses Model.save(), so the rank must be set here or
-    # every finding sorts as 0.
-    for finding in findings:
-        finding.severity_rank = SEVERITY_WEIGHT.get(finding.severity, 0)
 
     Detection.objects.bulk_create(findings, batch_size=500)
 
@@ -1577,36 +1641,4 @@ def analyse_session(session, clear_existing=True, dispatch_alerts=True):
         for start in range(0, len(flow_ids), 900):
             Flow.objects.filter(pk__in=flow_ids[start:start + 900]).update(risk_score=score)
 
-    by_severity = defaultdict(int)
-    by_rule = defaultdict(int)
-    for finding in findings:
-        by_severity[finding.severity] += 1
-        by_rule[finding.rule_id] += 1
-
-    # Push to whatever is listening, once the findings are on disk. After the
-    # write, so an alert never describes a finding that failed to persist; and
-    # after bulk_create rather than inside it, because a SIEM that is down must
-    # not roll back an analysis. Returns [] when no sink is configured, which
-    # is the default and is not an error.
-    # Live monitoring calls this every window and does its own dispatching, so
-    # that it can alert on findings that are new *since the last window* rather
-    # than re-announcing the same beacon every thirty seconds until someone
-    # mutes the channel.
-    from .alerting import dispatch
-
-    deliveries = (
-        [result.as_dict() for result in dispatch(findings, session=session)]
-        if dispatch_alerts else []
-    )
-
-    return {
-        'total': len(findings),
-        'triage_decisions_carried_forward': restored,
-        'triage_decisions_lost': max(len(carried) - restored, 0),
-        'by_severity': dict(by_severity),
-        'by_rule': dict(by_rule),
-        'flows_flagged': len(per_flow),
-        # Reported to the caller so a failed push is visible where the analysis
-        # is read, rather than only in a log nobody opens.
-        'alerts': deliveries,
-    }
+    return restored, len(carried), per_flow

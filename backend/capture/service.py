@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
+import os
 import time
 from datetime import datetime, timezone as dt_timezone
 
@@ -26,49 +27,146 @@ def _utc(ts):
     return datetime.fromtimestamp(ts, tz=dt_timezone.utc) if ts else None
 
 
+# How many flow rows go into one database transaction.
+#
+# The figure is not about insert throughput, which barely moves across two
+# orders of magnitude here. It is about how long the write lock is held:
+# SQLite allows "only one writer at a time" (sqlite.org/wal.html s.2.2), and
+# Django is configured to BEGIN IMMEDIATE, so a transaction takes that lock
+# when it opens and holds it until it commits. Everything else that writes —
+# an officer signing in, a triage decision, the audit log — waits behind it,
+# and gives up after SQLITE_TIMEOUT seconds.
+#
+# Importing a 500,000-packet capture in one transaction held the lock for
+# about 100 seconds and a sign-in during it failed with HTTP 500 after 42.4 s
+# (research/155 s.4.1). 2,000 rows is roughly 0.1 s of lock, so a waiting
+# writer gets in within the 30 s timeout many times over.
+PERSIST_BATCH_FLOWS = 2000
+
+# How often the reader stops to write out what can no longer change.
+#
+# Counted in packets rather than seconds so that the same file always produces
+# the same batches: a capture re-imported on a busier machine must yield the
+# same rows, and a wall-clock cadence would not.
+TICK_PACKETS = 50_000
+
+# A capture file's bytes that are not frame bytes: per-packet record headers
+# and the file header. Used only to estimate how far through a file an import
+# has read — see `_progress_bytes`.
+PCAP_RECORD_HEADER_BYTES = 16
+PCAP_FILE_HEADER_BYTES = 24
+
+
+def _flow_model(session, record):
+    """One in-memory flow record as an unsaved Flow row, and its uid."""
+    record = dict(record)
+    # Flows are identified by a unique id, not by 5-tuple: with idle
+    # timeouts one tuple can produce many flows, and keying by tuple would
+    # attach every DNS record to whichever of them happened to be last.
+    uid = record.pop('_uid')
+    record.pop('_timestamps', None)          # timing already reduced to features
+    return uid, Flow(session=session, **record)
+
+
+@transaction.atomic
+def write_flow_batch(session, records, dns_uids, flow_ids):
+    """
+    Write one batch of flows, in one short transaction.
+
+    `flow_ids` is filled in for the flows that carried a DNS query, and only
+    those: their primary keys are needed at the end to link DNS records, and
+    remembering every key would put the table back in memory that writing in
+    batches exists to get out of it.
+    """
+    uids, objects = [], []
+    for record in records:
+        uid, flow = _flow_model(session, record)
+        uids.append(uid)
+        objects.append(flow)
+
+    created = Flow.objects.bulk_create(objects, batch_size=500)
+    for uid, flow in zip(uids, created):
+        if uid in dns_uids:
+            flow_ids[uid] = flow.pk
+    return len(created)
+
+
+def write_dns_records(session, dns_records, flow_ids, batch=PERSIST_BATCH_FLOWS):
+    """Write the DNS records, linked to the flows that carried them."""
+    written = 0
+    for start in range(0, len(dns_records), batch):
+        objects = []
+        for rec in dns_records[start:start + batch]:
+            record = dict(rec)
+            uid = record.pop('flow_uid', None)
+            objects.append(DNSRecord(
+                session=session, flow_id=flow_ids.get(uid), **record))
+        with transaction.atomic():
+            DNSRecord.objects.bulk_create(objects, batch_size=500)
+        written += len(objects)
+    return written
+
+
 @transaction.atomic
 def persist_results(session, flows, dns_records, aggregator):
-    """Write aggregated flows and DNS records into the database in bulk."""
+    """
+    Write aggregated flows and DNS records into the database in bulk.
 
-    flow_objects = []
-    key_to_index = {}
+    The whole-session path, used by live capture: a window's worth of flows is
+    small, it is replaced wholesale every window, and one transaction is the
+    right shape for that. The import path writes in batches as it reads —
+    see `_import_from`.
+    """
+    flow_ids = {}
+    dns_uids = aggregator.dns_flow_uids
+    flow_count = 0
+    for start in range(0, len(flows), PERSIST_BATCH_FLOWS):
+        flow_count += write_flow_batch(
+            session, flows[start:start + PERSIST_BATCH_FLOWS], dns_uids, flow_ids)
 
-    for idx, f in enumerate(flows):
-        record = dict(f)
-        # Flows are identified by a unique id, not by 5-tuple: with idle
-        # timeouts one tuple can produce many flows, and keying by tuple would
-        # attach every DNS record to whichever of them happened to be last.
-        uid = record.pop('_uid')
-        record.pop('_timestamps', None)          # timing already reduced to features
-        key_to_index[uid] = idx
-        flow_objects.append(Flow(session=session, **record))
+    dns_count = write_dns_records(session, dns_records, flow_ids)
+    record_totals(session, aggregator, flow_count)
+    return flow_count, dns_count
 
-    created_flows = Flow.objects.bulk_create(flow_objects, batch_size=500)
 
-    dns_objects = []
-    for rec in dns_records:
-        record = dict(rec)
-        fkey = record.pop('flow_uid', None)
-        linked_flow = None
-        if fkey is not None and fkey in key_to_index:
-            linked_flow = created_flows[key_to_index[fkey]]
-        dns_objects.append(DNSRecord(session=session, flow=linked_flow, **record))
+def record_totals(session, aggregator, flow_count, finished=True):
+    """
+    Record what was read. With `finished`, also mark the session complete.
 
-    DNSRecord.objects.bulk_create(dns_objects, batch_size=500)
-
+    The import passes `finished=False` and marks it complete only once the
+    rules have run. Found while measuring the background import: the session
+    was marked COMPLETED the moment the flows were written, so for the 43
+    seconds detection then took, a 500,000-packet capture was on screen as a
+    *finished* analysis with zero findings — indistinguishable from a capture
+    in which nothing was found. That is the exact false reassurance
+    `_analyse_after_ingest` exists to prevent, produced one step earlier.
+    """
     session.packet_count = aggregator.total_packets
     session.byte_count = aggregator.total_bytes
-    session.flow_count = len(created_flows)
+    session.flow_count = flow_count
     session.capture_start = _utc(aggregator.first_packet_time)
     session.capture_end = _utc(aggregator.last_packet_time)
+    # Named fields, not the whole row. The import reports its progress with
+    # UPDATE statements while this object is held in memory, so a full save()
+    # here writes back the progress figures as they were before the import
+    # started and erases every report it made.
+    fields = ['packet_count', 'byte_count', 'flow_count', 'capture_start',
+              'capture_end']
+    if finished:
+        session.ended_at = timezone.now()
+        session.state = CaptureSession.State.COMPLETED
+        fields += ['ended_at', 'state']
+    session.save(update_fields=fields)
+
+
+def mark_completed(session):
+    """The session is analysed, and only now says so."""
     session.ended_at = timezone.now()
     session.state = CaptureSession.State.COMPLETED
-    session.save()
-
-    return len(created_flows), len(dns_objects)
+    session.save(update_fields=['ended_at', 'state'])
 
 
-def _read_into(aggregator, path):
+def _read_into(aggregator, path, on_tick=None):
     """
     Feed every packet in a capture file to the aggregator.
 
@@ -90,18 +188,29 @@ def _read_into(aggregator, path):
     parsed by each reader would be a file whose findings depend on which
     packets happened to be readable, and that is not a property anyone can
     testify to.
+
+    `on_tick`, if given, is called every TICK_PACKETS packets. The import path
+    uses it to write out the flows that can no longer change and to report how
+    far it has got; nothing in the reading itself depends on it.
     """
     linktype = fastparse.linktype_of(path)
+    tick_at = TICK_PACKETS if on_tick else 0
 
     if linktype is not None and fastparse.supports(linktype):
         process_frame = aggregator.process_frame
         for data, timestamp, frame_linktype in fastparse.iter_frames(path):
             process_frame(data, timestamp, frame_linktype)
+            if tick_at and aggregator.total_packets >= tick_at:
+                on_tick()
+                tick_at = aggregator.total_packets + TICK_PACKETS
         return
 
     with PcapReader(str(path)) as reader:
         for pkt in reader:
             aggregator.process(pkt)
+            if tick_at and aggregator.total_packets >= tick_at:
+                on_tick()
+                tick_at = aggregator.total_packets + TICK_PACKETS
 
 
 def _analyse_after_ingest(session):
@@ -350,12 +459,21 @@ def run_pcap_import(pcap_path, name=None, user=None, session=None, home_net='',
                             evidence)
 
 
-def _import_from(plaintext_path, recorded_path, name, user, session, home_net,
-                 evidence):
-    # `recorded_path` is what goes in the session record: the exhibit's place
-    # in the evidence store, not the temporary file it was decrypted into,
-    # which will not exist by the time anyone reads the session back.
-    session = session or CaptureSession.objects.create(
+def create_import_session(recorded_path, name=None, user=None, home_net='',
+                          evidence=None):
+    """
+    The session row for an import that has not been read yet.
+
+    Split out so that the browser upload can create it, commit, and hand the
+    id to a separate process (`capture.importer`) — the row has to exist and
+    be visible to another connection before that process can report against
+    it.
+
+    `recorded_path` is what goes in the session record: the exhibit's place in
+    the evidence store, not the temporary file it may be decrypted into, which
+    will not exist by the time anyone reads the session back.
+    """
+    return CaptureSession.objects.create(
         name=name or f"PCAP import {timezone.now():%Y-%m-%d %H:%M:%S}",
         source_type=CaptureSession.Source.PCAP,
         pcap_filename=str(recorded_path),
@@ -365,15 +483,106 @@ def _import_from(plaintext_path, recorded_path, name, user, session, home_net,
         evidence=evidence,
     )
 
+
+def _import_from(plaintext_path, recorded_path, name, user, session, home_net,
+                 evidence):
+    session = session or create_import_session(
+        recorded_path, name=name, user=user, home_net=home_net, evidence=evidence)
+
     aggregator = FlowAggregator()
+    progress = _Progress(session, aggregator, plaintext_path)
+    written = {'flows': 0}
+    flow_ids = {}
+
+    def tick():
+        """Write out what can no longer change, and say how far we have got."""
+        written['flows'] += _write_drained(session, aggregator, flow_ids)
+        progress.report(CaptureSession.Stage.READING, written['flows'])
 
     try:
-        _read_into(aggregator, plaintext_path)
+        _read_into(aggregator, plaintext_path, on_tick=tick)
+        written['flows'] += _write_drained(session, aggregator, flow_ids, force=True)
+        dns_count = write_dns_records(session, aggregator.dns_output(), flow_ids)
     except Exception as exc:
         _fail(session, exc)
         raise
 
-    flows, dns_records = aggregator.finalize()
-    counts = persist_results(session, flows, dns_records, aggregator)
+    # The totals are recorded now — they are true now — but the session is
+    # not called finished until the rules have run. See `record_totals`.
+    record_totals(session, aggregator, written['flows'], finished=False)
+    progress.report(CaptureSession.Stage.ANALYSING, written['flows'])
     _analyse_after_ingest(session)
-    return session, counts
+    mark_completed(session)
+    progress.finished()
+    return session, (written['flows'], dns_count)
+
+
+def _write_drained(session, aggregator, flow_ids, force=False):
+    """Persist every flow the aggregator can let go of, a batch per transaction."""
+    records = aggregator.drain(force=force)
+    written = 0
+    for start in range(0, len(records), PERSIST_BATCH_FLOWS):
+        written += write_flow_batch(
+            session, records[start:start + PERSIST_BATCH_FLOWS],
+            aggregator.dns_flow_uids, flow_ids)
+    return written
+
+
+class _Progress:
+    """
+    What the Import page reads while an import is running.
+
+    Why this is on the session row
+    ==============================
+    The import runs in a process of its own (`importer.py`), so the figures
+    have to cross a process boundary to reach the browser. There is already a
+    database; `capture.monitor` crossed the same boundary the same way, for
+    the same reason — no broker, nothing extra to install on a machine with no
+    network.
+
+    Written with `.update()` rather than `save()`: it is one small UPDATE that
+    must not overwrite anything else on the row, and it happens between flow
+    batches, in its own transaction, so it never extends the lock the batch
+    holds.
+    """
+
+    def __init__(self, session, aggregator, path):
+        self.session = session
+        self.aggregator = aggregator
+        try:
+            self.total_bytes = os.path.getsize(path)
+        except OSError:
+            self.total_bytes = 0
+
+    def _read_estimate(self):
+        """
+        Roughly how many bytes of the file have been read.
+
+        Frame bytes plus a per-packet record header, which is exact for
+        classic pcap and an underestimate for pcapng, whose block headers and
+        padding are larger. So the figure can lag reality and never runs
+        ahead of it: an import reaches 100% early rather than appearing to
+        stall at 99%. It is a progress bar, and it is labelled as an estimate
+        wherever it is shown.
+        """
+        return (PCAP_FILE_HEADER_BYTES + self.aggregator.total_bytes
+                + PCAP_RECORD_HEADER_BYTES * self.aggregator.total_packets)
+
+    def report(self, stage, flows_written):
+        CaptureSession.objects.filter(pk=self.session.pk).update(
+            progress_stage=stage,
+            progress_packets=self.aggregator.total_packets,
+            progress_flows=flows_written,
+            progress_bytes_read=min(self._read_estimate(), self.total_bytes)
+            if self.total_bytes else self._read_estimate(),
+            progress_total_bytes=self.total_bytes,
+            progress_updated_at=timezone.now(),
+        )
+
+    def finished(self):
+        CaptureSession.objects.filter(pk=self.session.pk).update(
+            progress_stage=CaptureSession.Stage.DONE,
+            progress_packets=self.aggregator.total_packets,
+            progress_bytes_read=self.total_bytes or self._read_estimate(),
+            progress_updated_at=timezone.now(),
+        )

@@ -17,6 +17,13 @@ class CaptureSession(models.Model):
         COMPLETED = 'completed', 'Completed'
         FAILED = 'failed', 'Failed'
 
+    class Stage(models.TextChoices):
+        """Which part of an import is running now. See the progress fields."""
+
+        READING = 'reading', 'Reading packets'
+        ANALYSING = 'analysing', 'Running detection rules'
+        DONE = 'done', 'Finished'
+
     name = models.CharField(max_length=150)
     source_type = models.CharField(max_length=10, choices=Source.choices)
     interface = models.CharField(max_length=200, blank=True)
@@ -72,6 +79,31 @@ class CaptureSession(models.Model):
         on_delete=models.SET_NULL, related_name='capture_sessions',
     )
     error_message = models.TextField(blank=True)
+
+    # How far an import has got, written by the process doing the work.
+    #
+    # An import used to happen inside the HTTP request that uploaded the file,
+    # so the only progress report was the browser still spinning. On a real
+    # 46 MB capture that was 102 seconds of nothing, and at the hackathon it
+    # was a page that "kept loading and never finished" with no way to tell a
+    # working import from a dead one (research/155 s.4.2).
+    #
+    # These fields are that missing report. They describe the *processing* run
+    # and carry no forensic weight: nothing here is evidence about the
+    # traffic, so an import interrupted halfway leaves stale numbers that the
+    # API marks as stale rather than trusting.
+    progress_stage = models.CharField(max_length=12, blank=True)
+    progress_packets = models.BigIntegerField(default=0)
+    progress_flows = models.IntegerField(default=0)
+    # An estimate. See service._Progress._read_estimate for how it is derived
+    # and why it can lag the true position.
+    progress_bytes_read = models.BigIntegerField(default=0)
+    progress_total_bytes = models.BigIntegerField(default=0)
+    # The heartbeat. A running session whose last report is older than
+    # STALE_AFTER_SECONDS is one whose worker is gone — killed, crashed, or
+    # restarted under it — and the API says so instead of reporting an import
+    # that will never finish as still in progress.
+    progress_updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-started_at']

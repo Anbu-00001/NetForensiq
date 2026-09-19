@@ -19,6 +19,13 @@ import api from './api';
 export const uploadCapture = (formData) =>
   api.post('/capture/upload/', formData, { timeout: 0 }).then((r) => r.data);
 
+// How far an import has got. The upload now answers as soon as the exhibit is
+// sealed and the reading of the capture continues in a process of its own, so
+// this is what the Import page watches instead of holding a request open for
+// the whole analysis (see backend/capture/importer.py).
+export const captureProgress = (id) =>
+  api.get(`/sessions/${id}/progress/`).then((r) => r.data);
+
 export const listSessions = () =>
   api.get('/sessions/').then((r) => r.data);
 

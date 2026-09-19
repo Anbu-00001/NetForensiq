@@ -1203,13 +1203,29 @@ class CaptureUploadTests(TestCase):
 
     def test_an_officer_can_take_a_capture_into_evidence(self):
         response = self._post(self.officer, {'case_reference': 'CR/2026/9'})
-        self.assertEqual(response.status_code, 201, response.data)
+        # 202, not 201: the exhibit is sealed and in custody, and the reading
+        # of it has been handed to capture.importer.
+        self.assertEqual(response.status_code, 202, response.data)
         body = response.data
         self.assertEqual(len(body['sha256']), 64)
         self.assertEqual(body['provenance'], 'seized')
         self.assertFalse(body['is_demonstration_only'])
         # Sealed before it was read: acquisition and hashing come first.
         self.assertGreaterEqual(body['custody_events'], 2)
+        self.assertEqual(
+            body['progress_url'],
+            f"/api/sessions/{body['session_id']}/progress/")
+
+    def test_the_upload_answers_before_it_promises_any_finding(self):
+        """
+        The response says what is true at the moment it is sent: an exhibit
+        exists. It must not carry packet or flow counts, because a zero there
+        would read as "this capture contained nothing" while the capture has
+        not been read at all.
+        """
+        body = self._post(self.officer).data
+        for absent in ('packets', 'flows', 'dns_records', 'bytes'):
+            self.assertNotIn(absent, body)
 
     def test_a_read_only_account_cannot_upload(self):
         self.assertEqual(self._post(self.viewer).status_code, 403)
@@ -1248,7 +1264,7 @@ class CaptureUploadTests(TestCase):
 
     def test_a_declared_demonstration_stays_a_demonstration(self):
         response = self._post(self.officer, {'provenance': 'synthetic'})
-        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.status_code, 202, response.data)
         self.assertTrue(response.data['is_demonstration_only'])
 
     def test_the_upload_is_attributed_to_the_officer(self):

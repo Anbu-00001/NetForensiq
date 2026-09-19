@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from django.db.models import Count, F, Max, Q, Sum
 from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from rest_framework import status, viewsets
@@ -11,7 +12,7 @@ from rest_framework.decorators import (
     action, api_view, permission_classes, throttle_classes,
 )
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 
@@ -24,6 +25,7 @@ from evidence.crypto import EvidenceDecryptionError
 from evidence.models import CustodyEvent as EvidenceCustodyEvent
 from evidence.service import record_custody
 
+from . import importer
 from .detection import (
     INFORMATIONAL_THRESHOLDS, THRESHOLDS, analyse_session, describe_home_net,
     is_internal, session_home_networks,
@@ -57,6 +59,26 @@ class CaptureSessionViewSet(viewsets.ReadOnlyModelViewSet):
             .annotate(detection_count=Count('detections', distinct=True))
             .select_related('started_by')
         )
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def progress(self, request, pk=None):
+        """
+        How far this session's import has got.
+
+        Polled by the Import page while a capture is being read. Deliberately
+        cheap — one row, no joins, no counting — because it is asked for every
+        couple of seconds and must never become a reason the import is slow.
+
+        A session whose worker has stopped reporting is recorded as failed
+        here, at the moment it is noticed, rather than being shown as running
+        for ever (`importer.STALE_AFTER_SECONDS`).
+        """
+        session = get_object_or_404(CaptureSession, pk=pk)
+        state = importer.progress_of(session)
+        if state['stale']:
+            importer.abandon_stale(session)
+            state = importer.progress_of(session)
+        return Response(state)
 
     @action(detail=True, methods=['post'])
     def analyse(self, request, pk=None):

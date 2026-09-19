@@ -59,6 +59,16 @@ ENTROPY_SAMPLE_BYTES = 512
 # anything not listed, matching its UDP/ICMP choice.
 IDLE_TIMEOUT_SECONDS = {'TCP': 300.0, 'UDP': 60.0, 'ICMP': 60.0}
 DEFAULT_IDLE_TIMEOUT = 60.0
+
+# How much further past its timeout a flow is kept before `drain` writes it
+# out and frees the memory. See FlowAggregator.drain for what it protects
+# against; `max_reordering` is the measurement that says whether it is enough.
+#
+# Five minutes of *capture* time, matching the longest timeout above. A packet
+# arriving that far behind the newest one already read is not late delivery —
+# it is two captures merged out of order, and `tests_streaming.py` fails
+# loudly on such a file rather than quietly analysing it differently.
+STREAM_MARGIN_SECONDS = 300.0
 # The citation for these values is published once — as SRC_ZEEK_IDLE in
 # detection.py, which reads IDLE_TIMEOUT_SECONDS from here and surfaces both
 # through /api/detections/thresholds/. A second copy of the same source string
@@ -148,10 +158,26 @@ class FlowAggregator:
         self.dns_records = []
         # (client_ip, transaction_id, qname) -> addresses seen in the reply
         self._dns_answers = {}
+        # Flows that carried a DNS query. `drain` hands flows to the database
+        # in batches, and a DNS record is linked to its flow by primary key —
+        # so the caller has to remember the key of every flow a record will
+        # point at. Remembering all of them would be a second table the size
+        # of the first; this is the few thousand that are actually referenced.
+        self.dns_flow_uids = set()
         self.total_packets = 0
         self.total_bytes = 0
         self.first_packet_time = None
         self.last_packet_time = None
+        # The largest step *backwards* in capture time seen so far.
+        #
+        # Every timeout in this module is a statement about the gap between a
+        # packet and the newest one seen, so a capture whose packets are badly
+        # out of order is the one case where writing flows out early could
+        # decide differently from reading the whole file first. It is measured
+        # rather than assumed: `drain` keeps flows for STREAM_MARGIN_SECONDS
+        # past their timeout, and the equivalence test checks this figure
+        # against that margin instead of trusting that captures are ordered.
+        self.max_reordering = 0.0
 
     # ── ingestion ────────────────────────────────────────────────────────
 
@@ -236,8 +262,13 @@ class FlowAggregator:
 
         if self.first_packet_time is None or now < self.first_packet_time:
             self.first_packet_time = now
-        if self.last_packet_time is None or now > self.last_packet_time:
+        if self.last_packet_time is None:
             self.last_packet_time = now
+        elif now > self.last_packet_time:
+            self.last_packet_time = now
+        else:
+            # This packet is older than one already read. See `max_reordering`.
+            self.max_reordering = max(self.max_reordering, self.last_packet_time - now)
 
         key = flow_key(src_ip, dst_ip, sport, dport, protocol)
 
@@ -468,6 +499,7 @@ class FlowAggregator:
 
         qtype = dns.qtype
 
+        self.dns_flow_uids.add(f['_uid'])
         self.dns_records.append({
             '_answer_key': (src_ip, int(dns.id), qname.rstrip('.').lower()),
             'src_ip': src_ip,
@@ -550,50 +582,123 @@ class FlowAggregator:
 
         Read-only with respect to the aggregator, which is what lets live
         capture call it repeatedly on a session that is still growing.
+
+        `drain` is the destructive counterpart, for the import path. The two
+        are not meant to be mixed on one aggregator: drained flows are gone
+        from memory, so a finalize() afterwards describes only what is left.
         """
         with self._lock:
             return self._finalize()
 
-    def _finalize(self):
-        results = []
-        # Flows retired mid-capture plus those still open at the end.
-        for f in [*self.completed, *self.flows.values()]:
-            metrics = compute_flow_metrics(f)
-            results.append({
-                'src_ip': f['src_ip'],
-                'dst_ip': f['dst_ip'],
-                'src_port': f['src_port'],
-                'dst_port': f['dst_port'],
-                'protocol': f['protocol'],
-                'initiator_ip': f['initiator_ip'],
-                'initiator_port': f['initiator_port'],
-                'initiator_confirmed': f['initiator_confirmed'],
-                'packets_sent': f['packets_sent'],
-                'packets_received': f['packets_received'],
-                'bytes_sent': f['bytes_sent'],
-                'bytes_received': f['bytes_received'],
-                'first_seen': datetime.fromtimestamp(f['first_seen'], tz=dt_timezone.utc),
-                'last_seen': datetime.fromtimestamp(f['last_seen'], tz=dt_timezone.utc),
-                'unique_dst_ports': len(f['dst_ports']),
-                'tcp_flags_seen': ''.join(sorted(f['tcp_flags'])),
-                'app_protocol': f['app_protocol'],
-                'app_protocol_source': f['app_protocol_source'],
-                'dns_query_count': f['dns_query_count'],
-                'longest_dns_label': f['longest_dns_label'],
-                'max_dns_entropy': round(f['max_dns_entropy'], 4),
-                'http_host': f['http_host'],
-                'tls_sni': f['tls_sni'],
-                'ja4_fingerprint': f['ja4_fingerprint'],
-                'ja4_raw': f['ja4_raw'],
-                '_uid': f['_uid'],
-                '_timestamps': f['timestamps'],
-                **metrics,
-            })
-        # Attach the answers to the queries they belong to. Done here rather
-        # than during the stream because a reply is only seen after its query
-        # record already exists.
-        for record in self.dns_records:
-            addresses = self._dns_answers.get(record.pop('_answer_key'), [])
-            record['response_ip'] = ', '.join(addresses)[:255]
+    def drain(self, force=False):
+        """
+        Flow records that can no longer change, **removed** from memory.
 
-        return results, self.dns_records
+        Why a capture is written out in pieces
+        --------------------------------------
+        Holding every flow until the last packet is read means holding the
+        whole capture: a 209 MB file of scan traffic produced 940,733 flows,
+        about 5.4 GB, and the import died. Nothing here is buffered for its
+        own sake — it is buffered because a flow that is still open might
+        still change. Once it cannot, there is no reason to keep it.
+
+        What "can no longer change" means
+        ---------------------------------
+        Two groups:
+
+        * flows already retired onto `completed` — a new SYN or an idle gap
+          ended them, they have left `self.flows`, and a later packet on the
+          same 5-tuple starts a fresh record whatever happens here;
+        * flows whose last packet is further behind the newest packet in the
+          capture than their inactivity timeout plus STREAM_MARGIN_SECONDS.
+
+        The margin is what makes the second group safe. `_starts_new_flow`
+        attaches a packet to an existing flow only if it arrives within the
+        timeout of that flow's last packet, so a flow dropped under this rule
+        could only be wrongly dropped by a packet arriving more than
+        STREAM_MARGIN_SECONDS behind the newest one already read. That is a
+        measurable property of a capture, not an assumption: `max_reordering`
+        records the largest such step, and the equivalence test asserts it.
+
+        Expiring idle state to bound memory is what flow tools do — it is the
+        purpose Zeek gives its inactivity timers, whose values this module
+        already uses (see IDLE_TIMEOUT_SECONDS).
+
+        `force=True` takes everything, for the end of the file.
+        """
+        with self._lock:
+            return self._drain(force)
+
+    def _drain(self, force):
+        ready = self.completed
+        self.completed = []
+
+        if force:
+            ready.extend(self.flows.values())
+            self.flows = {}
+        elif self.last_packet_time is not None:
+            watermark = self.last_packet_time
+            expired = [
+                key for key, f in self.flows.items()
+                if (watermark - f['last_seen']) >
+                (IDLE_TIMEOUT_SECONDS.get(f['protocol'], DEFAULT_IDLE_TIMEOUT)
+                 + STREAM_MARGIN_SECONDS)
+            ]
+            for key in expired:
+                ready.append(self.flows.pop(key))
+
+        return [self._flow_record(f) for f in ready]
+
+    def _finalize(self):
+        # Flows retired mid-capture plus those still open at the end.
+        results = [self._flow_record(f)
+                   for f in [*self.completed, *self.flows.values()]]
+        return results, self.dns_output()
+
+    def _flow_record(self, f):
+        metrics = compute_flow_metrics(f)
+        return {
+            'src_ip': f['src_ip'],
+            'dst_ip': f['dst_ip'],
+            'src_port': f['src_port'],
+            'dst_port': f['dst_port'],
+            'protocol': f['protocol'],
+            'initiator_ip': f['initiator_ip'],
+            'initiator_port': f['initiator_port'],
+            'initiator_confirmed': f['initiator_confirmed'],
+            'packets_sent': f['packets_sent'],
+            'packets_received': f['packets_received'],
+            'bytes_sent': f['bytes_sent'],
+            'bytes_received': f['bytes_received'],
+            'first_seen': datetime.fromtimestamp(f['first_seen'], tz=dt_timezone.utc),
+            'last_seen': datetime.fromtimestamp(f['last_seen'], tz=dt_timezone.utc),
+            'unique_dst_ports': len(f['dst_ports']),
+            'tcp_flags_seen': ''.join(sorted(f['tcp_flags'])),
+            'app_protocol': f['app_protocol'],
+            'app_protocol_source': f['app_protocol_source'],
+            'dns_query_count': f['dns_query_count'],
+            'longest_dns_label': f['longest_dns_label'],
+            'max_dns_entropy': round(f['max_dns_entropy'], 4),
+            'http_host': f['http_host'],
+            'tls_sni': f['tls_sni'],
+            'ja4_fingerprint': f['ja4_fingerprint'],
+            'ja4_raw': f['ja4_raw'],
+            '_uid': f['_uid'],
+            '_timestamps': f['timestamps'],
+            **metrics,
+        }
+
+    def dns_output(self):
+        """
+        The DNS records, each carrying the addresses its reply returned.
+
+        Called once, at the end. A reply is only seen after the record for its
+        query already exists, so the association cannot be made during the
+        stream — which is also why DNS records are not written out with the
+        flows they belong to, but held and written last.
+        """
+        for record in self.dns_records:
+            if '_answer_key' in record:
+                addresses = self._dns_answers.get(record.pop('_answer_key'), [])
+                record['response_ip'] = ', '.join(addresses)[:255]
+        return self.dns_records

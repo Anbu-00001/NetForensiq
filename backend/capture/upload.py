@@ -35,7 +35,8 @@ from accounts.permissions import IsInvestigatorOrReadOnly
 from accounts.utils import get_client_ip, log_action
 from evidence.models import EvidenceRecord
 
-from .service import run_pcap_import
+from . import importer
+from .service import create_import_session
 
 # libpcap and pcapng file signatures.
 #
@@ -145,6 +146,16 @@ class CaptureUploadView(APIView):
                 pass
 
     def _ingest(self, request, tmp_path, original_name, provenance):
+        """
+        Seal the file, then hand the reading of it to a separate process.
+
+        The request ends here — at the point custody is established, which is
+        the part that has to happen while the officer is watching. Reading
+        the capture took 102 seconds on a 46 MB file and exhausted the worker
+        on a 209 MB one (research/155), and an officer holding a browser open
+        for that is an officer whose upload fails if anything at all closes
+        the connection. `capture.importer` explains the split.
+        """
         from evidence.service import ingest_evidence
 
         data = request.data
@@ -164,10 +175,11 @@ class CaptureUploadView(APIView):
                     actor_ip=get_client_ip(request),
                 )
 
-                # Analyse the sealed copy, never the upload: it is the artefact
-                # the recorded hash describes and the one a court is shown.
-                session, (flows, dns) = run_pcap_import(
-                    pcap_path=record.stored_path,
+                # The session names the sealed copy, never the upload: it is
+                # the artefact the recorded hash describes and the one a court
+                # is shown.
+                session = create_import_session(
+                    record.stored_path,
                     name=(data.get('name') or '').strip() or None,
                     home_net=(data.get('home_net') or '').strip(),
                     user=request.user,
@@ -175,27 +187,27 @@ class CaptureUploadView(APIView):
                 )
         except ValueError as exc:
             return self._refuse(str(exc))
-        except MemoryError:
-            # Caught before the generic handler below, which used to report it.
-            # MemoryError is an Exception with an empty message, so a real
-            # 209 MB capture that exhausted the server came back as "could not
-            # be parsed: . It may be truncated or use an unsupported link type"
-            # — sending the officer to look for a fault in a perfectly good file.
-            return self._refuse(
-                'The file is not faulty: this server ran out of memory while analysing it. '
-                'Memory grows with the number of distinct conversations, and a capture '
-                'containing a scan can hold hundreds of thousands of them. Split it into '
-                'smaller files (for example `editcap -c 500000 in.pcap part.pcap`) and '
-                'import the parts, or import it on a machine with more memory.',
-                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            )
         except Exception as exc:
-            # A capture that the parser cannot read is a bad file, not a bug,
-            # and the officer needs to know which of the two it is.
+            # Sealing failed — a full disk, an unreadable evidence store. The
+            # capture has not been read at all at this point, so this can
+            # never be a complaint about the file's contents.
             return self._refuse(
-                f'The file was accepted but could not be parsed: {exc}. '
-                f'It may be truncated or use an unsupported link type.',
+                f'The file was accepted but could not be taken into evidence: {exc}.',
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        # Started after the transaction commits, never inside it: the child is
+        # a different connection, and a session row that has not been
+        # committed does not exist as far as it is concerned.
+        try:
+            importer.start(session)
+        except OSError as exc:
+            importer.abandon_stale(session)
+            return self._refuse(
+                f'The capture is sealed as exhibit {record.exhibit_number}, but the '
+                f'import process could not be started ({exc}). Import it from the '
+                f'command line with "manage.py run_import --session {session.id}".',
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         log_action(
@@ -210,10 +222,6 @@ class CaptureUploadView(APIView):
         return Response({
             'session_id': session.id,
             'session_name': session.name,
-            'packets': session.packet_count,
-            'bytes': session.byte_count,
-            'flows': flows,
-            'dns_records': dns,
             'exhibit_number': record.exhibit_number,
             'sha256': record.sha256_hash,
             'md5': record.md5_hash,
@@ -221,7 +229,12 @@ class CaptureUploadView(APIView):
             'provenance_label': record.get_provenance_display(),
             'is_demonstration_only': record.is_demonstration_only,
             'custody_events': record.custody_events.count(),
-        }, status=status.HTTP_201_CREATED)
+            # The analysis has not run yet. Counts arrive from the progress
+            # endpoint; they are deliberately absent here rather than zero,
+            # because a zero would read as "this capture contained nothing".
+            'state': session.state,
+            'progress_url': f'/api/sessions/{session.id}/progress/',
+        }, status=status.HTTP_202_ACCEPTED)
 
     @staticmethod
     def _refuse(detail, code=status.HTTP_400_BAD_REQUEST):

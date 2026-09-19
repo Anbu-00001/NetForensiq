@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box, Typography, Button, TextField, Alert, LinearProgress,
   MenuItem, CircularProgress,
@@ -10,7 +10,7 @@ import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import ClassificationBanner from '../components/layout/ClassificationBanner';
-import { uploadCapture } from '../services/forensics';
+import { captureProgress, uploadCapture } from '../services/forensics';
 import { refreshPosture } from '../services/posture';
 import { useCurrentUser, canActOnEvidence } from '../services/session';
 import {
@@ -42,6 +42,14 @@ import {
  * **The result is the receipt.** On success this prints the exhibit number and
  * the SHA-256 rather than a tick and a redirect, because those two strings are
  * what the officer writes in the register.
+ *
+ * **The receipt arrives before the analysis finishes.** Reading a real capture
+ * takes minutes, and it used to happen inside this request: the page showed a
+ * spinner for 102 seconds on a 46 MB file and forever if anything dropped the
+ * connection (research/155). The upload now returns as soon as the exhibit is
+ * sealed — which is the part the officer is waiting to be told — and the
+ * reading is watched here, packet count and all, so a working import is
+ * visibly different from a dead one.
  */
 
 const MAX_BYTES = 512 * 1024 * 1024;
@@ -109,6 +117,87 @@ function bytes(n) {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
 }
 
+/**
+ * What the import is doing, while it does it.
+ *
+ * Every figure here is reported by the process doing the work, and the panel
+ * says which of them is an estimate. The one thing it must never do is imply
+ * that an analysis finished: until the session leaves "running" there are no
+ * findings to speak of, which is why the counts it shows are packets read and
+ * conversations written, not detections.
+ */
+function ImportProgress({ progress }) {
+  if (!progress) {
+    return (
+      <Box sx={{ mt: 1.5 }}>
+        <LinearProgress sx={{ height: 3, backgroundColor: RULE }} />
+        <Typography sx={{ fontSize: 11, color: GREY, mt: 0.6 }}>
+          Starting the import…
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (progress.state === 'failed') {
+    return (
+      <Alert severity="error" sx={{ mt: 1.5, fontSize: 12 }}>
+        {progress.error_message
+          || 'The import stopped before it finished. The exhibit is sealed and '
+            + 'can be imported again.'}
+      </Alert>
+    );
+  }
+
+  if (progress.state !== 'running') {
+    return (
+      <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px solid ${RULE}` }}>
+        <Typography sx={{ fontSize: 12, color: INK, fontWeight: 600, mb: 0.5 }}>
+          Read and analysed
+        </Typography>
+        <Typography sx={{ fontSize: 11.5, fontFamily: MONO, color: INK }}>
+          {Number(progress.packet_count).toLocaleString()} packets
+          {' · '}
+          {Number(progress.flow_count).toLocaleString()} conversations
+        </Typography>
+      </Box>
+    );
+  }
+
+  const percent = progress.percent_estimate;
+  return (
+    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px solid ${RULE}` }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.6 }}>
+        <Typography sx={{ fontSize: 12, color: INK, fontWeight: 600 }}>
+          {progress.stage_label || 'Working'}
+        </Typography>
+        {percent != null && progress.stage === 'reading' && (
+          <Typography sx={{ fontSize: 11, color: GREY, fontFamily: MONO }}>
+            {percent}% of the file (estimate)
+          </Typography>
+        )}
+      </Box>
+      <LinearProgress
+        variant={percent != null && progress.stage === 'reading'
+          ? 'determinate' : 'indeterminate'}
+        value={percent ?? 0}
+        sx={{
+          height: 3, backgroundColor: RULE,
+          '& .MuiLinearProgress-bar': { backgroundColor: CYAN },
+        }}
+      />
+      <Typography sx={{ fontSize: 11, color: GREY, mt: 0.6, fontFamily: MONO }}>
+        {Number(progress.packets_read).toLocaleString()} packets read
+        {' · '}
+        {Number(progress.flows_written).toLocaleString()} conversations written
+      </Typography>
+      <Typography sx={{ fontSize: 11, color: GREY_MUTED, mt: 0.4, lineHeight: 1.5 }}>
+        This continues on the server. You can leave this page, sign out, or
+        close the browser — the import is not this window.
+      </Typography>
+    </Box>
+  );
+}
+
 function ImportPage() {
   const navigate = useNavigate();
   const user = useCurrentUser();
@@ -125,12 +214,43 @@ function ImportPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [progress, setProgress] = useState(null);
+
+  // Watch the import that the upload handed to a separate process.
+  //
+  // Two seconds: fast enough that the figures visibly move, slow enough that
+  // it is nothing next to the work being reported on. Polling stops the
+  // moment the session is no longer running, and on unmount — a page left
+  // open on a finished import must not keep asking.
+  useEffect(() => {
+    const id = result?.session_id;
+    if (!id) return undefined;
+    let live = true;
+
+    const ask = async () => {
+      try {
+        const data = await captureProgress(id);
+        if (!live) return;
+        setProgress(data);
+        if (data.state !== 'running') clearInterval(timer);
+      } catch {
+        // A failed poll says nothing about the import, which is running in
+        // another process. The last figures stay on screen rather than being
+        // replaced by an error about the watching.
+      }
+    };
+
+    const timer = setInterval(ask, 2000);
+    ask();
+    return () => { live = false; clearInterval(timer); };
+  }, [result?.session_id]);
 
   const set = (key) => (event) => setMeta((m) => ({ ...m, [key]: event.target.value }));
 
   const choose = (chosen) => {
     setError('');
     setResult(null);
+    setProgress(null);
     if (!chosen) return;
     if (chosen.size > MAX_BYTES) {
       setError(
@@ -157,6 +277,7 @@ function ImportPage() {
     });
 
     setBusy(true);
+    setProgress(null);
     try {
       const data = await uploadCapture(body);
       setResult(data);
@@ -207,15 +328,13 @@ function ImportPage() {
                 border: `1px solid ${INTACT}`, backgroundColor: PANEL,
               }}>
                 <Typography sx={{ fontSize: 13, fontWeight: 700, color: INTACT, mb: 1 }}>
-                  Sealed and analysed
+                  Sealed into evidence
                 </Typography>
                 {[
                   ['Exhibit', result.exhibit_number],
                   ['SHA-256', result.sha256],
                   ['MD5', result.md5],
                   ['Origin', result.provenance_label],
-                  ['Packets', Number(result.packets).toLocaleString()],
-                  ['Conversations', Number(result.flows).toLocaleString()],
                   ['Custody entries', result.custody_events],
                 ].map(([label, value]) => (
                   <Box key={label} sx={{ display: 'flex', gap: 1.5, mb: 0.4 }}>
@@ -237,15 +356,21 @@ function ImportPage() {
                   digest is of the file as it arrived, so anyone handed the same
                   capture can reproduce it.
                 </Typography>
+
+                <ImportProgress progress={progress} />
+
                 <Button
                   size="small" variant="contained"
+                  disabled={progress?.state === 'running'}
                   onClick={() => navigate(`/dashboard?session=${result.session_id}`)}
                   sx={{
                     mt: 1.5, textTransform: 'none', fontSize: 12.5,
                     backgroundColor: INK, '&:hover': { backgroundColor: INK_SOFT },
                   }}
                 >
-                  Open {result.session_name}
+                  {progress?.state === 'running'
+                    ? 'Reading the capture…'
+                    : `Open ${result.session_name}`}
                 </Button>
               </Box>
             )}
