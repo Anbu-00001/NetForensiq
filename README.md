@@ -320,7 +320,9 @@ Every signal permitted to raise a tier fired on **zero** of the 299: all eight A
 
 **68 of 200 (34%) reached tier 2 or above; 63.5% were missed.** That number is published rather than buried: it is the first sensitivity figure this project has had, and no scoring tool in this space publishes one at all.
 
-**Why the misses matter more than the hits.** Every one of the 127 had DEX code indexed — `dex_count = 0` count: **zero**, nothing truncated. None were packed or resource-only. Static analysis saw them all; the rules simply do not cover what it saw. **59 of 127 fired exactly one capability** (our rules require combinations, by design), 14 fired none at all, and 10 fired six or more without matching a rule. That is a rule gap, which is fixable, not an architectural blind spot, which would not be.
+**What the misses do and do not tell us.** Every one of the 127 had DEX code and none was truncated, so none was resource-only and none escaped indexing. **59 of 127 fired exactly one capability** (our rules require combinations, by design), 14 fired none, and 10 fired six or more without matching a rule.
+
+That does **not** show the misses are unpacked. A packer ships a small stub DEX that decrypts the real payload at run time, and a stub looks exactly like "DEX present, one capability fired". An earlier version of this section concluded "none were packed, so it is a rule gap, not a blind spot"; the evidence never supported that, and it is withdrawn. How many misses are a rule gap and how many are a packing blind spot is an open question, and is being measured ([research/151 §8.14](research/151_WHAT_MAKES_THIS_DIFFERENT.md)).
 
 ### What these numbers do and do not support
 
@@ -522,7 +524,7 @@ The running container needs **no network**. Verified under `--network none`: a s
 ## 🧪 Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 534 backend tests
+docker exec netforensiq python manage.py test    # 564 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 ```
 

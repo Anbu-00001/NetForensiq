@@ -306,6 +306,74 @@ def parse(data, linktype=DLT_ETHERNET):
     return src, dst, 'OTHER', 0, 0, 0, b''
 
 
+# ICMP message types whose header carries id and seq (RFC 792 echo, timestamp,
+# information and address-mask families), plus the two families that carry more
+# than the usual four octets after the checksum.
+_ICMP_TIMESTAMP = (13, 14)
+_ICMP_ADDRESS_MASK = (17, 18)
+
+# Types for which scapy fits the RFC 4884 extension fields. Note this is NOT
+# the same set as the types whose payload is a quoted packet: scapy's
+# `ICMP.guess_payload_class` returns IPerror for 3, 4, 5, 11 and 12, but only
+# 3, 11 and 12 get the extension fields, so only those three are ever cut.
+_ICMP_EXTENDED = (3, 11, 12)
+
+# RFC 4884 s.5.2: if the ICMP message is longer than this, the extension
+# structure starts at octet 137 and the quoted packet occupies octets 9–136.
+# scapy implements it in `_ICMPExtensionField.getfield` as
+# `offset = 136 + len(s) - len(pkt.original)`, which for an 8-octet header is a
+# flat 128 bytes. Both numbers are scapy's; see the note below.
+_ICMP_EXTENSION_MINIMUM = 144
+_ICMP_QUOTED_MAXIMUM = 128
+
+
+def icmp_payload(message):
+    """
+    The payload of an ICMP message, as the dissector defines it.
+
+    Replaces `bytes(scapy.layers.inet.ICMP(message).payload)`, which cost
+    11.9s per 60,000 messages on the wrccdc capture — scapy builds an `ICMP`,
+    an `IPerror` and a `TCPerror` to answer the single question "where does the
+    header end". Measured 629–807x faster, identical on 73,935 real messages.
+
+    Why the 128-octet cut is here at all
+    ====================================
+    A first version of this used a flat "cut error messages at 128 octets",
+    derived by observing scapy. It reproduced scapy exactly on all 73,935 ICMP
+    messages in the reference captures — and it was **wrong**. Reading
+    `_ICMPExtensionField.getfield` in scapy 2.7.0 showed the cut only applies
+    when the whole message reaches 144 octets, and only for the three types
+    that carry the RFC 4884 extension fields. Against generated messages that
+    cross those boundaries the flat rule was wrong 113 times in 375:
+
+      * types 3, 11 and 12 between 137 and 143 octets — scapy keeps the whole
+        quoted packet, the flat rule cut it to 128;
+      * types 4 and 5 at any length — they have no extension fields, so scapy
+        never cuts them, at any size.
+
+    Neither case appears in the reference captures, which is exactly why the
+    corpus alone could not have caught it and the source had to be read. It is
+    also why the boundary cases are in `tests_equivalence.py` as generated
+    input rather than trusted to the captures.
+    """
+    if not message or len(message) < 4:
+        return b''
+
+    kind = message[0]
+    if kind in _ICMP_TIMESTAMP:
+        header = 20
+    elif kind in _ICMP_ADDRESS_MASK:
+        header = 12
+    else:
+        header = 8
+
+    body = message[header:] if len(message) > header else b''
+
+    if kind in _ICMP_EXTENDED and len(message) >= _ICMP_EXTENSION_MINIMUM:
+        return body[:_ICMP_QUOTED_MAXIMUM]
+    return body
+
+
 def iter_frames(path):
     """
     Yield `(frame_bytes, timestamp, linktype)` for every packet in a capture.

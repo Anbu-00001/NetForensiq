@@ -630,7 +630,7 @@ combinations. Each candidate below cites the report it comes from, as every ship
 | Candidate rule | Combination | Documented in | Corpus evidence |
 |---|---|---|---|
 | `beh.dynamic_code_from_network` | dynamic class loading **and** network egress in the app's own code | Google's own policy forbids Play apps downloading executable code from outside Play ✅; SpyNote "fetches encrypted modules at runtime and decrypts them in memory" ⚠️ | 0 / 31 in the baseline corpus and **1 / 299 held out**, against 35 / 195 malicious — good, not perfect (§8.13) |
-| `beh.accessibility_text_entry_with_overlay` | accessibility **text entry** (not just gestures) **and** an overlay window | Copybara: taps, swipes, text entry, global actions, overlay via `TYPE_APPLICATION_OVERLAY` ⚠️; Herodotus: randomised 300–3000 ms delays between input events to imitate human typing and defeat behavioural biometrics ⚠️ | `cap.accessibility_actions` **71 / 195** — the largest capability signal in the run |
+| `beh.accessibility_text_entry_with_overlay` | accessibility **text entry** (not just gestures) **and** an overlay window | Copybara: taps, swipes, text entry ("equivalent to injecting keystrokes"), global actions, and webview-based lock-screen overlay commands ✅; Herodotus: `ACTION_SET_TEXT` with the text "split into chars … separately set with random delays" of 300–3000 ms, to defeat behavioural biometrics ✅; PixRevolution: `performAction(ACTION_SET_TEXT)` plus `dispatchGesture()` ✅ | `cap.accessibility_actions` **71 / 195** — the largest capability signal in the run |
 | `beh.screen_streaming` | `MediaProjection` capture **and** network egress | SpyNote records screen and audio to `video.mp4` ⚠️; Copybara offers screen streaming and capture ⚠️ | not yet a capability; would need one added |
 | `beh.sms_exfiltration` (generalised) | SMS read/receive **and** any network egress — not bound to one channel | the present rule requires `api.telegram.org`, which fired on **1 / 195** while `cap.sms_receiver` fired on **48 / 195** | the narrowness is measured, not assumed |
 | `beh.nfc_relay` | NFC / `IsoDep` **and** network egress | ESET on NGate: relays NFC payloads from the victim's card to the attacker's device for ATM withdrawal ⚠️ | NGate is in the corpus (2 samples) |
@@ -738,8 +738,11 @@ Both corrections come from the same source: a 31-app corpus cannot distinguish "
 - Axelsson, *The base-rate fallacy and the difficulty of intrusion detection* (1999) — via ⚠️
 - Android Developers, *Dynamic code loading* and the Play policy forbidding executable code from
   outside Play ✅ <https://developer.android.com/privacy-and-security/risks/dynamic-code-loading>
-- Zscaler ThreatLabz, *Technical Analysis of Copybara* — MQTT C2, accessibility text entry,
-  `TYPE_APPLICATION_OVERLAY`, notification suppression ⚠️
+- Zscaler ThreatLabz, *Technical Analysis of Copybara* — MQTT C2 on port 52997, queue
+  `commands_FromPC`, accessibility text entry, webview lock-screen overlay commands ✅ (audited
+  19 Sep 2026; an earlier version of this entry attributed `TYPE_APPLICATION_OVERLAY` to this post,
+  which the post does not contain — that attribution came from a search-engine summary and is
+  withdrawn)
   <https://www.zscaler.com/blogs/security-research/technical-analysis-copybara>
 - ThreatFabric, *Herodotus: new Android malware mimics human behaviour* — device takeover,
   randomised 300–3000 ms input delays against behavioural biometrics ⚠️

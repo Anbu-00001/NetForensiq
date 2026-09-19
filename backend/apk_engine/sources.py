@@ -10,6 +10,71 @@ a secondary source is never displayed as if it were primary.
 """
 
 SOURCES = {
+    # Added 19 Sep 2026. Every entry below was re-opened and its wording checked
+    # by a separate audit pass before being cited (apk_corpus/analysis/research/
+    # AUDIT_2026-09-19.md); 'verified' records that check, not a guess.
+    'threatfabric-herodotus-2025': {
+        'title': 'Herodotus: new Android malware mimics human behaviour to evade detection',
+        'publisher': 'ThreatFabric', 'date': '2025-10-28',
+        'url': 'https://www.threatfabric.com/blogs/new-android-malware-herodotus-mimics-human-behaviour-to-evade-detection',
+        'verified': True,
+    },
+    'zimperium-pixrevolution-2026': {
+        'title': 'PixRevolution: the agent-operated Android trojan hijacking Brazil\'s Pix payments',
+        'publisher': 'Zimperium zLabs', 'date': '2026-03-11',
+        'url': 'https://zimperium.com/blog/pixrevolution-the-agent-operated-android-trojan-hijacking-brazils-pix-payments-in-real-time',
+        'verified': True,
+    },
+    'zscaler-copybara-2024': {
+        'title': 'Technical analysis of Copybara',
+        'publisher': 'Zscaler ThreatLabz', 'date': '2024-08-21',
+        'url': 'https://www.zscaler.com/blogs/security-research/technical-analysis-copybara',
+        'verified': True,
+    },
+    'cyfirma-spynote-2024': {
+        'title': 'SpyNote: unmasking a sophisticated Android malware',
+        'publisher': 'CYFIRMA', 'date': '2024-11-06',
+        'url': 'https://www.cyfirma.com/research/spynote-unmasking-a-sophisticated-android-malware/',
+        'verified': True,
+    },
+    'threatfabric-securidropper-2023': {
+        'title': 'Droppers bypassing Android 13 restrictions (SecuriDropper)',
+        'publisher': 'ThreatFabric', 'date': '2023-11-01',
+        'url': 'https://www.threatfabric.com/blogs/droppers-bypassing-android-13-restrictions',
+        'verified': True,
+    },
+    'android-dcl-policy': {
+        'title': 'Dynamic code loading, and the Play policy against executable code from '
+                 'outside Google Play',
+        'publisher': 'Android Developers', 'date': '2024',
+        'url': 'https://developer.android.com/privacy-and-security/risks/dynamic-code-loading',
+        'verified': True,
+    },
+    'android-target-api-2019': {
+        'title': 'Expanding target API level requirements in 2019 — "Over 95% of spyware we '
+                 'detect outside of the Play Store intentionally targets API level 22 or lower"',
+        'publisher': 'Android Developers Blog', 'date': '2019-02-14',
+        'url': 'https://android-developers.googleblog.com/2019/02/expanding-target-api-level-requirements.html',
+        'verified': True,
+    },
+    'android-14-behaviour-all': {
+        'title': 'Behaviour changes: all apps (Android 14) — minimum installable targetSdkVersion',
+        'publisher': 'Android Developers', 'date': '2023',
+        'url': 'https://developer.android.com/about/versions/14/behavior-changes-all',
+        'verified': True,
+    },
+    'comcast-jackskid-2026': {
+        'title': 'Reverse-engineering JackSkid: from bare-bones Mirai fork to persistent TV-box botnet',
+        'publisher': 'Comcast (corporate.comcast.com/stories)', 'date': '2026-03-24',
+        'url': 'https://corporate.comcast.com/stories/reverse-engineering-jackskid-from-bare-bones-mirai-fork-to-persistent-tv-box-botnet',
+        'verified': True,
+    },
+    'rescana-kimwolf-2026': {
+        'title': 'Kimwolf botnet: Android TV box and IoT malware exploiting ADB on TCP/5555',
+        'publisher': 'Rescana', 'date': '2026-01-06',
+        'url': 'https://rescana.com/post/kimwolf-botnet-massive-android-tv-box-and-iot-malware-threat-exploiting-global-networks',
+        'verified': True,
+    },
     'zimperium-2023-compression': {
         'title': 'Unsupported compression methods enable Android malware to bypass detection',
         'publisher': 'Zimperium zLabs', 'date': '2023-08-16',
@@ -126,6 +191,7 @@ ATTACK = {
     'T1628.001': 'Hide Artifacts: Suppress Application Icon',
     'T1629.003': 'Impair Defenses: Disable or Modify Tools',
     'T1636.004': 'Protected User Data: SMS Messages',
+    'T1513': 'Screen Capture',   # Mobile matrix, Collection — verified 19 Sep 2026
 }
 
 

@@ -12,10 +12,18 @@ import unittest
 from apk_engine.behaviours import detect_behaviours, detect_capabilities
 
 
+class _Name:
+    def __init__(self, value):
+        self.name = value
+
+
 class FakeSite:
     def __init__(self, caller='com.example.app.Main.run()', kind='app',
                  constants=None, references=()):
         self.caller = caller
+        # Detectors that de-duplicate per calling method read these.
+        self.caller_class = 'Lcom/example/app/Main;'
+        self.caller_method = _Name('run')
         self.attribution = {'kind': kind, 'name': 'lib' if kind == 'library' else 'com.example.app'}
         self._constants = constants or []
         self._references = set(references)
@@ -26,6 +34,14 @@ class FakeSite:
 
     def constant_arguments(self, _method):
         return self._constants
+
+    def constant_values(self):
+        values = set()
+        for group in self._constants:
+            for value in group:
+                if isinstance(value, int):
+                    values.add(value)
+        return values
 
     def references(self, *values):
         return bool(self._references & set(values))
@@ -65,6 +81,7 @@ INSTALL = ('Landroid/content/pm/PackageInstaller$Session;', 'commit')
 VPN_ROUTE = ('Landroid/net/VpnService$Builder;', 'addRoute')
 VPN_ESTABLISH = ('Landroid/net/VpnService$Builder;', 'establish')
 TELEGRAM = r'api\.telegram\.org/bot'
+NETWORK = ('Ljava/net/URL;', '<init>')
 
 
 def run(identity=None, **codemap):
@@ -158,6 +175,63 @@ class BehaviourTests(unittest.TestCase):
         self.assertFalse(capabilities['cap.sms_receiver']['present'])
         self.assertEqual(capabilities['cap.sms_receiver']['library_only_occurrences'], 1)
         self.assertNotIn('beh.sms_to_telegram_bot', behaviours)
+
+    def test_a_dropper_needs_both_the_installer_and_a_payload_to_install(self):
+        identity = dict(IDENTITY, bundled_packages=['assets/payload.dat (archive, 900,000 bytes)'])
+        _caps, behaviours = run(identity, calls={INSTALL: [FakeSite()]})
+        self.assertIn('beh.dropper_with_bundled_payload', behaviours)
+        # An app store installs packages but carries no payload of its own.
+        _caps, behaviours = run(IDENTITY, calls={INSTALL: [FakeSite()]})
+        self.assertNotIn('beh.dropper_with_bundled_payload', behaviours)
+
+    def test_runtime_code_loading_alone_is_not_the_behaviour(self):
+        loader = ('Ldalvik/system/DexClassLoader;', '<init>')
+        _caps, behaviours = run(calls={loader: [FakeSite()]})
+        self.assertNotIn('beh.runtime_code_from_network', behaviours)
+        _caps, behaviours = run(calls={loader: [FakeSite()], NETWORK: [FakeSite()]})
+        self.assertIn('beh.runtime_code_from_network', behaviours)
+
+    def test_typing_into_other_apps_needs_set_text_not_merely_a_gesture(self):
+        perform = ('Landroid/view/accessibility/AccessibilityNodeInfo;', 'performAction')
+        overlay = ('Landroid/view/WindowManager;', 'addView')
+        # A gesture with some other action constant is not text entry.
+        caps, behaviours = run(calls={perform: [FakeSite(constants=[[1]])],
+                                      overlay: [FakeSite(constants=[[2038]])]})
+        self.assertFalse(caps['cap.accessibility_text_entry']['present'])
+        self.assertNotIn('beh.accessibility_types_into_other_apps', behaviours)
+        # ACTION_SET_TEXT, drawn over another app, is the device-takeover pattern.
+        caps, behaviours = run(calls={perform: [FakeSite(constants=[[2097152]])],
+                                      overlay: [FakeSite(constants=[[2038]])]})
+        self.assertTrue(caps['cap.accessibility_text_entry']['present'])
+        finding = behaviours['beh.accessibility_types_into_other_apps']
+        self.assertEqual(finding['tier'], 3)
+        self.assertTrue(finding['sources'])
+
+    def test_screen_capture_only_counts_when_it_can_leave_the_device(self):
+        capture = ('Landroid/media/projection/MediaProjection;', 'createVirtualDisplay')
+        _caps, behaviours = run(calls={capture: [FakeSite()]})
+        self.assertNotIn('beh.screen_capture_to_network', behaviours)
+        _caps, behaviours = run(calls={capture: [FakeSite()], NETWORK: [FakeSite()]})
+        self.assertIn('beh.screen_capture_to_network', behaviours)
+
+    def test_the_tv_box_dropper_rule_needs_all_three_halves(self):
+        shell = ('Ljava/lang/Runtime;', 'exec')
+        boot = dict(IDENTITY, components=[{
+            'kind': 'receiver', 'name': 'com.example.app.Boot', 'permission': '',
+            'intent_filters': [{'actions': ['android.intent.action.BOOT_COMPLETED'],
+                                'categories': []}]}])
+        _caps, behaviours = run(boot, calls={INSTALL: [FakeSite()]})
+        self.assertNotIn('beh.adb_payload_dropper', behaviours)
+        _caps, behaviours = run(boot, calls={INSTALL: [FakeSite()], shell: [FakeSite()]})
+        self.assertIn('beh.adb_payload_dropper', behaviours)
+
+    def test_target_sdk_capability_reflects_the_manifest(self):
+        caps, _ = run(dict(IDENTITY, target_sdk=22))
+        self.assertTrue(caps['cap.targets_pre_marshmallow']['present'])
+        caps, _ = run(dict(IDENTITY, target_sdk=34))
+        self.assertFalse(caps['cap.targets_pre_marshmallow']['present'])
+        caps, _ = run(IDENTITY)
+        self.assertFalse(caps['cap.targets_pre_marshmallow']['present'])
 
     def test_every_rule_declares_sources_lookalikes_and_a_tier(self):
         from apk_engine.behaviours import BEHAVIOURS

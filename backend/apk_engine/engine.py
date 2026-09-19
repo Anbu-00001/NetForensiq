@@ -17,6 +17,7 @@ from . import (ENGINE_VERSION, baselines as baseline_store, endpoints, integrity
 from .behaviours import BEHAVIOURS, detect_behaviours, detect_capabilities
 from .container import inspect_archive
 from .integrity import INDICATORS
+from . import frameworks
 from .report import skeleton
 from .verdict import decide
 
@@ -128,6 +129,10 @@ def examine(apk_path, container_path=None, original_name='', baselines=None):
     except Exception as exc:
         errors.append(f'The package could not be parsed as an Android application: {exc}')
 
+    if identity is not None:
+        # Facts the capability detectors need that do not come from the manifest.
+        identity['bundled_packages'] = frameworks.bundled_payloads(apk_path)
+
     examined_manifest = bool(identity and identity.get('package'))
     examined_code = False
     host_list = []
@@ -142,9 +147,12 @@ def examine(apk_path, container_path=None, original_name='', baselines=None):
                                   for name in apk.get_files())
             examined_code = ((codemap.dex_count > 0 or not has_dex_entries)
                              and not codemap.truncated)
+            runtimes = frameworks.detect(apk.get_files())
             report['code'] = {'dex_files': codemap.dex_count, 'dex_bytes': codemap.dex_bytes,
                               'truncated': codemap.truncated, 'no_code': not has_dex_entries,
-                              'app_namespaces': list(codemap._app_prefixes)}
+                              'app_namespaces': list(codemap._app_prefixes),
+                              'runtimes': runtimes,
+                              'gaps': frameworks.gaps(runtimes, codemap.dex_bytes)}
         except Exception as exc:
             errors.append(f'Code could not be indexed: {exc}')
 
@@ -170,7 +178,8 @@ def examine(apk_path, container_path=None, original_name='', baselines=None):
         errors.append(f'The identity claim could not be checked: {exc}')
     report['assessment'] = decide(report['integrity'], report['behaviours'], report['intel'],
                                   examined_code, examined_manifest,
-                                  reference=report['reference_set'])
+                                  reference=report['reference_set'],
+                                  gaps=(report.get('code') or {}).get('gaps') or [])
     try:
         report['reproduction'] = _reproduction(report, apk_path)
     except Exception as exc:

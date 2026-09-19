@@ -265,6 +265,19 @@ function Assessment({ report }) {
         </Box>
       )}
 
+      {a.gaps?.length > 0 && (
+        <Box sx={{ mt: 1.2, borderLeft: `3px solid ${HIGH}`, bgcolor: PANEL_ALT, p: 1.2 }}>
+          <Label>What was not examined</Label>
+          {a.gaps.map((g, i) => (
+            <Typography key={i} sx={{ fontSize: 12, color: INK, mb: 0.4 }}>• {g}</Typography>
+          ))}
+          <Typography sx={{ fontSize: 11, color: GREY_MUTED, mt: 0.4 }}>
+            This engine indexes DEX bytecode only. Where an app keeps its logic in another
+            runtime, a tier of 1 covers the part that was read — not the whole package.
+          </Typography>
+        </Box>
+      )}
+
       {a.basis?.length > 0 && (
         <Box sx={{ mt: 1.2 }}>
           <Label>What the tier rests on</Label>

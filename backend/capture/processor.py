@@ -6,7 +6,7 @@ from scapy.layers.inet import IP, TCP, UDP, ICMP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.dns import DNS
 
-from . import fastparse
+from . import fastdns, fastparse
 from .features import shannon_entropy, dns_query_features, compute_flow_metrics
 from .tls_fingerprint import fingerprint_payload
 
@@ -388,19 +388,24 @@ class FlowAggregator:
 
     def _icmp_payload(self, message):
         """
-        The payload of an ICMP message, as the dissector path defines it.
+        The payload of an ICMP message: the bytes that were on the wire.
 
-        Verified against 9,415 real ICMP messages spanning echo, destination
-        unreachable, time exceeded and timestamp types: identical to
-        `pkt.getlayer(ICMP).payload` in every case, including the error
-        messages whose payload sits inside a quoted packet.
+        This used to be `bytes(ICMP(message).payload)`. That cost 11.9s per
+        60,000 messages, and — found while replacing it — did not return bytes
+        from the capture at all. scapy re-serialises whatever it dissected the
+        quoted packet into, so an ICMP error quoting a CLDAP or SNMP datagram
+        came back with its ASN.1 re-encoded at a different length. Which
+        messages that happened to depended on which scapy layers were imported:
+        0 divergent with only `scapy.layers.inet` loaded, 94 of 13,511 once
+        `capture.service` pulled in `scapy.all`.
+
+        `payload_entropy` is derived from this, and the ICMP tunnelling rule
+        reads that, so the old behaviour made a finding depend on the import
+        graph. See `tests_equivalence.IcmpCorpusTests` and
+        research/153_PCAP_ENGINE_PERFORMANCE.md; the change moved 450 of 94,811
+        stored entropy values on that capture and no findings at all.
         """
-        if not message:
-            return b''
-        try:
-            return bytes(ICMP(message).payload)
-        except Exception:
-            return b''
+        return fastparse.icmp_payload(message)
 
     def _payload_of(self, transport):
         if transport is None:
@@ -419,47 +424,39 @@ class FlowAggregator:
         """
         The DNS message for a packet already known to be on port 53.
 
-        Two sources, one result. The live path has a dissected packet and just
-        asks for the layer. The import path has bytes, so the message is
-        dissected here — and only here, for the ~2.6% of packets on port 53,
-        rather than for every packet in the capture.
+        Two sources, one result — a `fastdns.DnsMessage` either way, so the
+        flow model has a single reading to maintain rather than one per ingest
+        path. The live path has a packet scapy already dissected and converts
+        it; the import path reads the bytes directly, which is 55–96x faster
+        than building a scapy `DNS` per message and was the largest single cost
+        in the import (see `fastdns`).
 
-        DNS over TCP is length-prefixed (RFC 1035 s.4.2.2). Scapy models that
-        with a field conditional on the underlayer being TCP, which a
-        standalone `DNS(...)` cannot see, so the two octets are removed
-        explicitly instead of being read as part of the header.
+        Returning None is not an error: traffic on 53 that is not a DNS
+        message — a tunnel carrying something else, or a capture truncated
+        before the header — simply has no message to record.
         """
         if scapy_pkt is not None:
-            return scapy_pkt.getlayer(DNS)
+            return fastdns.from_scapy(scapy_pkt.getlayer(DNS))
 
         if not payload:
             return None
         try:
-            if protocol == 'TCP':
-                return DNS(payload[2:]) if len(payload) > 2 else None
-            return DNS(payload)
+            return fastdns.parse(payload, over_tcp=(protocol == 'TCP'))
         except Exception:
-            # Traffic on 53 that is not a DNS message — a tunnel carrying
-            # something else, or a truncated capture. Not an error; there is
-            # simply no message to record.
             return None
 
     def _process_dns(self, dns, f, src_ip, dst_ip, now):
         # Callers gate on port 53, which is necessary but not sufficient:
         # traffic on 53 that was not dissected as DNS (truncated, or something
         # else entirely on that port) yields no usable question section.
-        if dns is None or not dns.qd:
+        if dns is None:
             return
 
         if dns.qr == 1:
             self._record_dns_answers(dns, dst_ip)
             return
 
-        try:
-            qname = dns.qd.qname.decode('utf-8', errors='ignore')
-        except Exception:
-            return
-
+        qname = dns.qname
         feats = dns_query_features(qname)
         f['dns_query_count'] += 1
         f['longest_dns_label'] = max(f['longest_dns_label'], feats['subdomain_length'])
@@ -467,11 +464,7 @@ class FlowAggregator:
         f['app_protocol'] = 'DNS'
         f['app_protocol_source'] = 'observed'
 
-        qtype = ''
-        try:
-            qtype = dns.qd.get_field('qtype').i2repr(dns.qd, dns.qd.qtype)
-        except Exception:
-            pass
+        qtype = dns.qtype
 
         self.dns_records.append({
             '_answer_key': (src_ip, int(dns.id), qname.rstrip('.').lower()),
@@ -500,28 +493,17 @@ class FlowAggregator:
         provides. Matching on name alone would merge unrelated lookups of the
         same host made minutes apart.
         """
-        try:
-            qname = dns.qd.qname.decode('utf-8', errors='ignore').rstrip('.').lower()
-        except Exception:
-            return
-
+        qname = dns.qname.rstrip('.').lower()
         key = (client_ip, int(dns.id), qname)
         addresses = self._dns_answers.setdefault(key, [])
 
-        for index in range(int(getattr(dns, 'ancount', 0) or 0)):
-            try:
-                answer = dns.an[index]
-            except (IndexError, TypeError):
-                break
-            # A and AAAA carry addresses; CNAME/NS and friends carry names,
-            # which belong to a different question than "where did this go".
-            if getattr(answer, 'type', None) in (1, 28):
-                value = getattr(answer, 'rdata', None)
-                if value is None:
-                    continue
-                text = value.decode() if isinstance(value, bytes) else str(value)
-                if text not in addresses:
-                    addresses.append(text)
+        # `answers` already holds only the A and AAAA addresses: CNAME/NS and
+        # friends carry names, which belong to a different question than
+        # "where did this go", and the filtering happens once in `fastdns`
+        # rather than at each reader.
+        for text in dns.answers:
+            if text not in addresses:
+                addresses.append(text)
 
     def _process_app_layer(self, payload, f, dport):
         # HTTP Host header

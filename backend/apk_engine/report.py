@@ -60,6 +60,9 @@ LIMITS = [
     'printed upper bound is how large its false-positive rate could still plausibly be.',
     'Identity findings are only as complete as the reference set they are checked against. An '
     'empty reference set means no claim was checked, never that the claim was verified.',
+    'Only DEX bytecode is indexed. An app whose logic is compiled for another runtime — Flutter, '
+    'React Native, .NET, Unity, Cordova — is reported with that gap named, because "nothing '
+    'established" about code that was never read is not a finding about the app.',
 ]
 
 
@@ -85,10 +88,16 @@ def skeleton():
 
 
 def assessment_for(tier, basis=(), families=(), techniques=(), not_established=(), summary=None,
-                   vocabulary=None):
+                   vocabulary=None, gaps=()):
     label, meaning = (vocabulary or TIERS)[tier]
+    gaps = list(gaps)
+    # A gap changes what tier 1 is entitled to say, so it travels with the tier
+    # rather than sitting in a field a reader might miss.
+    if gaps and tier == 1:
+        meaning = (meaning + ' Part of this package was not examined at all — see the gaps below, '
+                   'which narrow what "not established" covers.')
     return {
-        'tier': tier, 'label': label, 'meaning': meaning,
+        'tier': tier, 'label': label, 'meaning': meaning, 'gaps': gaps,
         'summary': summary or meaning,
         'basis': list(basis), 'families': list(families), 'attack': list(techniques),
         'not_established': list(not_established),

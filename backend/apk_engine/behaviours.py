@@ -71,6 +71,9 @@ def _manifest(ctx, names, what):
     return app, library
 
 
+ACTION_SET_TEXT = 2097152   # AccessibilityNodeInfo.ACTION_SET_TEXT
+OLD_TARGET_SDK = 22         # see _targets_pre_marshmallow
+
 # ── capability detectors: return (app_evidence, library_evidence_count) ─────
 
 def _install_packages(ctx):
@@ -166,6 +169,87 @@ def _overlay_window(ctx):
                 seen.add(key)
                 evidence.append(site)
     return evidence, lib
+
+
+def _accessibility_text_entry(ctx):
+    """
+    Typing into another app through accessibility, not merely tapping.
+
+    Herodotus splits the operator's text "into chars, and they are separately
+    set with random delays" through ``ACTION_SET_TEXT`` to defeat behavioural
+    biometrics; PixRevolution uses ``performAction(ACTION_SET_TEXT)`` to
+    overwrite the focused field. Entering text is a narrower act than the
+    gestures ``cap.accessibility_actions`` already counts, which is the point:
+    the broader capability fires on legitimate automation tools.
+    """
+    evidence, lib = [], 0
+    for owner, method in (('Landroid/view/accessibility/AccessibilityNodeInfo;', 'performAction'),
+                          ('Landroid/app/UiAutomation;', 'performGlobalAction')):
+        app, others = _api(ctx, owner, method)
+        lib += len(others)
+        for site in app:
+            if ACTION_SET_TEXT in site.constant_values():
+                evidence.append(site)
+    return evidence, lib
+
+
+def _screen_capture(ctx):
+    """Capturing the screen through MediaProjection."""
+    evidence, lib = [], 0
+    for owner, method in (
+            ('Landroid/media/projection/MediaProjectionManager;', 'createScreenCaptureIntent'),
+            ('Landroid/media/projection/MediaProjection;', 'createVirtualDisplay')):
+        app, others = _api(ctx, owner, method)
+        evidence += app
+        lib += len(others)
+    return evidence, lib
+
+
+def _bundled_package(ctx):
+    """
+    Another installable package carried inside this one.
+
+    A dropper has to put its second stage somewhere. ThreatFabric documented
+    SecuriDropper installing that stage through the session API so the system
+    "cannot differentiate between an application installed by a dropper and a
+    marketplace"; the payload itself still has to be present or fetched.
+    """
+    names = ctx.identity.get('bundled_packages') or []
+    return _manifest(ctx, names, 'package file carried inside this one')[0], 0
+
+
+def _targets_pre_marshmallow(ctx):
+    """
+    targetSdkVersion 22 or lower — below the runtime permission model.
+
+    Google states that "over 95% of spyware we detect outside of the Play Store
+    intentionally targets API level 22 or lower, avoiding runtime permissions
+    even when installed on recent Android versions". Android 14 refuses to
+    install such packages at all, so this is now evidence about an older sample
+    rather than a working technique, and it is reported as a capability, never
+    as harm on its own.
+    """
+    target = ctx.identity.get('target_sdk')
+    if target is None or target > OLD_TARGET_SDK:
+        return [], 0
+    return [{'manifest': 'targetSdkVersion', 'component': str(target)}], 0
+
+
+def _network_use(ctx):
+    """
+    Hands something to a networking API from the package's own code.
+
+    Deliberately broad — almost every app talks to the network — so this is a
+    conjunct, never a finding. It exists so that rules like "loads code at
+    runtime AND reaches the network" can say the second half.
+    """
+    from .codemap import NETWORK_APIS
+    evidence, lib = [], 0
+    for owner, method in NETWORK_APIS:
+        app, others = _api(ctx, owner, method)
+        evidence += app
+        lib += len(others)
+    return evidence[:EVIDENCE_SHOWN], lib
 
 
 def _device_admin(ctx):
@@ -267,6 +351,13 @@ CAPABILITIES = [
     ('cap.telegram_bot_api', 'Contains a Telegram Bot API endpoint', _telegram_bot_api),
     ('cap.quick_tunnel_url', 'Contains a Cloudflare quick-tunnel URL', _quick_tunnel_url),
     ('cap.query_installed_apps', 'Lists installed applications', _query_installed_apps),
+    ('cap.accessibility_text_entry', 'Enters text into other apps through accessibility',
+     _accessibility_text_entry),
+    ('cap.screen_capture', 'Captures the screen through MediaProjection', _screen_capture),
+    ('cap.bundled_package', 'Carries a nested package or DEX payload in its assets', _bundled_package),
+    ('cap.targets_pre_marshmallow', 'Targets API 22 or lower, below the runtime permission model',
+     _targets_pre_marshmallow),
+    ('cap.network_use', 'Uses networking APIs from its own code', _network_use),
 ]
 
 
@@ -296,6 +387,97 @@ def detect_capabilities(identity, codemap):
 # ── behaviours ─────────────────────────────────────────────────────────────
 
 BEHAVIOURS = [
+    # Added 19 Sep 2026 from families measured in our own MalwareBazaar corpus.
+    # Every source below was re-opened by an audit pass before being cited.
+    # None of these can raise a tier until baselines.py has measured it against
+    # the legitimate corpus — that gate is the whole design, and new rules are
+    # not exempt from it.
+    {
+        'id': 'beh.dropper_with_bundled_payload',
+        'title': 'Installs packages and carries its own payload to install',
+        'description': (
+            'The code installs packages and the package itself carries a nested archive or DEX '
+            'in its assets. ThreatFabric documented SecuriDropper installing its second stage '
+            'through the session API so that "the Operating System cannot differentiate between '
+            'an application installed by a dropper and a marketplace", which is how Android 13 '
+            'restricted settings are bypassed.'),
+        'requires': ('cap.install_packages', 'cap.bundled_package'),
+        'tier': 3,
+        'pha': 'hostile-downloader',
+        'attack': ('T1407',),
+        'sources': ('threatfabric-securidropper-2023',),
+        'lookalikes': ('App stores install packages, and some ship a bundled helper or a test '
+                       'fixture. An installer whose payload travels inside it is the dropper '
+                       'pattern; an installer that downloads from its own store is not.'),
+    },
+    {
+        'id': 'beh.runtime_code_from_network',
+        'title': 'Loads code at runtime and talks to the network from its own code',
+        'description': (
+            'The code loads DEX at runtime and also contains its own network endpoints. Google '
+            'forbids this for Play-distributed apps — "an app may not download executable code '
+            '(such as dex, JAR, .so files) from a source other than Google Play" — so it is a '
+            'policy violation for the legitimate population, and it is how staged payloads '
+            'arrive: SpyNote fetches encrypted modules at runtime and decrypts them in memory.'),
+        'requires': ('cap.dynamic_code_loading', 'cap.network_use'),
+        'tier': 3,
+        'pha': 'hostile-downloader',
+        'attack': ('T1407',),
+        'sources': ('android-dcl-policy', 'cyfirma-spynote-2024'),
+        'lookalikes': ('Plugin frameworks, some app stores and a few legitimate SDKs load code '
+                       'at runtime. Measured on 299 unseen legitimate apps, one did.'),
+    },
+    {
+        'id': 'beh.accessibility_types_into_other_apps',
+        'title': 'Types into other apps through accessibility while drawing over them',
+        'description': (
+            'The code enters text into other applications through accessibility and also draws '
+            'windows over them. ThreatFabric records Herodotus splitting the operator\'s text '
+            '"into chars, and they are separately set with random delays" through ACTION_SET_TEXT '
+            'to defeat behavioural biometrics; Zimperium records PixRevolution using '
+            'performAction(ACTION_SET_TEXT) to overwrite a focused payment field behind a '
+            'full-screen overlay.'),
+        'requires': ('cap.accessibility_text_entry', 'cap.overlay_window'),
+        'tier': 3,
+        'pha': 'spyware',
+        'attack': ('T1417.002', 'T1516'),
+        'sources': ('threatfabric-herodotus-2025', 'zimperium-pixrevolution-2026'),
+        'lookalikes': ('Password managers fill fields through accessibility, and launchers draw '
+                       'overlays. Entering text into another app while covering it is the '
+                       'device-takeover pattern.'),
+    },
+    {
+        'id': 'beh.screen_capture_to_network',
+        'title': 'Captures the screen and sends it off the device',
+        'description': (
+            'The code captures the screen through MediaProjection and contains its own network '
+            'endpoints. Zimperium records PixRevolution creating a virtual display and streaming '
+            'it to a C2 over a persistent TCP connection while an operator watches.'),
+        'requires': ('cap.screen_capture', 'cap.network_use'),
+        'tier': 3,
+        'pha': 'spyware',
+        'attack': ('T1513',),
+        'sources': ('zimperium-pixrevolution-2026',),
+        'lookalikes': ('Screen recorders, casting and remote-support tools capture the screen '
+                       'legitimately; most keep the recording on the device.'),
+    },
+    {
+        'id': 'beh.adb_payload_dropper',
+        'title': 'Installs packages and runs shell commands, persisting across reboot',
+        'description': (
+            'The code installs packages, executes shell commands and registers to start at boot. '
+            'This is the Android TV-box botnet profile rather than phone spyware: Comcast '
+            'documented JackSkid dropping payloads over ADB with native libraries named to '
+            'imitate system components, and Rescana documented Kimwolf spreading to devices with '
+            'ADB exposed on TCP/5555 as both APK and ELF.'),
+        'requires': ('cap.install_packages', 'cap.shell_exec', 'cap.boot_start'),
+        'tier': 3,
+        'pha': 'hostile-downloader',
+        'attack': ('T1407',),
+        'sources': ('comcast-jackskid-2026', 'rescana-kimwolf-2026'),
+        'lookalikes': ('Terminal emulators run shell commands, app stores install packages and '
+                       'many apps start at boot. Doing all three is the botnet dropper profile.'),
+    },
     {
         'id': 'beh.install_under_network_blackout',
         'title': 'Installs a package while forcing all traffic into its own VPN',

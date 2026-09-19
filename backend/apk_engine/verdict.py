@@ -30,7 +30,8 @@ from .report import IDENTITY_TIERS, assessment_for
 from .sources import PHA, SOURCES
 
 
-def decide(integrity, behaviours, intel, examined_code, examined_manifest, reference=None):
+def decide(integrity, behaviours, intel, examined_code, examined_manifest, reference=None,
+           gaps=()):
     basis, not_established, families, techniques = [], [], {}, {}
 
     def note(item, kind):
@@ -103,7 +104,8 @@ def decide(integrity, behaviours, intel, examined_code, examined_manifest, refer
         tier, basis=basis, families=list(families.values()),
         techniques=list(techniques.values()), not_established=not_established,
         summary=_summary(tier, basis, behaviours, intel),
-        vocabulary=IDENTITY_TIERS if identity_only and tier in IDENTITY_TIERS else None)
+        vocabulary=IDENTITY_TIERS if identity_only and tier in IDENTITY_TIERS else None,
+        gaps=gaps)
 
 
 def _summary(tier, basis, behaviours, intel):
