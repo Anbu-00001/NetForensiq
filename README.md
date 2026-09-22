@@ -420,6 +420,22 @@ So, measured on the same 200 samples: **the engine catches more malware than Ind
 
 What NetForensiq is for instead is set out in [Where this fits](#where-this-fits--phones-already-scan-apps-so-why-a-tool-at-all).
 
+### Compared with MobSF, on the same samples
+
+MobSF is the standard open-source Android static analyser. It was evaluated and deliberately not shipped ([research/150](research/150_APK_MALWARE_CLASSIFICATION.md) §2.1) — it is GPL-3.0, and it does not classify malware. Running it over 14 of the same samples measures what that means in practice ([research/159](research/159_MOBSF_COMPARISON.md)):
+
+| App | MobSF security score | This engine |
+|---|---:|---|
+| `com.mrram.loader` — the KANAD S.H.I.E.L.D. malware sample | **73 / 100**, the best score in the test, 0 high findings | **tier 3** — installs a package under its own VPN, second stage from a Cloudflare quick tunnel |
+| `org.fdroid.fdroid` — legitimate | 62 | tier 1 |
+| `de.blinkt.openvpn` — legitimate | 52 | tier 1 |
+| `com.termux` — legitimate | 47 | tier 1 |
+| 9 blind-set malware samples | 46 – 67 | 4 flagged, 5 missed |
+
+Every score fell between 46 and 67, with the legitimate apps in the middle of the malware. The hackathon sample scored *best* because its manifest is deliberately malformed — MobSF's own APKiD module names the technique, "Resources Confusion" — so its manifest parse returned 0 permissions, 0 activities and 0 services, and a score computed from findings rewarded finding nothing.
+
+**None of that is a defect in MobSF**, which is a better workbench than this engine by most measures: trackers, certificate detail, packer identification, code-pattern rules, a web UI, and dynamic analysis with Frida that this project does not have at all. It is a defect in reading a hardening score as a malware verdict. The one place the two genuinely disagree is tampered archives: MobSF returned HTTP 500 on a sample whose ZIP was corrupted (`UnboundLocalError` in its fallback extraction), where this engine treats the tampering itself as the finding.
+
 ### Two design decisions worth reading
 
 **① Capability is not intent.** Google Play explicitly permits SMS permissions for UPI apps, and a banking SDK is *expected* to check for root. So permissions and API calls are an inventory, and only combinations that published threat research documents — each citing that report, listing the legitimate apps that look similar, and mapping to MITRE ATT&CK — can establish harm.
