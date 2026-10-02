@@ -9,6 +9,7 @@ import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/Classi
 import TopBar from '../components/layout/TopBar';
 import {
   listEvidence, getCustodyChain, verifyEvidence, unwrap, formatBytes,
+  downloadCasePackage,
   listCertificates, issueCertificate, signCertificatePartB, downloadCertificatePdf,
 } from '../services/forensics';
 import { useCurrentUser, canActOnEvidence } from '../services/session';
@@ -244,6 +245,24 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
     }
   };
 
+  // The signing key's fingerprint, shown beside the download: it is what the
+  // recipient compares against, so it must not only live inside the package.
+  const [exported, setExported] = useState('');
+  const [exportError, setExportError] = useState('');
+  const runExport = async () => {
+    setBusy(true);
+    setExportError('');
+    try {
+      setExported(await downloadCasePackage(record.id, record.exhibit_number));
+      // The export is itself a custody entry, so the chain has moved on.
+      if (open) setChain(await getCustodyChain(record.id));
+    } catch (err) {
+      setExportError(err?.response?.data?.detail || 'The package could not be exported.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Box sx={{
       mb: 2, borderRadius: 2, overflow: 'hidden',
@@ -265,7 +284,13 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
           {canAct && (
             <Button size="small" variant="outlined" disabled={busy} onClick={runVerify}
               sx={{ fontSize: 11.5, borderColor: 'rgba(7,110,124,0.45)', color: '#076E7C' }}>
-              {busy ? 'Verifying…' : 'Re-verify integrity'}
+              {busy ? 'Working…' : 'Re-verify integrity'}
+            </Button>
+          )}
+          {canAct && (
+            <Button size="small" variant="outlined" disabled={busy} onClick={runExport}
+              sx={{ fontSize: 11.5, borderColor: 'rgba(7,110,124,0.45)', color: '#076E7C' }}>
+              Export signed package
             </Button>
           )}
           <Button size="small" onClick={toggle}
@@ -273,6 +298,19 @@ function ExhibitCard({ record, onUpdated, certificates, onCertificatesChanged, c
             {open ? 'Hide' : 'Show'} chain of custody
           </Button>
         </Box>
+
+        {exportError && <Alert severity="error" sx={{ mb: 1.5, fontSize: 12 }}>{exportError}</Alert>}
+        {exported && (
+          <Alert severity="info" sx={{ mb: 1.5, fontSize: 12 }}>
+            Package saved and recorded in the custody log. Signed with key{' '}
+            <Box component="span" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              {exported.match(/.{1,8}/g)?.join(' ')}
+            </Box>
+            . Give the recipient this fingerprint by another route — a printed certificate
+            or a phone call — so they can confirm who signed it. They check the file with{' '}
+            <a href="/nfverify.html" target="_blank" rel="noreferrer">the offline verifier</a>.
+          </Alert>
+        )}
 
         <Typography sx={{ fontSize: 12.5, color: '#5A6068', mb: 1.5 }}>
           {record.original_filename} · {formatBytes(record.file_size_bytes)}

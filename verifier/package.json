@@ -1,0 +1,16 @@
+{
+  "name": "netforensiq-verifier",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline verifier for NetForensiq case packages. One HTML file, no network.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "esbuild": "0.25.10"
+  }
+}

@@ -45,9 +45,15 @@ class CaseFixtureMixin:
             investigating_officer=self.io,
         )
 
+    # What the sealed exhibit contains. None keeps make_capture_file's default; a
+    # subclass sets bytes to seal something else (the committed verifier fixtures
+    # do, so that nothing in the repository merely resembles a packet capture).
+    EXHIBIT_CONTENT = None
+
     def _ingest(self, **kwargs):
+        content = ({} if self.EXHIBIT_CONTENT is None else {'content': self.EXHIBIT_CONTENT})
         with override_settings(EVIDENCE_ROOT=Path(self.tmp) / 'pcaps'):
-            return ingest_evidence(make_capture_file(), **kwargs)
+            return ingest_evidence(make_capture_file(**content), **kwargs)
 
 
 class CaseModelTests(CaseFixtureMixin, TestCase):

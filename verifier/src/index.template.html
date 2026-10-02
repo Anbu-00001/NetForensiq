@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="__CSP__">
+<title>NetForensiq case package verifier</title>
+<style>__STYLE__</style>
+</head>
+<body>
+<header>
+  <h1>NetForensiq case package verifier</h1>
+  <p class="lede">Checks a signed case package on this machine. Nothing leaves it: this page's
+  security policy forbids every network request, so it cannot send the file or the result anywhere.</p>
+</header>
+<main>
+  <section>
+    <h2>1. Choose the package</h2>
+    <label class="drop" id="pkgdrop">
+      <input type="file" id="pkg" accept=".json,application/json">
+      <span id="pkgtext">Choose the <b>.nfcase.json</b> file, or drop it here</span>
+    </label>
+    <label class="field" for="fp">Signing key fingerprint, as the laboratory gave it to you
+      <span class="hint">(optional — but it is what makes a signature mean something)</span></label>
+    <input type="text" id="fp" spellcheck="false" autocomplete="off"
+           placeholder="eight groups of eight characters">
+  </section>
+
+  <section id="result" hidden aria-live="polite"></section>
+
+  <section id="filesection" hidden>
+    <h2>2. Check a file you were given</h2>
+    <p class="hint">Choose the exhibit (the capture or sample) or a certificate PDF. It is hashed in
+    this page and compared with what the package says. It is never uploaded.</p>
+    <label class="drop" id="filedrop">
+      <input type="file" id="file" multiple>
+      <span>Choose one or more files, or drop them here</span>
+    </label>
+    <div id="fileresults"></div>
+  </section>
+
+  <section>
+    <h2>What a pass does and does not show</h2>
+    <ul class="limits">
+      <li><b>Shows:</b> the package has not been changed since it was signed; every custody entry
+      still hashes to what is recorded; no entry has been removed from the middle or reordered; and a
+      file you hold is, or is not, the one the package describes.</li>
+      <li><b>Does not show that the key is the laboratory's.</b> Anyone can sign a package with their
+      own key and it will verify. Compare the fingerprint with one you obtained by another route — a
+      printed certificate, a phone call, the laboratory's own notice.</li>
+      <li><b>Does not show the log was never rebuilt before signing.</b> A hash chain proves a log is
+      consistent, not that nobody recomputed all of it. Only an external anchor could.</li>
+      <li><b>Does not show the evidence is genuine or the findings correct.</b> It checks the record of
+      custody, not the conclusions drawn from the file.</li>
+    </ul>
+  </section>
+</main>
+<footer>NetForensiq verifier __VERSION__ · MIT licence · hashing and signature code from
+noble-hashes and noble-curves (MIT), included in this file · this file's own SHA-256 is published
+beside it, so you can check the checker.</footer>
+<script>__SCRIPT__</script>
+</body>
+</html>

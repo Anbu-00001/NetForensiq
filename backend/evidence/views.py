@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
-from django.http import FileResponse
+import base64
+
+from django.http import FileResponse, HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -15,6 +17,7 @@ from accounts.models import AuditLog
 from accounts.permissions import IsExaminer, IsInvestigatorOrReadOnly
 from accounts.utils import get_client_ip, log_action
 
+from . import case_package, signing
 from .certificate_pdf import render_certificate_pdf
 from .custody_register import build_register
 from .models import Case, CaseAssignment, CustodyEvent, EvidenceRecord, Section63Certificate
@@ -120,6 +123,48 @@ class CaseSerializer(ModelSerializer):
                    for officer_id in experts)
 
 
+def _signed_package_response(request, records, case=None):
+    """
+    Record the export in each exhibit's custody log, then build and return the
+    signed package.
+
+    Order matters. The export is recorded first so that it is *in* the package:
+    a package whose own export is missing from its log would describe a handover
+    that, according to its own record, had not happened. The cost is that a
+    failed build still leaves the custody entry — and that is the right way
+    round: an export that was attempted is a movement worth recording.
+    """
+    try:
+        key = signing.load_private_key(create=True)
+    except signing.SigningKeyError as exc:
+        return Response({'detail': f'The signing key is unusable: {exc}'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    fingerprint = signing.fingerprint(signing.public_key_bytes(key))
+
+    for record in records:
+        record_custody(
+            record, CustodyEvent.Action.EXPORTED, actor=request.user,
+            detail=f'Signed case package exported (signing key {fingerprint[:16]})',
+            actor_ip=get_client_ip(request),
+        )
+
+    text, summary = case_package.build_case_package(records, case=case, private_key=key)
+    numbers = ', '.join(summary['exhibits'])
+    log_action(
+        request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
+        username_attempted=request.user.username,
+        detail=(f'Exported signed case package for {numbers} '
+                f'(content {"intact" if summary["all_content_intact"] else "NOT INTACT"})'),
+    )
+
+    name = (case.case_number if case else records[0].exhibit_number)
+    safe = ''.join(c if c.isalnum() or c in '-._' else '_' for c in name)
+    response = HttpResponse(text, content_type='application/json; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{safe}.nfcase.json"'
+    response['X-NetForensiq-Key-Fingerprint'] = fingerprint
+    return response
+
+
 class CaseViewSet(viewsets.ModelViewSet):
     """
     Investigations.
@@ -166,6 +211,16 @@ class CaseViewSet(viewsets.ModelViewSet):
         return Response(CaseAssignmentSerializer(assignment).data,
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'])
+    def package(self, request, pk=None):
+        """A signed package over every exhibit on this case. See case_package.py."""
+        case = self.get_object()
+        records = list(case.exhibits.order_by('created_at'))
+        if not records:
+            return Response({'detail': 'This case has no exhibits to export.'},
+                            status=status.HTTP_409_CONFLICT)
+        return _signed_package_response(request, records, case=case)
+
     @action(detail=True, methods=['post'], url_path='link-exhibit')
     def link_exhibit(self, request, pk=None):
         """Attach a sealed exhibit to this case, recording it in the chain."""
@@ -188,6 +243,50 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsInvestigatorOrReadOnly]
     queryset = EvidenceRecord.objects.all()
     serializer_class = EvidenceRecordSerializer
+
+    @action(detail=False, methods=['get'], url_path='signing-key')
+    def signing_key(self, request):
+        """
+        The key that signs case packages: its fingerprint and public half.
+
+        This is what an officer reads out, or prints, so that a recipient can
+        check a package's signer against something that did not travel with the
+        package. Reading it creates nothing: before the first export there is no
+        key, and saying so is more honest than minting one to have an answer.
+        """
+        try:
+            key = signing.load_private_key(create=False)
+        except signing.SigningKeyError as exc:
+            return Response({'configured': False, 'problem': str(exc)})
+        if key is None:
+            return Response({
+                'configured': False,
+                'detail': 'No signing key yet. One is generated on the first export.',
+            })
+        public = signing.public_key_bytes(key)
+        digest = signing.fingerprint(public)
+        from django.conf import settings as dj_settings
+        return Response({
+            'configured': True,
+            'algorithm': 'ed25519',
+            'fingerprint': digest,
+            'fingerprint_display': signing.display_fingerprint(digest),
+            'public_key': base64.b64encode(public).decode(),
+            'source': 'environment' if getattr(dj_settings, 'PACKAGE_SIGNING_KEY', '') else 'file',
+        })
+
+    @action(detail=True, methods=['post'])
+    def package(self, request, pk=None):
+        """
+        One file a recipient can verify without this software or a network:
+        the exhibit's identity and hashes, its whole custody log, its
+        certificates, signed with this installation's key. See case_package.py
+        for what checking it proves and what it cannot.
+
+        A POST, not a GET: it appends an `exported` entry to the custody log.
+        """
+        record = self.get_object()
+        return _signed_package_response(request, [record], case=record.case)
 
     @action(detail=True, methods=['get'])
     def custody(self, request, pk=None):

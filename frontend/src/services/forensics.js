@@ -178,6 +178,51 @@ export const downloadCertificatePdf = async (id, reference) => {
   window.URL.revokeObjectURL(url);
 };
 
+/**
+ * The key that signs case packages. A recipient compares this fingerprint with
+ * the one in the package, so it has to reach them by some other route.
+ */
+export const getSigningKey = () =>
+  api.get('/evidence/signing-key/').then((r) => r.data);
+
+/**
+ * Export a signed case package for one exhibit and save it.
+ *
+ * A POST, because it appends an `exported` entry to the custody log. Returns the
+ * signing key's fingerprint so the page can show it beside the download.
+ */
+export const downloadCasePackage = async (id, exhibitNumber) => {
+  const response = await api.post(`/evidence/${id}/package/`, null, {
+    responseType: 'blob',
+  });
+  const url = window.URL.createObjectURL(
+    new Blob([response.data], { type: 'application/json' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${exhibitNumber || `exhibit-${id}`}.nfcase.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  return response.headers['x-netforensiq-key-fingerprint'] || '';
+};
+
+/**
+ * File a MobSF JSON report beside a sample. The server ties it to an exhibit only
+ * if the SHA-256 the report states matches a package this system examined; see
+ * capture/second_opinion.py.
+ */
+export const fileSecondOpinion = (file, note = '') => {
+  const form = new FormData();
+  form.append('file', file);
+  if (note) form.append('note', note);
+  return api.post('/samples/second-opinion/', form).then((r) => ({ ...r.data, _status: r.status }));
+};
+
+export const listSecondOpinions = (exhibitId) =>
+  api.get('/samples/second-opinion/', { params: { exhibit: exhibitId } }).then((r) => r.data);
+
 /** DRF pagination returns {results: []}; plain lists come back bare. */
 export const unwrap = (data) => (Array.isArray(data) ? data : data?.results ?? []);
 
