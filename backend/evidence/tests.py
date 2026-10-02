@@ -765,6 +765,35 @@ class InvestigationReportTests(TestCase):
         self.assertIn('tamper-evident', text)
         self.assertIn('heuristics', text)
 
+    def test_the_limits_section_states_the_real_counts_not_remembered_ones(self):
+        """
+        The section used to say "thirty-five thresholds, twenty-three ours" and "two
+        of the ten rules" in a string literal. The code moved on to 36, 24 and
+        eleven, and a report that could go to a court quoted the old figures with
+        nothing to catch it. The numbers are now computed; this reads them back off
+        the rendered page.
+        """
+        import re
+        from capture import limits
+
+        figures = limits.counts()
+        flat = re.sub(r'\s+', ' ', self._text())
+        self.assertIn(f'Of the {figures["thresholds"]} thresholds', flat)
+        self.assertIn(f'{figures["heuristic_thresholds"]} are the examining team', flat)
+        self.assertIn(f'{figures["rules_without_attack_identifier"]} of the {figures["rules"]} '
+                      f'detection signals carry no identifier', flat)
+        for stale in ('thirty-five', 'twenty-three', 'ten rules'):
+            self.assertNotIn(stale, flat)
+
+    def test_the_report_says_how_few_attacks_the_rules_were_tested_on(self):
+        import re
+        from capture import limits
+
+        flat = re.sub(r'\s+', ' ', self._text())
+        figures = limits.network_figures()
+        self.assertIn(f"Only {figures['attack_captures']} attack captures were available", flat)
+        self.assertIn(f"{figures['ordinary_captures']} captures of ordinary traffic", flat)
+
     def test_a_statistical_finding_is_marked_as_proving_nothing(self):
         text = self._text()
         self.assertIn('ANOMALY_STATISTICAL', text)

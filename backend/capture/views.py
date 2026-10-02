@@ -1084,6 +1084,22 @@ class EngineInfoThrottle(ScopedRateThrottle):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 @throttle_classes([EngineInfoThrottle])
+def engine_limits(request):
+    """
+    What this tool cannot establish, with the measured figures behind each limit.
+
+    Public, like engine_info: it is the page that says what *not* to rely on, and
+    someone should be able to read it before they have an account. It exposes
+    published validation figures and counts, no case data. See capture/limits.py.
+    """
+    from . import limits
+
+    return Response(limits.document())
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@throttle_classes([EngineInfoThrottle])
 def engine_info(request):
     """
     What the engine is, for pages shown before anyone signs in.

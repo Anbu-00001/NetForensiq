@@ -225,12 +225,18 @@ test.describe('the findings list is the whole findings list', () => {
 // ── evidence and certificates ───────────────────────────────────────────
 
 test.describe('certificates refuse what section 63 refuses', () => {
-  test('one account cannot sign both parts', async ({ request }) => {
+  test('an investigator cannot countersign Part B at all', async ({ request }) => {
     // Section 63(4) contemplates the person in charge of the device AND an
-    // expert. Checked against a certificate that already exists: an earlier
-    // version of this test issued a fresh one on every run, which left seven
-    // orphan DRAFT certificates in the demonstration database — a test writing
-    // statutory documents into the data a judge is shown.
+    // expert. The first version of this test had the investigator who signed Part A
+    // try to sign Part B too, and expected the service's "different people" refusal
+    // (409). Countersigning is now reserved to the FSL examiner role (IsExaminer),
+    // so an investigator is refused earlier and more simply, with 403, and the
+    // "different people" rule can only be reached by an administrator signing both
+    // halves — which backend/evidence/tests.py covers at the service layer.
+    //
+    // Checked against a certificate that already exists: an earlier version of this
+    // test issued a fresh one on every run, which left seven orphan DRAFT
+    // certificates in the demonstration database.
     const { access } = tokensFor('investigator');
     const certificates = await (await request.get(`${API_BASE}/certificates/`, {
       headers: { Authorization: `Bearer ${access}` },
@@ -247,8 +253,8 @@ test.describe('certificates refuse what section 63 refuses', () => {
         failOnStatusCode: false,
       },
     );
-    expect(refused.status(), 'the same account signed both parts').toBe(409);
-    expect(await refused.text()).toMatch(/different people/i);
+    expect(refused.status(), 'an investigator countersigned Part B').toBe(403);
+    expect(await refused.text()).toMatch(/FSL \/ Examiner clearance/i);
   });
 
   test('each certificate shows the completeness the API reports', async ({ page }) => {

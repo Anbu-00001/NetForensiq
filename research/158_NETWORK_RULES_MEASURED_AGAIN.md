@@ -170,9 +170,9 @@ written in v6, so this is the engine whose held-out score was 64.
 | Fresh F-Droid, re-checked on the shipped engine | 0 of 89 examined; 11 could not be examined |
 
 Pre-registered: 80% interval 48–72 — caught it; "≥ 64" at p = 0.40 — wrong. Almost the
-whole drop is tier 2 (45 → 25): the blind set is the 600 most recent uploads, and fewer
-of them forge their own ZIP headers. The engine's strongest signal is a packaging trick
-that newer samples use less.
+whole drop is tier 2 (45 → 25, integrity indicators). The likeliest reason, not tested, is
+that the engine's strongest signal is a packaging trick and the blind set — the 600 most
+recent uploads — may use it less.
 
 **Play Protect.** AV-TEST, May 2025: 99.8% of 2,973 new samples, 99.9% of 3,017
 reference samples, no false warnings; endurance test Jul–Dec 2025: 99.6% / 99.7% on

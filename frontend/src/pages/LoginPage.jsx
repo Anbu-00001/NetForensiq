@@ -239,6 +239,15 @@ function LoginPage() {
                 </RouterLink>
               </Typography>
 
+              <Typography sx={{ fontSize: 12.5, color: '#5A6068', mt: 0.8, textAlign: 'center' }}>
+                <RouterLink
+                  to="/limits"
+                  style={{ color: '#076E7C', textDecoration: 'none', fontWeight: 600 }}
+                >
+                  What this tool cannot establish
+                </RouterLink>
+              </Typography>
+
               <Box
                 sx={{
                   mt: 2.5, p: 1.4, borderRadius: 1.5,

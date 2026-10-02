@@ -21,6 +21,16 @@ export async function getEngineInfo() {
 }
 
 /**
+ * What the tool cannot establish, with the measured figures behind each limit.
+ * Public, like /engine/: the page that says what not to rely on should be
+ * readable before anyone has an account.
+ */
+export async function getEngineLimits() {
+  const { data } = await axios.get(`${API_BASE}/engine/limits/`);
+  return data;
+}
+
+/**
  * Small words for small numbers, because "9 deterministic rules" mid-sentence
  * reads like a spec sheet and "nine" reads like English.
  */

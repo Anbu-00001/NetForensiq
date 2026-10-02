@@ -1,0 +1,284 @@
+{
+ "activities": [],
+ "apkid": {
+  "1661d12cd99234a5a8c99fed1241924a.apk": {
+   "manipulator": [
+    "Resources Confusion"
+   ]
+  },
+  "classes.dex": {
+   "anti_vm": [
+    "Build.FINGERPRINT check",
+    "Build.MANUFACTURER check"
+   ],
+   "compiler": [
+    "r8"
+   ]
+  }
+ },
+ "app_name": "",
+ "appsec": {
+  "app_name": "",
+  "file_name": "PENSION-CARD-inner.apk",
+  "hash": "1661d12cd99234a5a8c99fed1241924a",
+  "high": [],
+  "hotspot": [],
+  "info": [
+   {
+    "description": "The App logs information. Sensitive information should never be logged.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x05d-Testing-Data-Storage.md#logs\n\nFiles:\na0/m.java, line(s) 24\nc1/b.java, line(s) 38\ncom/mrram/loader/InstallResultReceiver.java, line(s) 70\nd/b0.java, line(s) 112\nd/e.java, line(s) 187\nd/g0.java, line(s) 757,1595,2263,2265,2268,1443,1452,1462,1471,1478,1490,1499,856,1066,1069,1658,1671,2117\nd/o.java, line(s) 429,249,258\nd/p0.java, line(s) 247,295,297,350\nd/t.java, line(s) 52\ne0/b1.java, line(s) 230,206,229\ne0/b2.java, line(s) 91,110,82\ne0/c.java, line(s) 86\ne0/e1.java, line(s) 22,33\ne0/q0.java, line(s) 87\ne0/u.java, line(s) 37,50,97,162,210,231,255\ne0/w1.java, line(s) 36\ne0/x1.java, line(s) 39,51,58,67\nf/k.java, line(s) 114,173,187,195\nf/l.java, line(s) 183\ng/i.java, line(s) 494\ng/o.java, line(s) 583\nh/a4.java, line(s) 153,235\nh/e4.java, line(s) 29\nh/j.java, line(s) 73\nh/k1.java, line(s) 21\nh/l3.java, line(s) 117,300,430,220,396,411,474,488\nh/m2.java, line(s) 338,106,111,321\nh/m3.java, line(s) 41\nh/o1.java, line(s) 105,114,213\nh/q0.java, line(s) 44,100,105,120\nh/s2.java, line(s) 21\nh/w0.java, line(s) 87\nh/x.java, line(s) 87\nh/z.java, line(s) 232\ni0/u.java, line(s) 18,17\nj0/d.java, line(s) 41\nl0/e.java, line(s) 330\no/e.java, line(s) 427\np1/d.java, line(s) 108,142\nq/c.java, line(s) 86\nq/g.java, line(s) 57\nq/h.java, line(s) 45\nq/j.java, line(s) 377,404\nq/n.java, line(s) 410,548,554,555,556,565,603,609,610,611,620,669,447,454,493\nq1/a.java, line(s) 21\ns0/e.java, line(s) 745,752\ns0/k.java, line(s) 856\ns1/e.java, line(s) 248,301,304\ns1/g.java, line(s) 167\nu/f.java, line(s) 37\nu/h.java, line(s) 58\nu0/d1.java, line(s) 194\nu0/o0.java, line(s) 746\nu0/y0.java, line(s) 50\nu0/z.java, line(s) 172,140\nv/f.java, line(s) 68\nv2/l.java, line(s) 70,72\nw/b.java, line(s) 150,349\nw/q.java, line(s) 59,83,93\nw2/d.java, line(s) 47\nx/g.java, line(s) 39,44\nx/h.java, line(s) 40\nx/i.java, line(s) 62\nx/j.java, line(s) 48\nx/k.java, line(s) 62,126\nz0/o.java, line(s) 516\nz1/a.java, line(s) 898,2361,2879,424,912,922,1259,1271",
+    "section": "code",
+    "title": "The App logs information. Sensitive information should never be logged."
+   }
+  ],
+  "secure": [
+   {
+    "description": "This App uses SSL certificate pinning to detect or  prevent MITM attacks in secure communication channel.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x05g-Testing-Network-Communication.md#testing-custom-certificate-stores-and-certificate-pinning-mstg-network-4\n\nFiles:\nv2/d.java, line(s) 72,71,70\nv2/g.java, line(s) 83,73,82,90,81,81\nv2/k.java, line(s) 72,71,70,70\nv2/l.java, line(s) 197,185,196,195,195",
+    "section": "code",
+    "title": "This App uses SSL certificate pinning to detect or  prevent MITM attacks in secure communication channel."
+   },
+   {
+    "description": "This application does not include any user or device trackers. Unable to find trackers during static analysis.",
+    "section": "trackers",
+    "title": "This application has no privacy trackers"
+   }
+  ],
+  "security_score": 73,
+  "total_trackers": 432,
+  "trackers": 0,
+  "version_name": "Failed",
+  "warning": [
+   {
+    "description": "The App uses an insecure Random Number Generator.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x04g-Testing-Cryptography.md#weak-random-number-generators\n\nFiles:\nd/m0.java, line(s) 13\nh2/a.java, line(s) 3\nh2/b.java, line(s) 5\nh2/c.java, line(s) 3\ni2/a.java, line(s) 3",
+    "section": "code",
+    "title": "The App uses an insecure Random Number Generator."
+   },
+   {
+    "description": "Insecure WebView Implementation. Execution of user controlled code in WebView is a critical Security Hole.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#testing-javascript-execution-in-webviews-mstg-platform-5\n\nFiles:\ncom/mrram/loader/MainActivity.java, line(s) 508,484",
+    "section": "code",
+    "title": "Insecure WebView Implementation. Execution of user controlled code in WebView is a critical Security Hole."
+   },
+   {
+    "description": "IP Address disclosure\n\n\nFiles:\ncom/mrram/loader/InstallVpnService.java, line(s) 197,197",
+    "section": "code",
+    "title": "IP Address disclosure"
+   },
+   {
+    "description": "The following secrets were identified from the app. Ensure that these are not secrets or private information.\n434e0936-b2b7-4d8a-b0a2-a04f9da58e06\ndb1b20aafb65d1f30cb6bed1eb23e959bf82f32b421b8613241b69a2acd748db",
+    "section": "secrets",
+    "title": "This app may contain hardcoded secrets"
+   }
+  ]
+ },
+ "behaviour": {
+  "00013": {
+   "files": {
+    "com/mrram/loader/InstallVpnService.java": "14,15,15",
+    "com/mrram/loader/MainActivity.java": "26,27,28,27",
+    "s0/b.java": "5,6,7,6",
+    "s0/e.java": "15,16,17,18,16",
+    "s0/j.java": "5,6,7,6",
+    "w/b.java": "19,20,21,20",
+    "x/i.java": "12,13,13",
+    "x/j.java": "9,10,10",
+    "y1/b.java": "3,4,4",
+    "z1/a.java": "96,97,98,99,97"
+   },
+   "metadata": {
+    "description": "Read file and put it into a stream",
+    "label": [
+     "file"
+    ],
+    "severity": "info"
+   }
+  },
+  "00023": {
+   "files": {
+    "y1/l.java": "96,123,125,4,8"
+   },
+   "metadata": {
+    "description": "Start another application from current application",
+    "label": [
+     "reflection",
+     "control"
+    ],
+    "severity": "info"
+   }
+  },
+  "00024": {
+   "files": {
+    "z1/a.java": "1123,1132,273,316,376,46,99"
+   },
+   "metadata": {
+    "description": "Write file after Base64 decoding",
+    "label": [
+     "reflection",
+     "file"
+    ],
+    "severity": "info"
+   }
+  },
+  "00025": {
+   "files": {
+    "z1/a.java": "612,631,883,1347,1349,1351,1353,1355,1357,1359,1361,1363,2414,2422,2977,2980,3166,755,15,3056"
+   },
+   "metadata": {
+    "description": "Monitor the general action to be performed",
+    "label": [
+     "reflection"
+    ],
+    "severity": "info"
+   }
+  },
+  "00036": {
+   "files": {
+    "h/l3.java": "217,378,408,5,12"
+   },
+   "metadata": {
+    "description": "Get resource file from res/raw directory",
+    "label": [
+     "reflection"
+    ],
+    "severity": "info"
+   }
+  },
+  "00051": {
+   "files": {
+    "com/mrram/loader/MainActivity.java": "288,288,6,7,10"
+   },
+   "metadata": {
+    "description": "Implicit intent(view a web page, make a phone call, etc.) via setData",
+    "label": [
+     "control"
+    ],
+    "severity": "info"
+   }
+  },
+  "00063": {
+   "files": {
+    "com/mrram/loader/MainActivity.java": "288,6,7,10"
+   },
+   "metadata": {
+    "description": "Implicit intent(view a web page, make a phone call, etc.)",
+    "label": [
+     "control"
+    ],
+    "severity": "info"
+   }
+  },
+  "00075": {
+   "files": {
+    "d/e.java": "183,182,10"
+   },
+   "metadata": {
+    "description": "Get location of the device",
+    "label": [
+     "collection",
+     "location"
+    ],
+    "severity": "info"
+   }
+  },
+  "00104": {
+   "files": {
+    "z1/a.java": "614,615,616,620,656,664,2433,687,36,96,97,98,99"
+   },
+   "metadata": {
+    "description": "Check if the given path is directory",
+    "label": [
+     "file"
+    ],
+    "severity": "info"
+   }
+  },
+  "00114": {
+   "files": {
+    "r2/k.java": "110,260,381,9,28"
+   },
+   "metadata": {
+    "description": "Create a secure socket connection to the proxy address",
+    "label": [
+     "network",
+     "command"
+    ],
+    "severity": "info"
+   }
+  },
+  "00162": {
+   "files": {
+    "v2/c.java": "160,8,9",
+    "v2/l.java": "149,4,5"
+   },
+   "metadata": {
+    "description": "Create InetSocketAddress object and connecting to it",
+    "label": [
+     "socket"
+    ],
+    "severity": "info"
+   }
+  },
+  "00163": {
+   "files": {
+    "v2/c.java": "160,9",
+    "v2/l.java": "149,5"
+   },
+   "metadata": {
+    "description": "Create new Socket and connecting to it",
+    "label": [
+     "socket"
+    ],
+    "severity": "info"
+   }
+  },
+  "00191": {
+   "files": {
+    "h/l3.java": "292,293,294,295,296,297,311,316,319,408,10,12"
+   },
+   "metadata": {
+    "description": "Get messages in the SMS inbox",
+    "label": [
+     "sms"
+    ],
+    "severity": "info"
+   }
+  }
+ },
+ "domains": {
+  "representation-certified-accomplish-existed.trycloudflare.com": {
+   "bad": "no",
+   "geolocation": null
+  },
+  "schemas.android.com": {
+   "bad": "no",
+   "geolocation": null
+  }
+ },
+ "file_name": "PENSION-CARD-inner.apk",
+ "manifest_analysis": {
+  "manifest_findings": [],
+  "manifest_summary": {
+   "high": 0,
+   "info": 0,
+   "suppressed": 0,
+   "warning": 0
+  }
+ },
+ "md5": "1661d12cd99234a5a8c99fed1241924a",
+ "min_sdk": "",
+ "package_name": "Failed",
+ "permissions": {},
+ "providers": [],
+ "receivers": [],
+ "services": [],
+ "sha1": "a6fa46efea462ae5c53bdf12344ad4615d9dcff8",
+ "sha256": "664e43ef02578bb6c44956471e1275f276e33e5af39ed50694f926241278f49a",
+ "size": "2.01MB",
+ "target_sdk": "",
+ "trackers": {
+  "detected_trackers": 0,
+  "total_trackers": 432,
+  "trackers": []
+ },
+ "version": "v4.5.4",
+ "version_name": "Failed",
+ "virus_total": null
+}

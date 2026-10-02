@@ -1,4 +1,4 @@
-import { test, expect, apiGet, apiPost, rows, API_BASE } from './fixtures';
+import { test, expect, apiGet, apiPost, rows, API_BASE, shownCount } from './fixtures';
 
 /**
  * Any rule the engine can emit. Findings are addressed by their accessible
@@ -59,7 +59,7 @@ test.describe('dashboard shows real data', () => {
 
     // The flow count on screen must be the flow count in the database
     const body = await page.locator('body').innerText();
-    expect(body).toContain(String(summary.totals.flows));
+    expect(body).toContain(shownCount(summary.totals.flows));
   });
 
   test('no "Blocked" or "Archived" card — the tool cannot do either', async ({ page }) => {

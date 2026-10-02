@@ -12,10 +12,10 @@ from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
 
 from capture.upload import CaptureUploadView
-from capture.apk_views import APKExaminationView
+from capture.apk_views import APKExaminationView, SecondOpinionView
 from capture.views import (
     CaptureSessionViewSet, DNSRecordViewSet, DetectionViewSet, FlowViewSet,
-    engine_info,
+    engine_info, engine_limits,
 )
 from evidence.views import (
     CaseViewSet, CertificateViewSet, EvidenceViewSet, PublicVerifyView,
@@ -38,6 +38,7 @@ urlpatterns = [
     # Public: the landing and login pages state the rule count and version,
     # and a number on a page nobody has signed in to see still has to be true.
     path('api/engine/', engine_info, name='engine-info'),
+    path('api/engine/limits/', engine_limits, name='engine-limits'),
     # Open verification. A certificate asserts a SHA-256; the person handed
     # that certificate must be able to test the assertion without credentials
     # to the investigating agency's own system.
@@ -45,6 +46,7 @@ urlpatterns = [
     # USB stick does not need a shell prompt.
     path('api/capture/upload/', CaptureUploadView.as_view(), name='capture-upload'),
     path('api/samples/examine/', APKExaminationView.as_view(), name='sample-examine'),
+    path('api/samples/second-opinion/', SecondOpinionView.as_view(), name='sample-second-opinion'),
 
     path('api/verify/<str:exhibit_number>/', PublicVerifyView.as_view(),
          name='public-verify'),

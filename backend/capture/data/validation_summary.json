@@ -1,0 +1,45 @@
+{
+ "apk": {
+  "in_sample": {
+   "detected": 163,
+   "n": 200
+  },
+  "legitimate": {
+   "could_not_be_examined": 11,
+   "examined": 89,
+   "false_positives": 0,
+   "n": 100,
+   "upper95": 0.0331
+  },
+  "unseen": {
+   "ci95": [
+    0.5083,
+    0.6493
+   ],
+   "could_not_be_examined": 8,
+   "detected": 116,
+   "missed": 76,
+   "n": 200,
+   "sets": [
+    {
+     "detected": 64,
+     "id": "heldout-v6",
+     "n": 100
+    },
+    {
+     "detected": 52,
+     "id": "blind-v6",
+     "n": 100
+    }
+   ]
+  }
+ },
+ "derived_from_generated": "2026-10-02",
+ "network": {
+  "attack_captures": 8,
+  "held_out_ordinary_captures": 6,
+  "ordinary_captures": 22
+ },
+ "shipped_baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56",
+ "source": "validation/results.json, via scripts/build_validation_report.py"
+}

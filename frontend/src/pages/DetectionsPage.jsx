@@ -66,7 +66,7 @@ function AttackMapping({ mapping }) {
               href={t.url}
               target="_blank"
               rel="noopener noreferrer"
-              title={t.note || `${t.tactic} — ${t.name}`}
+              title={`${t.note || `${t.tactic} — ${t.name}`} — ${t.url}`}
               sx={{
                 display: 'inline-flex', alignItems: 'baseline', gap: 0.7,
                 px: 1, py: 0.5, borderRadius: 1,

@@ -19,9 +19,10 @@ Two rules it is written under
 -----------------------------
 **Every claim carries its basis.** A finding is never printed as a bare
 assertion: it appears with the rule that produced it, the value observed, the
-threshold compared against, and where that threshold came from. Twenty-three of
-the thirty-five thresholds are the team's own heuristics rather than published
-figures, and the report says so on the page where they are used.
+threshold compared against, and where that threshold came from. A large share of
+the thresholds are the team's own heuristics rather than published figures, and
+the report says so on the page where they are used (the count is computed, in
+capture/limits.py, not written here).
 
 **What was not established is stated.** A report that only lists hits reads as
 a conclusion. This one names the limits — that a statistical anomaly proves
@@ -40,6 +41,8 @@ from reportlab.platypus import (
     KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table,
     TableStyle,
 )
+
+from capture import limits
 
 from . import timesource
 from .certificate_pdf import ist, _styles
@@ -198,7 +201,8 @@ def _what_was_found(session, styles):
         flow.append(_para(
             'The detection rules produced no findings for this capture. That '
             'is not the same as the traffic being clean: it means nothing in '
-            'it matched the behaviours these ten rules describe.',
+            f'it matched the behaviours these {limits.counts()["rules"]} detection '
+            'signals describe. ' + limits.network_nothing_found(),
             styles['body'],
         ))
         return flow
@@ -349,6 +353,7 @@ def _limits(session, styles):
     defence will reach for first.
     """
     clock = timesource.describe()
+    figures = limits.counts()
 
     observed = session.flows.filter(app_protocol_source='observed').count()
     total_labelled = session.flows.exclude(app_protocol='').count()
@@ -362,9 +367,9 @@ def _limits(session, styles):
         'traffic stood apart from the rest of this capture. No threshold was '
         'compared and nothing is proven by them.',
 
-        f'Of the thirty-five thresholds this engine compares against, '
-        f'twenty-three are the examining team’s own heuristics rather than '
-        f'published figures. Each finding names the threshold it used and its '
+        f'Of the {figures["thresholds"]} thresholds this engine compares against, '
+        f'{figures["heuristic_thresholds"]} are the examining team’s own heuristics rather '
+        f'than published figures. Each finding names the threshold it used and its '
         f'source; those marked [OUR HEURISTIC] have no external authority.',
 
         'This system is tamper-<b>evident</b>, not tamper-proof. The custody '
@@ -373,8 +378,11 @@ def _limits(session, styles):
         'MITRE ATT&amp;CK identifiers classify the <b>behaviour observed</b> '
         'against a public catalogue. They are a shared vocabulary, not a '
         'finding of fact, and they do not attribute the behaviour to any '
-        'group or person. Two of the ten rules carry no identifier because no '
-        'technique honestly describes them.',
+        f'group or person. {figures["rules_without_attack_identifier"]} of the '
+        f'{figures["rules"]} detection signals carry no identifier because no '
+        f'technique honestly describes them.',
+
+        limits.network_rates_sentence(),
     ]
 
     if total_labelled:

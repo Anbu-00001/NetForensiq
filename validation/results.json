@@ -1,0 +1,1074 @@
+{
+ "apk_runs": [
+  {
+   "all_manifest_samples_present": true,
+   "baselines_note": "baseline_v4/baselines_v4_merged.json, mounted over the image's copy (research/154 s.6.6). The run log does not record the hash; this file is byte-identical to the shipped table: yes.",
+   "baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56",
+   "ci95": [
+    0.7541,
+    0.8663
+   ],
+   "corpus": "design",
+   "could_not_be_examined": 3,
+   "date": "2026-09-19",
+   "detected_of_n": 163,
+   "detection_rate": 0.815,
+   "engine_image": "netforensiq-engine:sandbox-v5",
+   "examined": 197,
+   "id": "design-v5",
+   "label": "malicious",
+   "log": "analysis/baseline_v5/designset_check.txt.log",
+   "manifest_count": 200,
+   "n": 200,
+   "reached_a_tier": 163,
+   "tiers": {
+    "0": 3,
+    "1": 34,
+    "2": 88,
+    "3": 65,
+    "4": 10
+   }
+  },
+  {
+   "all_manifest_samples_present": true,
+   "baselines_note": "baseline_v4/baselines_v4_merged.json, mounted over the image's copy (research/154 s.6.6). The run log does not record the hash; this file is byte-identical to the shipped table: yes.",
+   "baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56",
+   "ci95": [
+    0.5379,
+    0.7336
+   ],
+   "corpus": "heldout",
+   "could_not_be_examined": 5,
+   "date": "2026-09-19",
+   "detected_of_n": 64,
+   "detection_rate": 0.64,
+   "engine_image": "netforensiq-engine:sandbox-v5",
+   "examined": 95,
+   "id": "heldout-v5",
+   "label": "malicious",
+   "log": "analysis/baseline_v5/heldout_check.txt.log",
+   "manifest_count": 100,
+   "n": 100,
+   "reached_a_tier": 64,
+   "tiers": {
+    "0": 5,
+    "1": 31,
+    "2": 45,
+    "3": 17,
+    "4": 2
+   }
+  },
+  {
+   "baselines_note": "baseline_v4/baselines_v4_merged.json, mounted over the image's copy (research/154 s.6.6). The run log does not record the hash; this file is byte-identical to the shipped table: yes.",
+   "baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56",
+   "ci95": 0.0331,
+   "ci95_kind": "one-sided upper bound",
+   "corpus": "fresh-benign",
+   "could_not_be_examined": 11,
+   "date": "2026-09-19",
+   "engine_image": "netforensiq-engine:sandbox-v5",
+   "examined": 89,
+   "false_positives": 0,
+   "false_positives_of_examined": [
+    0,
+    89
+   ],
+   "id": "fresh-benign-v5",
+   "label": "benign",
+   "log": "analysis/baseline_v5/fresh_check.txt.log",
+   "n": 100,
+   "reached_a_tier": 0,
+   "tiers": {
+    "0": 11,
+    "1": 89,
+    "2": 0,
+    "3": 0,
+    "4": 0
+   }
+  },
+  {
+   "all_manifest_samples_present": true,
+   "baselines_note": "recorded by the run (blind_v6/baselines.sha256) and equal to the shipped table",
+   "baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56",
+   "ci95": [
+    0.4178,
+    0.621
+   ],
+   "corpus": "blind",
+   "could_not_be_examined": 3,
+   "date": "2026-10-01",
+   "detected_of_n": 52,
+   "detection_rate": 0.52,
+   "engine_image": "netforensiq-engine:sandbox-v6",
+   "examined": 97,
+   "id": "blind-v6",
+   "label": "malicious",
+   "log": "analysis/blind_v6/blind_check.txt.log",
+   "manifest_count": 100,
+   "n": 100,
+   "reached_a_tier": 52,
+   "tiers": {
+    "0": 3,
+    "1": 45,
+    "2": 25,
+    "3": 23,
+    "4": 4
+   }
+  },
+  {
+   "baselines_note": "recorded by the run (blind_v6/baselines.sha256) and equal to the shipped table",
+   "baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56",
+   "ci95": 0.0331,
+   "ci95_kind": "one-sided upper bound",
+   "corpus": "fresh-benign",
+   "could_not_be_examined": 11,
+   "date": "2026-10-01",
+   "engine_image": "netforensiq-engine:sandbox-v6",
+   "examined": 89,
+   "false_positives": 0,
+   "false_positives_of_examined": [
+    0,
+    89
+   ],
+   "id": "fresh-benign-v6",
+   "label": "benign",
+   "log": "analysis/blind_v6/fresh_check.txt.log",
+   "n": 100,
+   "reached_a_tier": 0,
+   "tiers": {
+    "0": 11,
+    "1": 89,
+    "2": 0,
+    "3": 0,
+    "4": 0
+   }
+  },
+  {
+   "all_manifest_samples_present": true,
+   "baselines_note": "recorded by the run (validation_v6/baselines.sha256)",
+   "baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56",
+   "ci95": [
+    0.5379,
+    0.7336
+   ],
+   "corpus": "heldout",
+   "could_not_be_examined": 5,
+   "date": "2026-10-02",
+   "detected_of_n": 64,
+   "detection_rate": 0.64,
+   "engine_image": "netforensiq-engine:sandbox-v6",
+   "examined": 95,
+   "id": "heldout-v6",
+   "label": "malicious",
+   "log": "analysis/validation_v6/heldout_check.txt.log",
+   "manifest_count": 100,
+   "n": 100,
+   "reached_a_tier": 64,
+   "tiers": {
+    "0": 5,
+    "1": 31,
+    "2": 45,
+    "3": 17,
+    "4": 2
+   }
+  }
+ ],
+ "corpora": {
+  "baseline": {
+   "benign": 201,
+   "description": "MalwareBazaar APK corpus + F-Droid benign, sandboxed",
+   "kind": "both",
+   "malicious": 194,
+   "note": "The corpus the shipped baselines were measured on; per-sample list in backend/apk_engine/data/baselines.json (manifest)."
+  },
+  "blind": {
+   "acquired": "2026-09-19T10:15:13Z",
+   "digests_in": "validation/apk_samples.csv",
+   "kind": "malicious",
+   "n": 100,
+   "note": "Held-out corpus: selected by exclusion from an existing manifest before any measurement, never by whether the engine detects the sample.",
+   "selection": {
+    "excluded_manifests": [
+     "/home/anbu/26_class/mal/malwarebazaar/corpus_manifest.json",
+     "/home/anbu/26_class/mal/malwarebazaar_heldout/corpus_manifest.json"
+    ],
+    "limit": 100,
+    "listing": "blind_listing.json",
+    "mode": "held-out selection from a prior listing"
+   },
+   "source": "MalwareBazaar (abuse.ch)"
+  },
+  "design": {
+   "acquired": "2026-09-18T13:25:36Z",
+   "digests_in": "validation/apk_samples.csv",
+   "kind": "malicious",
+   "n": 200,
+   "note": "Each file is the password-protected ZIP as served, named by the SHA-256 of the sample inside it. Unpack only inside the sandbox; see analyse_untrusted.sh.",
+   "selection": {
+    "file_type": "apk",
+    "limit": 200,
+    "tag": ""
+   },
+   "source": "MalwareBazaar (abuse.ch)"
+  },
+  "fresh-benign": {
+   "kind": "benign",
+   "n": 100,
+   "note": "Sampled with a new seed from F-Droid and not used for baselines, rule design or defect-finding (research/154).",
+   "source": "F-Droid"
+  },
+  "heldout": {
+   "acquired": "2026-09-19T00:48:38Z",
+   "digests_in": "validation/apk_samples.csv",
+   "kind": "malicious",
+   "n": 100,
+   "note": "Held-out corpus: selected by exclusion from an existing manifest before any measurement, never by whether the engine detects the sample.",
+   "selection": {
+    "excluded_manifests": [
+     "/home/anbu/26_class/mal/malwarebazaar/corpus_manifest.json"
+    ],
+    "limit": 100,
+    "listing": "mb_listing.json",
+    "mode": "held-out selection from a prior listing"
+   },
+   "source": "MalwareBazaar (abuse.ch)"
+  }
+ },
+ "definition": {
+  "detected": "the sample reached tier 2, 3 or 4",
+  "false_positive": "a legitimate app that reached tier 2, 3 or 4",
+  "tier_0": "could not be examined \u2014 never a clean result",
+  "tier_1": "examined; no harmful behaviour established \u2014 never \"safe\""
+ },
+ "engine_comparison": [
+  {
+   "compared": 100,
+   "differing": 0,
+   "newer": "heldout-v6",
+   "older": "heldout-v5"
+  },
+  {
+   "compared": 100,
+   "differing": 0,
+   "newer": "fresh-benign-v6",
+   "older": "fresh-benign-v5"
+  }
+ ],
+ "generated": "2026-10-02T04:59:35Z",
+ "network": {
+  "corpus": [
+   {
+    "bytes": 506351,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-13__2017-07-03_capture-win2.pcap",
+    "role": "design",
+    "sha256": "ebd495484e66dea49a7ff95f9ae7415b6a51a963713014ac0e822d2828afb2c7",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-13/2017-07-03_capture-win2.pcap"
+   },
+   {
+    "bytes": 422654303,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-14__2017-07-23_capture-winFull.pcap",
+    "role": "design",
+    "sha256": "76317977dd5eeea4af1f9cc1ebf2fa6887d241e03cf7c8eeffd3bbcdea9db7f9",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-14/2017-07-23_capture-winFull.pcap"
+   },
+   {
+    "bytes": 16753738,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-18__2017-09-05_capture-win4.pcap",
+    "role": "design",
+    "sha256": "e09df1ac62d9753ed2360373915427432292192dc06e20572e45716a2932c8ce",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-18/2017-09-05_capture-win4.pcap"
+   },
+   {
+    "bytes": 282415864,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-20__2017-04-30_win-normal.pcap",
+    "role": "design",
+    "sha256": "c78a00728f115ab8fc495fd395894c43fd90cb61054eb9ef4f2d024658d5ffc5",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-20/2017-04-30_win-normal.pcap"
+   },
+   {
+    "bytes": 311638284,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-21__2017-05-02_kali-normal.pcap",
+    "role": "design",
+    "sha256": "53acb10b26ca6446b5bba2efd9d957a9faa15209029d58c10a8c1d1bd299c42b",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-21/2017-05-02_kali-normal.pcap"
+   },
+   {
+    "bytes": 294700097,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-23__2017-04-18_win-normal.pcap",
+    "role": "design",
+    "sha256": "50ccaa483200a73c87be73ce3cae95c16afe0941021ff6d5e8e1cacf5a90807b",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-23/2017-04-18_win-normal.pcap"
+   },
+   {
+    "bytes": 211351915,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-24__2017-04-19_win-normal.pcap",
+    "role": "design",
+    "sha256": "31a9a2a88b0d24283288058f7c2dbad057e3d7d7bb2ad2427302dc954c7e1471",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-24/2017-04-19_win-normal.pcap"
+   },
+   {
+    "bytes": 118444523,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-26__2017-04-28_normal.pcap",
+    "role": "design",
+    "sha256": "b66103fd89c8f0fc53b76e718f53320f3af27edd302c58695fc1870ede3663c5",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-26/2017-04-28_normal.pcap"
+   },
+   {
+    "bytes": 143630116,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-28__2017-05-01_normal.pcap",
+    "role": "design",
+    "sha256": "a2f3e60fa0eb2a924a3795644ac09a0f1ea48c45c30ebcc663af9641580b9a5c",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-28/2017-05-01_normal.pcap"
+   },
+   {
+    "bytes": 294017692,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-33__capture-new-Windows-7-Full.pcap",
+    "role": "design",
+    "sha256": "f9909c2c08b6c1203a5bc7be12c95a67ddad814e5fc92c8749aaee4f8619e069",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-33/capture-new-Windows-7-Full.pcap"
+   },
+   {
+    "bytes": 772961,
+    "kind": "dns-only",
+    "label": "benign",
+    "name": "CTU-Normal-4-only-DNS__2015-03-24_capture1-only-dns.pcap",
+    "role": "design",
+    "sha256": "7fbefbe1a18867bc683f59890cbc0124e5f6166e5aa13035fcf1ccf2f06f7ae4",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-4-only-DNS/2015-03-24_capture1-only-dns.pcap"
+   },
+   {
+    "bytes": 346130,
+    "kind": "dns-only",
+    "label": "benign",
+    "name": "CTU-Normal-6-filtered__2013-10-21_capture-1-only-dns.pcap",
+    "role": "design",
+    "sha256": "194469ec9915933961214993e3a157972191941423391a5a6d129869a409997e",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-6-filtered/2013-10-21_capture-1-only-dns.pcap"
+   },
+   {
+    "bytes": 417195191,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-7__2013-12-17_capture1.pcap",
+    "role": "design",
+    "sha256": "9daf9c1746dae37a234bac32090e8bc925e837af78cfffc3b4cc7c46d901542b",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-7/2013-12-17_capture1.pcap"
+   },
+   {
+    "bytes": 676238,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-8-1__2016-09-13_win16.pcap",
+    "role": "design",
+    "sha256": "235fc82d1abf0464675130a39eee4c3b047ac752edac3930444c4fd14d0ab266",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-8-1/2016-09-13_win16.pcap"
+   },
+   {
+    "bytes": 643220,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-8-2__2016-09-13_win16.pcap",
+    "role": "design",
+    "sha256": "220bd8e2801a278b28d484229152bd68dbbdc724889e8e95ca58e6f635149cb8",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-8-2/2016-09-13_win16.pcap"
+   },
+   {
+    "bytes": 568035,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-9__2016-09-13_win16.pcap",
+    "role": "design",
+    "sha256": "39fae2c5c731abf860f41c157faeaddf69d88f97d379c03056c172b56c7055c9",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-9/2016-09-13_win16.pcap"
+   },
+   {
+    "bytes": 505548690,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-25__2017-04-25_win-normal.pcap",
+    "role": "held-out",
+    "sha256": "03b39436d513efc305286eb18b01001778ffac28a9b6d5207104bdd87b000912",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-25/2017-04-25_win-normal.pcap"
+   },
+   {
+    "bytes": 444866158,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-27__2017_04_30-normal.pcap",
+    "role": "held-out",
+    "sha256": "41573eaf8775540e059e79bac4a683df02755f051646b54d368bdc5ea2390823",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-27/2017_04_30-normal.pcap"
+   },
+   {
+    "bytes": 457410237,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-29__2017-05-01_normal.pcap",
+    "role": "held-out",
+    "sha256": "a7bbffb88a952a010edef3cef5fae9d87c5c45ec0ac4c272c156f4aa253ffe4e",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-29/2017-05-01_normal.pcap"
+   },
+   {
+    "bytes": 872945153,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-30__2017-05-01_normal.pcap",
+    "role": "held-out",
+    "sha256": "28ea56fbba088bb17fd3c6ef18c2afb421d3f9d3fb6c2f3724d5a59872723d4f",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-30/2017-05-01_normal.pcap"
+   },
+   {
+    "bytes": 760328169,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-31__2017-05-01_normal.pcap",
+    "role": "held-out",
+    "sha256": "abbff751b6819f202447ce2ad6930686cee1a1c5d4165fe650c68f17619d4c1a",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-31/2017-05-01_normal.pcap"
+   },
+   {
+    "bytes": 862264590,
+    "kind": "full",
+    "label": "benign",
+    "name": "CTU-Normal-32__2017-05-02_normal.pcap",
+    "role": "held-out",
+    "sha256": "b4702f5028296fd01c69a288b37f0f10642f42403749bc6a18dd4bdc0547dfd6",
+    "source_url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-Normal-32/2017-05-02_normal.pcap"
+   },
+   {
+    "bytes": 44188000,
+    "ground_truth_url": "https://www.malware-traffic-analysis.net/2024/03/14/index.html",
+    "kind": "full",
+    "label": "malicious",
+    "name": "2024-03-14-AsyncRAT-and-XWorm-infection-traffic.pcap",
+    "role": "attack",
+    "sha256": "ef8b0d488efe3cc7b9f1e2c33b4aea00f0613be60a119fb07d7006add89fafc8",
+    "source_url": "https://www.malware-traffic-analysis.net/2024/03/14/2024-03-14-AsyncRAT-and-XWorm-infection-traffic.pcap.zip"
+   },
+   {
+    "bytes": 28522322,
+    "ground_truth_url": "https://www.malware-traffic-analysis.net/2024/12/18/index.html",
+    "kind": "full",
+    "label": "malicious",
+    "name": "2024-12-18-one-week-of-server-scans-and-probes-and-web-traffic.pcap",
+    "role": "attack",
+    "sha256": "7dc588d9f119621f736697d10ce03e3d19ddc3adfb014a6dbf8b7afccc5c6260",
+    "source_url": "https://www.malware-traffic-analysis.net/2024/12/18/2024-12-18-one-week-of-server-scans-and-probes-and-web-traffic.pcap.zip"
+   },
+   {
+    "bytes": 7178,
+    "ground_truth_url": "",
+    "kind": "full",
+    "label": "malicious",
+    "name": "2025-12-01-thru-12-03-in-the-wild-scans.pcap",
+    "role": "attack",
+    "sha256": "b94e7ba32daa600717e7d0e8146a0c295d060013c097a8c593170cc25d9b4544",
+    "source_url": ""
+   },
+   {
+    "bytes": 10240188,
+    "ground_truth_url": "",
+    "kind": "full",
+    "label": "malicious",
+    "name": "2025-12-17-testing-the-Mirai-botnet-URL-on-a-VM.pcap",
+    "role": "attack",
+    "sha256": "c4a670d740317258e7de867b5f2144fab4d1f61cf9981c7b9cc9658408be1738",
+    "source_url": ""
+   },
+   {
+    "bytes": 45847023,
+    "ground_truth_url": "",
+    "kind": "full",
+    "label": "malicious",
+    "name": "2026-08-07-seven-days-of-scans-and-probes-and-web-traffic-hitting-my-web-server.pcap",
+    "role": "attack",
+    "sha256": "3453ae88ba5735010fd39190d325176c11293b1e37e4b9ef371f0009c6c3b6e2",
+    "source_url": ""
+   },
+   {
+    "bytes": 13279,
+    "ground_truth_url": "",
+    "kind": "full",
+    "label": "malicious",
+    "name": "2026-09-08-XWorm-post-infection-traffic.pcap",
+    "role": "attack",
+    "sha256": "b3980aba704350696af90410ca597189a959d2772570721c39866e970cbb45fb",
+    "source_url": ""
+   },
+   {
+    "bytes": 77524,
+    "ground_truth_url": "",
+    "kind": "full",
+    "label": "malicious",
+    "name": "dns-tunnel-iodine.pcap",
+    "role": "attack",
+    "sha256": "91fd221e07107507c8327a9d9487cd7f7531a1fd87cf543b1a76160ff0609b7b",
+    "source_url": "https://github.com/elastic/examples/blob/master/Security%20Analytics/dns_tunnel_detection/dns-tunnel-iodine.pcap"
+   },
+   {
+    "bytes": 122464472,
+    "ground_truth_url": "https://archive.wrccdc.org/",
+    "kind": "full",
+    "label": "malicious",
+    "name": "wrccdc-2018-cyber-defence-exercise.pcap",
+    "role": "attack",
+    "sha256": "940d3c08225a59354a93081c60ef5a579663b37c80f739158d8351708c52e188",
+    "source_url": "https://archive.wrccdc.org/pcaps/2018/wrccdc.2018-03-23.010014000000000.pcap.gz"
+   }
+  ],
+  "engine_state": "the working tree of 19-20 Sep 2026, measured before the changes were committed; no image or commit identifier was recorded for these runs",
+  "method": "scripts/measure_rule_base_rates.py, one child process per capture, sequential; table built by scripts/rule_base_rate_report.py --emit",
+  "per_capture": {
+   "2024-03-14-AsyncRAT-and-XWorm-infection-traffic.pcap": {
+    "dns_records": 14,
+    "findings": 5,
+    "flows": 36,
+    "label": "malicious",
+    "packets": 46304,
+    "role": "attack",
+    "rules_fired": {
+     "COVERT_CHANNEL_UNKNOWN_PORT": 5
+    }
+   },
+   "2024-12-18-one-week-of-server-scans-and-probes-and-web-traffic.pcap": {
+    "dns_records": 235,
+    "findings": 357,
+    "flows": 166093,
+    "label": "malicious",
+    "packets": 361992,
+    "role": "attack",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "RECON_PORT_SCAN": 307
+    }
+   },
+   "2025-12-01-thru-12-03-in-the-wild-scans.pcap": {
+    "dns_records": 0,
+    "findings": 0,
+    "flows": 5,
+    "label": "malicious",
+    "packets": 42,
+    "role": "attack",
+    "rules_fired": {}
+   },
+   "2025-12-17-testing-the-Mirai-botnet-URL-on-a-VM.pcap": {
+    "dns_records": 2,
+    "findings": 53,
+    "flows": 107035,
+    "label": "malicious",
+    "packets": 118105,
+    "role": "attack",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "COVERT_CHANNEL_UNKNOWN_PORT": 1,
+     "ICMP_TUNNEL_OVERSIZED": 1,
+     "RECON_PORT_SCAN": 1
+    }
+   },
+   "2026-08-07-seven-days-of-scans-and-probes-and-web-traffic-hitting-my-web-server.pcap": {
+    "dns_records": 164,
+    "findings": 663,
+    "flows": 223120,
+    "label": "malicious",
+    "packets": 500923,
+    "role": "attack",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "RECON_PORT_SCAN": 613
+    }
+   },
+   "2026-09-08-XWorm-post-infection-traffic.pcap": {
+    "dns_records": 0,
+    "findings": 1,
+    "flows": 1,
+    "label": "malicious",
+    "packets": 146,
+    "role": "attack",
+    "rules_fired": {
+     "COVERT_CHANNEL_UNKNOWN_PORT": 1
+    }
+   },
+   "CTU-Normal-13__2017-07-03_capture-win2.pcap": {
+    "dns_records": 17,
+    "findings": 2,
+    "flows": 61,
+    "label": "benign",
+    "packets": 933,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 2
+    }
+   },
+   "CTU-Normal-14__2017-07-23_capture-winFull.pcap": {
+    "dns_records": 1659,
+    "findings": 54,
+    "flows": 5578,
+    "label": "benign",
+    "packets": 549690,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 1,
+     "COVERT_CHANNEL_UNKNOWN_PORT": 2,
+     "EXFIL_VOLUME_ASYMMETRY": 1
+    }
+   },
+   "CTU-Normal-18__2017-09-05_capture-win4.pcap": {
+    "dns_records": 364,
+    "findings": 54,
+    "flows": 38147,
+    "label": "benign",
+    "packets": 70085,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "EXFIL_VOLUME_ASYMMETRY": 4
+    }
+   },
+   "CTU-Normal-20__2017-04-30_win-normal.pcap": {
+    "dns_records": 15075,
+    "findings": 57,
+    "flows": 18830,
+    "label": "benign",
+    "packets": 402619,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 2,
+     "C2_BEACON_PERIODIC": 1,
+     "COVERT_CHANNEL_UNKNOWN_PORT": 4
+    }
+   },
+   "CTU-Normal-21__2017-05-02_kali-normal.pcap": {
+    "dns_records": 8624,
+    "findings": 79,
+    "flows": 10677,
+    "label": "benign",
+    "packets": 442310,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 28,
+     "EXFIL_VOLUME_ASYMMETRY": 1
+    }
+   },
+   "CTU-Normal-23__2017-04-18_win-normal.pcap": {
+    "dns_records": 12341,
+    "findings": 51,
+    "flows": 16253,
+    "label": "benign",
+    "packets": 440177,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_PERIODIC": 1
+    }
+   },
+   "CTU-Normal-24__2017-04-19_win-normal.pcap": {
+    "dns_records": 5608,
+    "findings": 52,
+    "flows": 7188,
+    "label": "benign",
+    "packets": 265141,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 1,
+     "C2_BEACON_PERIODIC": 1
+    }
+   },
+   "CTU-Normal-25__2017-04-25_win-normal.pcap": {
+    "dns_records": 6267,
+    "findings": 50,
+    "flows": 7297,
+    "label": "benign",
+    "packets": 505248,
+    "role": "held-out",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50
+    }
+   },
+   "CTU-Normal-26__2017-04-28_normal.pcap": {
+    "dns_records": 13229,
+    "findings": 54,
+    "flows": 15049,
+    "label": "benign",
+    "packets": 198760,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 3,
+     "DNS_TUNNEL_SUBDOMAIN_VOLUME": 1
+    }
+   },
+   "CTU-Normal-27__2017_04_30-normal.pcap": {
+    "dns_records": 26461,
+    "findings": 51,
+    "flows": 35331,
+    "label": "benign",
+    "packets": 754066,
+    "role": "held-out",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 1
+    }
+   },
+   "CTU-Normal-28__2017-05-01_normal.pcap": {
+    "dns_records": 8340,
+    "findings": 51,
+    "flows": 11967,
+    "label": "benign",
+    "packets": 266405,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "RECON_PORT_SCAN": 1
+    }
+   },
+   "CTU-Normal-29__2017-05-01_normal.pcap": {
+    "dns_records": 21097,
+    "findings": 52,
+    "flows": 30168,
+    "label": "benign",
+    "packets": 702356,
+    "role": "held-out",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "COVERT_CHANNEL_UNKNOWN_PORT": 1,
+     "EXFIL_VOLUME_ASYMMETRY": 1
+    }
+   },
+   "CTU-Normal-30__2017-05-01_normal.pcap": {
+    "dns_records": 34663,
+    "findings": 50,
+    "flows": 48031,
+    "label": "benign",
+    "packets": 1252944,
+    "role": "held-out",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50
+    }
+   },
+   "CTU-Normal-31__2017-05-01_normal.pcap": {
+    "dns_records": 40122,
+    "findings": 59,
+    "flows": 53806,
+    "label": "benign",
+    "packets": 1240240,
+    "role": "held-out",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 1,
+     "COVERT_CHANNEL_UNKNOWN_PORT": 7,
+     "EXFIL_VOLUME_ASYMMETRY": 1
+    }
+   },
+   "CTU-Normal-32__2017-05-02_normal.pcap": {
+    "dns_records": 54587,
+    "findings": 56,
+    "flows": 73235,
+    "label": "benign",
+    "packets": 1601267,
+    "role": "held-out",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 1,
+     "DNS_TUNNEL_SUBDOMAIN_VOLUME": 1,
+     "EXFIL_VOLUME_ASYMMETRY": 3,
+     "RECON_PORT_SCAN": 1
+    }
+   },
+   "CTU-Normal-33__capture-new-Windows-7-Full.pcap": {
+    "dns_records": 1329,
+    "findings": 56,
+    "flows": 4609,
+    "label": "benign",
+    "packets": 447256,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 1,
+     "COVERT_CHANNEL_UNKNOWN_PORT": 1,
+     "EXFIL_VOLUME_ASYMMETRY": 2,
+     "ICMP_TUNNEL_OVERSIZED": 2
+    }
+   },
+   "CTU-Normal-4-only-DNS__2015-03-24_capture1-only-dns.pcap": {
+    "dns_records": 3029,
+    "findings": 36,
+    "flows": 1787,
+    "label": "benign",
+    "packets": 5966,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 36
+    }
+   },
+   "CTU-Normal-6-filtered__2013-10-21_capture-1-only-dns.pcap": {
+    "dns_records": 860,
+    "findings": 19,
+    "flows": 853,
+    "label": "benign",
+    "packets": 1720,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 18,
+     "DNS_TUNNEL_LONG_LABEL": 1
+    }
+   },
+   "CTU-Normal-7__2013-12-17_capture1.pcap": {
+    "dns_records": 1075,
+    "findings": 66,
+    "flows": 2882,
+    "label": "benign",
+    "packets": 471237,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "C2_BEACON_KEEPALIVE": 1,
+     "C2_BEACON_PERIODIC": 1,
+     "COVERT_CHANNEL_UNKNOWN_PORT": 5,
+     "EXFIL_VOLUME_ASYMMETRY": 4,
+     "ICMP_TUNNEL_OVERSIZED": 5
+    }
+   },
+   "CTU-Normal-8-1__2016-09-13_win16.pcap": {
+    "dns_records": 11,
+    "findings": 11,
+    "flows": 522,
+    "label": "benign",
+    "packets": 1654,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 11
+    }
+   },
+   "CTU-Normal-8-2__2016-09-13_win16.pcap": {
+    "dns_records": 13,
+    "findings": 4,
+    "flows": 186,
+    "label": "benign",
+    "packets": 1723,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 4
+    }
+   },
+   "CTU-Normal-9__2016-09-13_win16.pcap": {
+    "dns_records": 9,
+    "findings": 3,
+    "flows": 150,
+    "label": "benign",
+    "packets": 884,
+    "role": "design",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 3
+    }
+   },
+   "dns-tunnel-iodine.pcap": {
+    "dns_records": 222,
+    "findings": 2,
+    "flows": 1,
+    "label": "malicious",
+    "packets": 434,
+    "role": "attack",
+    "rules_fired": {
+     "DNS_TUNNEL_LONG_LABEL": 1,
+     "DNS_TUNNEL_SUBDOMAIN_VOLUME": 1
+    }
+   },
+   "wrccdc-2018-cyber-defence-exercise.pcap": {
+    "dns_records": 2614,
+    "findings": 57,
+    "flows": 117498,
+    "label": "malicious",
+    "packets": 399964,
+    "role": "attack",
+    "rules_fired": {
+     "ANOMALY_STATISTICAL": 50,
+     "DNS_TUNNEL_LONG_LABEL": 1,
+     "EXFIL_VOLUME_ASYMMETRY": 3,
+     "RECON_PORT_SCAN": 3
+    }
+   }
+  },
+  "rule_table": {
+   "benign_corpus": [
+    "CTU-Normal-13__2017-07-03_capture-win2.pcap",
+    "CTU-Normal-14__2017-07-23_capture-winFull.pcap",
+    "CTU-Normal-18__2017-09-05_capture-win4.pcap",
+    "CTU-Normal-20__2017-04-30_win-normal.pcap",
+    "CTU-Normal-21__2017-05-02_kali-normal.pcap",
+    "CTU-Normal-23__2017-04-18_win-normal.pcap",
+    "CTU-Normal-24__2017-04-19_win-normal.pcap",
+    "CTU-Normal-25__2017-04-25_win-normal.pcap",
+    "CTU-Normal-26__2017-04-28_normal.pcap",
+    "CTU-Normal-27__2017_04_30-normal.pcap",
+    "CTU-Normal-28__2017-05-01_normal.pcap",
+    "CTU-Normal-29__2017-05-01_normal.pcap",
+    "CTU-Normal-30__2017-05-01_normal.pcap",
+    "CTU-Normal-31__2017-05-01_normal.pcap",
+    "CTU-Normal-32__2017-05-02_normal.pcap",
+    "CTU-Normal-33__capture-new-Windows-7-Full.pcap",
+    "CTU-Normal-4-only-DNS__2015-03-24_capture1-only-dns.pcap",
+    "CTU-Normal-6-filtered__2013-10-21_capture-1-only-dns.pcap",
+    "CTU-Normal-7__2013-12-17_capture1.pcap",
+    "CTU-Normal-8-1__2016-09-13_win16.pcap",
+    "CTU-Normal-8-2__2016-09-13_win16.pcap",
+    "CTU-Normal-9__2016-09-13_win16.pcap"
+   ],
+   "malicious_corpus": [
+    "2024-03-14-AsyncRAT-and-XWorm-infection-traffic.pcap",
+    "2024-12-18-one-week-of-server-scans-and-probes-and-web-traffic.pcap",
+    "2025-12-01-thru-12-03-in-the-wild-scans.pcap",
+    "2025-12-17-testing-the-Mirai-botnet-URL-on-a-VM.pcap",
+    "2026-08-07-seven-days-of-scans-and-probes-and-web-traffic-hitting-my-web-server.pcap",
+    "2026-09-08-XWorm-post-infection-traffic.pcap",
+    "dns-tunnel-iodine.pcap",
+    "wrccdc-2018-cyber-defence-exercise.pcap"
+   ],
+   "measured": "2026-09-20",
+   "method": "research/158_NETWORK_RULES_MEASURED_AGAIN.md",
+   "rules": {
+    "ANOMALY_STATISTICAL": {
+     "benign_captures": 22,
+     "benign_findings": 874,
+     "benign_fired": 22,
+     "benign_upper95": 1.0,
+     "malicious_captures": 8,
+     "malicious_fired": 4
+    },
+    "C2_BEACON_KEEPALIVE": {
+     "benign_captures": 22,
+     "benign_findings": 40,
+     "benign_fired": 10,
+     "benign_upper95": 0.6475,
+     "malicious_captures": 8,
+     "malicious_fired": 0
+    },
+    "C2_BEACON_PERIODIC": {
+     "benign_captures": 22,
+     "benign_findings": 4,
+     "benign_fired": 4,
+     "benign_upper95": 0.3691,
+     "malicious_captures": 8,
+     "malicious_fired": 0
+    },
+    "COVERT_CHANNEL_UNKNOWN_PORT": {
+     "benign_captures": 22,
+     "benign_findings": 20,
+     "benign_fired": 6,
+     "benign_upper95": 0.4685,
+     "malicious_captures": 8,
+     "malicious_fired": 3
+    },
+    "DNS_TUNNEL_LONG_LABEL": {
+     "benign_captures": 22,
+     "benign_findings": 1,
+     "benign_fired": 1,
+     "benign_upper95": 0.1981,
+     "malicious_captures": 8,
+     "malicious_fired": 2
+    },
+    "DNS_TUNNEL_SUBDOMAIN_VOLUME": {
+     "benign_captures": 22,
+     "benign_findings": 2,
+     "benign_fired": 2,
+     "benign_upper95": 0.2595,
+     "malicious_captures": 8,
+     "malicious_fired": 1
+    },
+    "EXFIL_VOLUME_ASYMMETRY": {
+     "benign_captures": 22,
+     "benign_findings": 17,
+     "benign_fired": 8,
+     "benign_upper95": 0.5609,
+     "malicious_captures": 8,
+     "malicious_fired": 1
+    },
+    "HOST_CORROBORATED": {
+     "benign_captures": 22,
+     "benign_findings": 0,
+     "benign_fired": 0,
+     "benign_upper95": 0.1273,
+     "malicious_captures": 8,
+     "malicious_fired": 0
+    },
+    "ICMP_TUNNEL_OVERSIZED": {
+     "benign_captures": 22,
+     "benign_findings": 7,
+     "benign_fired": 2,
+     "benign_upper95": 0.2595,
+     "malicious_captures": 8,
+     "malicious_fired": 1
+    },
+    "IOC_FEED_MATCH": {
+     "benign_captures": 22,
+     "benign_findings": 0,
+     "benign_fired": 0,
+     "benign_upper95": 0.1273,
+     "malicious_captures": 8,
+     "malicious_fired": 0
+    },
+    "RECON_PORT_SCAN": {
+     "benign_captures": 22,
+     "benign_findings": 2,
+     "benign_fired": 2,
+     "benign_upper95": 0.2595,
+     "malicious_captures": 8,
+     "malicious_fired": 4
+    }
+   }
+  },
+  "rule_table_sha256": "9b2777bd3b92ae79acd7ed015db04577b3176a4b13d3afce812608b68123099b"
+ },
+ "preregistration": {
+  "any_signal_zero_benign_and_20_malicious": false,
+  "benign_n": 201,
+  "best_zero_benign_signal": {
+   "benign_fired": 0,
+   "malicious_fired": 1,
+   "signal": "cap.native_header_damaged"
+  },
+  "malicious_n": 197,
+  "native_signals_measured": 16,
+  "native_signals_with_zero_benign": 2,
+  "predictions": [
+   {
+    "claim": "at least one native signal fires on 0 of 201 benign and >= 20 of 200 malicious",
+    "probability": 0.7
+   },
+   {
+    "claim": "the blind score reaches >= 70/100",
+    "probability": 0.35
+   },
+   {
+    "claim": "the blind score reaches the 80/100 target",
+    "probability": 0.12
+   }
+  ],
+  "rule_for_use": "a native signal may raise a tier only if it fired on zero legitimate apps",
+  "source": "apk_corpus/analysis/PREREGISTRATION.md, v6 section"
+ },
+ "shipped_baselines_sha256": "36e6bb24641a93d5ebae0fc5593ccfa426788ebee0765cfa43ce904c7878ec56"
+}

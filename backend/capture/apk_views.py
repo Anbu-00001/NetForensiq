@@ -29,6 +29,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.models import AuditLog, User
+from accounts.permissions import IsApproved
 from accounts.utils import get_client_ip, log_action
 from evidence.models import EvidenceRecord
 
@@ -327,6 +328,7 @@ class APKExaminationView(APIView):
         report['sealed_sha256'] = record.sha256_hash
 
         assessment = report['assessment']
+        self._record_examination(request, record, report, assessment)
         log_action(
             request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
             username_attempted=request.user.username,
@@ -334,6 +336,28 @@ class APKExaminationView(APIView):
                     f'tier {assessment["tier"]} ({assessment["label"]})'),
         )
         return Response(report, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _record_examination(request, record, report, assessment):
+        """
+        Keep the conclusion with the exhibit. It used to live only in this response and
+        in one line of the audit log, so nothing could later show a tier beside a second
+        opinion or say which baseline table had produced it.
+        """
+        from .models import ApkExamination
+
+        analysed = ((report.get('file') or {}).get('sha256') or '').lower()
+        ApkExamination.objects.create(
+            evidence=record,
+            analysed_sha256=analysed if len(analysed) == 64 else '',
+            package=((report.get('identity') or {}).get('package') or '')[:255],
+            tier=assessment['tier'], tier_label=assessment['label'][:80],
+            basis_ids=[(b.get('id') or b.get('title') or '')[:120]
+                       for b in (assessment.get('basis') or [])][:50],
+            engine_version=((report.get('engine') or {}).get('engine') or '')[:20],
+            baselines_sha256=(((report.get('reproduction') or {}).get('reference_data_sha256') or {})
+                              .get('baselines.json') or ''),
+            examined_by=request.user)
 
     def _seal(self, request, tmp_path, original_name, provenance):
         from evidence.service import ingest_evidence
@@ -365,3 +389,123 @@ class APKExaminationView(APIView):
     @staticmethod
     def _refuse(detail, code=status.HTTP_400_BAD_REQUEST):
         return Response({'detail': detail}, status=code)
+
+
+class SecondOpinionView(APIView):
+    """
+    File another tool's report beside a sample, and read the two side by side.
+
+    POST (examiners and administrators — it appends to an exhibit's custody log):
+        file   a MobSF JSON report                         (required)
+        note   a line for the record                       (optional)
+    GET    ?exhibit=<id>   the reports filed against an exhibit (any signed-in officer)
+
+    The report states the SHA-256 of what it examined. It is tied to an exhibit only
+    if that matches a package this system examined (or an APK it sealed directly);
+    otherwise it is stored unlinked, and says so. See capture/second_opinion.py.
+    """
+
+    parser_classes = [MultiPartParser, FormParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'upload'
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [CanExamineSamples()]
+        return [IsApproved()]
+
+    @staticmethod
+    def present(report):
+        from . import second_opinion
+
+        exam = None
+        if report.evidence_id:
+            exam = (report.evidence.apk_examinations
+                    .filter(analysed_sha256=report.subject_sha256).order_by('-examined_at').first())
+        return {
+            'id': report.id,
+            'tool': report.tool, 'tool_version': report.tool_version,
+            'subject_sha256': report.subject_sha256, 'report_sha256': report.report_sha256,
+            'report_bytes': report.report_bytes,
+            'imported_at': report.imported_at,
+            'imported_by': report.imported_by.username if report.imported_by_id else None,
+            'note': report.note,
+            'encrypted_at_rest': report.encrypted_at_rest,
+            'exhibit_number': report.evidence.exhibit_number if report.evidence_id else None,
+            'netforensiq_examination': ({
+                'tier': exam.tier, 'tier_label': exam.tier_label, 'package': exam.package,
+                'basis': exam.basis_ids, 'engine_version': exam.engine_version,
+                'examined_at': exam.examined_at,
+            } if exam else None),
+            'comparison': second_opinion.compare(exam, report.summary),
+            'summary': report.summary,
+        }
+
+    def get(self, request):
+        from .models import ThirdPartyReport
+
+        reports = ThirdPartyReport.objects.select_related('evidence', 'imported_by')
+        exhibit = request.query_params.get('exhibit')
+        if exhibit:
+            reports = reports.filter(evidence_id=exhibit)
+        return Response([self.present(r) for r in reports[:50]])
+
+    def post(self, request):
+        from evidence.models import CustodyEvent
+        from evidence.service import record_custody
+
+        from . import second_opinion
+        from .models import ThirdPartyReport
+
+        upload = request.FILES.get('file')
+        if upload is None:
+            return Response({'detail': 'Choose a MobSF JSON report.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if upload.size > second_opinion.MAX_REPORT_BYTES:
+            return Response({'detail': 'That file is larger than a report can be.'},
+                            status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        data = upload.read()
+        try:
+            summary, report_sha = second_opinion.parse_mobsf(data)
+        except second_opinion.NotAMobsfReport as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        subject = summary['subject']['sha256']
+        exhibit, matched_by, _exam = second_opinion.find_exhibit(subject)
+
+        existing = ThirdPartyReport.objects.filter(report_sha256=report_sha, evidence=exhibit).first()
+        if existing:
+            body = self.present(existing)
+            body['already_filed'] = True
+            return Response(body, status=status.HTTP_200_OK)
+
+        path, encrypted = second_opinion.store_report(data, report_sha)
+        with transaction.atomic():
+            report = ThirdPartyReport.objects.create(
+                tool=ThirdPartyReport.Tool.MOBSF, tool_version=summary['tool_version'][:40],
+                subject_sha256=subject, report_sha256=report_sha, report_bytes=len(data),
+                stored_path=path, encrypted_at_rest=encrypted, summary=summary,
+                evidence=exhibit, imported_by=request.user,
+                note=(request.data.get('note') or '').strip()[:500])
+            if exhibit is not None:
+                record_custody(
+                    exhibit, CustodyEvent.Action.REPORT_ATTACHED, actor=request.user,
+                    detail=(f'Third-party report attached: MobSF {summary["tool_version"] or "(version not stated)"}'
+                            f', report sha256 {report_sha}, describing package sha256 {subject}. '
+                            f'Opinion produced elsewhere; not evidence.'),
+                    actor_ip=get_client_ip(request))
+        log_action(
+            request, AuditLog.Action.VIEW_EVIDENCE, user=request.user,
+            username_attempted=request.user.username,
+            detail=(f'Filed MobSF report {report_sha[:16]} for package {subject[:16]} '
+                    + (f'against exhibit {exhibit.exhibit_number} (matched by {matched_by})'
+                       if exhibit else 'unlinked: no exhibit with that examined hash')))
+        body = self.present(report)
+        body['matched_by'] = matched_by
+        if exhibit is None:
+            body['unlinked_reason'] = (
+                'No exhibit in this system has an examined package with the SHA-256 this report '
+                'describes, so it is stored unlinked. Two different hashes are two different files: '
+                'examine the exact package MobSF was given, or check that the report is for it.')
+        return Response(body, status=status.HTTP_201_CREATED)
+

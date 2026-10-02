@@ -1,0 +1,843 @@
+{
+ "activities": [
+  "de.blinkt.openvpn.activities.MainActivity",
+  "de.blinkt.openvpn.activities.CredentialsPopup",
+  "de.blinkt.openvpn.activities.LogWindow",
+  "de.blinkt.openvpn.activities.VPNPreferences",
+  "de.blinkt.openvpn.activities.FileSelect",
+  "de.blinkt.openvpn.activities.ConfigConverter",
+  "de.blinkt.openvpn.activities.CreateShortcuts",
+  "de.blinkt.openvpn.activities.OpenSSLSpeed",
+  "de.blinkt.openvpn.activities.DisconnectVPN",
+  "de.blinkt.openvpn.api.GrantPermissionsActivity",
+  "de.blinkt.openvpn.api.ConfirmDialog",
+  "de.blinkt.openvpn.LaunchVPN",
+  "de.blinkt.openvpn.api.RemoteAction"
+ ],
+ "apkid": {
+  "99f97881537ab5e2723dff7e472186e7.apk": {
+   "manipulator": [
+    "Resources Confusion"
+   ]
+  },
+  "classes.dex": {
+   "anti_vm": [
+    "Build.FINGERPRINT check",
+    "Build.MANUFACTURER check"
+   ],
+   "compiler": [
+    "r8"
+   ]
+  },
+  "classes2.dex": {
+   "compiler": [
+    "unknown (please file detection issue!)"
+   ]
+  },
+  "classes3.dex": {
+   "anti_vm": [
+    "Build.FINGERPRINT check",
+    "Build.BOARD check"
+   ],
+   "compiler": [
+    "r8 without marker (suspicious)"
+   ]
+  }
+ },
+ "app_name": "OpenVPN for Android",
+ "appsec": {
+  "app_name": "OpenVPN for Android",
+  "file_name": "BENIGN-de.blinkt.openvpn.apk",
+  "hash": "99f97881537ab5e2723dff7e472186e7",
+  "high": [
+   {
+    "description": "This application can be installed on an older version of android that has multiple unfixed vulnerabilities. These devices won't receive reasonable security updates from Google. Support an Android version => 10, API 29 to receive reasonable security updates.",
+    "section": "manifest",
+    "title": "App can be installed on a vulnerable unpatched Android version 6.0-6.0.1, [minSdk=23]"
+   }
+  ],
+  "hotspot": [
+   {
+    "description": "Ensure that these permissions are required by the application.\n\nandroid.permission.READ_EXTERNAL_STORAGE (dangerous): read external storage contents - Allows an application to read from external storage.\n\nandroid.permission.POST_NOTIFICATIONS (dangerous): allows an app to post notifications. - Allows an app to post notifications",
+    "section": "permissions",
+    "title": "Found 2 critical permission(s)"
+   }
+  ],
+  "info": [
+   {
+    "description": "The App logs information. Sensitive information should never be logged.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x05d-Testing-Data-Storage.md#logs\n\nFiles:\ncom/github/mikephil/charting/charts/BarChart.java, line(s) 71\ncom/github/mikephil/charting/charts/BarLineChartBase.java, line(s) 273,284,300,306,469,472\ncom/github/mikephil/charting/charts/Chart.java, line(s) 379,189,207,353,863,867,871\ncom/github/mikephil/charting/charts/CombinedChart.java, line(s) 83\ncom/github/mikephil/charting/charts/HorizontalBarChart.java, line(s) 152,93,96\ncom/github/mikephil/charting/charts/PieRadarChartBase.java, line(s) 245\ncom/github/mikephil/charting/components/AxisBase.java, line(s) 158\ncom/github/mikephil/charting/data/ChartData.java, line(s) 265\ncom/github/mikephil/charting/data/CombinedData.java, line(s) 207,214,221\ncom/github/mikephil/charting/data/LineDataSet.java, line(s) 108,121\ncom/github/mikephil/charting/data/PieEntry.java, line(s) 62,68\ncom/github/mikephil/charting/listener/BarLineChartTouchListener.java, line(s) 322\ncom/github/mikephil/charting/renderer/CombinedChartRenderer.java, line(s) 110\ncom/github/mikephil/charting/renderer/ScatterChartRenderer.java, line(s) 60\ncom/github/mikephil/charting/utils/FileUtils.java, line(s) 45,65,86,98,111,122,135,154,166\ncom/github/mikephil/charting/utils/Utils.java, line(s) 53,72,81\nde/blinkt/openvpn/FileProvider.java, line(s) 110\nde/blinkt/openvpn/VpnProfile.java, line(s) 354\nde/blinkt/openvpn/api/ConfirmDialog.java, line(s) 94\nde/blinkt/openvpn/core/OpenVPNService.java, line(s) 567\nde/blinkt/openvpn/core/OpenVPNThread.java, line(s) 203,115,117,186,198\nde/blinkt/openvpn/core/OpenVpnManagementThread.java, line(s) 222,425,774,379,394\nde/blinkt/openvpn/core/StatusListener.java, line(s) 180,184,176,189,191\nde/blinkt/openvpn/fragments/ImportRemoteConfig$doAsImport$2.java, line(s) 936",
+    "section": "code",
+    "title": "The App logs information. Sensitive information should never be logged."
+   },
+   {
+    "description": "This App copies data to clipboard. Sensitive data should not be copied to clipboard as other applications can access it.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x04b-Mobile-App-Security-Testing.md#clipboard\n\nFiles:\nde/blinkt/openvpn/fragments/LogFragment.java, line(s) 7,503",
+    "section": "code",
+    "title": "This App copies data to clipboard. Sensitive data should not be copied to clipboard as other applications can access it."
+   }
+  ],
+  "secure": [
+   {
+    "description": "This App uses SSL certificate pinning to detect or  prevent MITM attacks in secure communication channel.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x05g-Testing-Network-Communication.md#testing-custom-certificate-stores-and-certificate-pinning-mstg-network-4\n\nFiles:\nde/blinkt/openvpn/fragments/ImportRemoteConfig.java, line(s) 131,150,127",
+    "section": "code",
+    "title": "This App uses SSL certificate pinning to detect or  prevent MITM attacks in secure communication channel."
+   },
+   {
+    "description": "This application does not include any user or device trackers. Unable to find trackers during static analysis.",
+    "section": "trackers",
+    "title": "This application has no privacy trackers"
+   }
+  ],
+  "security_score": 52,
+  "total_trackers": 432,
+  "trackers": 0,
+  "version_name": "0.7.65",
+  "warning": [
+   {
+    "description": "Application is signed with v1 signature scheme, making it vulnerable to Janus vulnerability on Android 5.0-8.0, if signed only with v1 signature scheme. Applications running on Android 5.0-7.0 signed with v1, and v2/v3 scheme is also vulnerable.",
+    "section": "certificate",
+    "title": "Application vulnerable to Janus Vulnerability"
+   },
+   {
+    "description": "Application is signed with SHA1withRSA. SHA1 hash algorithm is known to have collision issues. The manifest file indicates SHA256withRSA is in use.",
+    "section": "certificate",
+    "title": "Certificate algorithm might be vulnerable to hash collision"
+   },
+   {
+    "description": "This flag allows anyone to backup your application data via adb. It allows users who have enabled USB debugging to copy application data off of the device.",
+    "section": "manifest",
+    "title": "Application Data can be Backed up [android:allowBackup=true]"
+   },
+   {
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "section": "manifest",
+    "title": "Service (de.blinkt.openvpn.OpenVPNTileService) is Protected by a permission, but the protection level of the permission should be checked. Permission: android.permission.BIND_QUICK_SETTINGS_TILE [android:exported=true]"
+   },
+   {
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "section": "manifest",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.activities.ConfigConverter)"
+   },
+   {
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity (de.blinkt.openvpn.activities.ConfigConverter) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity-Alias (de.blinkt.openvpn.activities.ConfigConverterFile) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "section": "manifest",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.activities.CreateShortcuts)"
+   },
+   {
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity (de.blinkt.openvpn.activities.CreateShortcuts) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "A Content Provider is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Content Provider (de.blinkt.openvpn.FileProvider) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "section": "manifest",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.activities.DisconnectVPN)"
+   },
+   {
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "section": "manifest",
+    "title": "Service (de.blinkt.openvpn.core.OpenVPNService) is Protected by a permission, but the protection level of the permission should be checked. Permission: android.permission.BIND_VPN_SERVICE [android:exported=true]"
+   },
+   {
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Service (de.blinkt.openvpn.api.ExternalOpenVPNService) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity (de.blinkt.openvpn.api.GrantPermissionsActivity) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity (de.blinkt.openvpn.api.ConfirmDialog) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "A Broadcast Receiver is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Broadcast Receiver (de.blinkt.openvpn.OnBootReceiver) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "section": "manifest",
+    "title": "Service (de.blinkt.openvpn.core.keepVPNAlive) is Protected by a permission, but the protection level of the permission should be checked. Permission: android.permission.BIND_JOB_SERVICE [android:exported=true]"
+   },
+   {
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "section": "manifest",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.LaunchVPN)"
+   },
+   {
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity (de.blinkt.openvpn.LaunchVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "section": "manifest",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.api.RemoteAction)"
+   },
+   {
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.SetDefaultVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.ResumeVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.PauseVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.DisconnectVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "section": "manifest",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.ConnectVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "description": "A Broadcast Receiver is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "section": "manifest",
+    "title": "Broadcast Receiver (androidx.profileinstaller.ProfileInstallReceiver) is Protected by a permission, but the protection level of the permission should be checked. Permission: android.permission.DUMP [android:exported=true]"
+   },
+   {
+    "description": "By setting an intent priority higher than another intent, the app effectively overrides other requests.",
+    "section": "manifest",
+    "title": "High Intent Priority (999) - {1} Hit(s) [android:priority]"
+   },
+   {
+    "description": "IP Address disclosure\n\n\nFiles:\nde/blinkt/openvpn/VpnProfile.java, line(s) 584,584,65\nde/blinkt/openvpn/core/ConfigParser.java, line(s) 318\nde/blinkt/openvpn/core/OpenVPNService.java, line(s) 962,1115,1118,1163\nde/blinkt/openvpn/core/OpenVPNThreadv3.java, line(s) 201,201,201\nde/blinkt/openvpn/core/OpenVpnManagementThread.java, line(s) 62\nde/blinkt/openvpn/core/OrbotHelper.java, line(s) 44\nde/blinkt/openvpn/fragments/DNSSummaryProvider.java, line(s) 21,21",
+    "section": "code",
+    "title": "IP Address disclosure"
+   },
+   {
+    "description": "Files may contain hardcoded sensitive information like usernames, passwords, keys etc.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x05d-Testing-Data-Storage.md#checking-memory-for-sensitive-data-mstg-storage-10\n\nFiles:\nde/blinkt/openvpn/LaunchVPN.java, line(s) 38\nde/blinkt/openvpn/api/ExternalAppDatabase.java, line(s) 16\nde/blinkt/openvpn/api/ExternalOpenVPNService.java, line(s) 40\nde/blinkt/openvpn/fragments/FileSelectionFragment.java, line(s) 31",
+    "section": "code",
+    "title": "Files may contain hardcoded sensitive information like usernames, passwords, keys etc."
+   },
+   {
+    "description": "App can read/write to External Storage. Any App can read data written to External Storage.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x05d-Testing-Data-Storage.md#external-storage\n\nFiles:\ncom/github/mikephil/charting/charts/Chart.java, line(s) 733,749\ncom/github/mikephil/charting/utils/FileUtils.java, line(s) 23,106\nde/blinkt/openvpn/activities/ConfigConverter.java, line(s) 720\nde/blinkt/openvpn/activities/FileSelect.java, line(s) 46,195\nde/blinkt/openvpn/fragments/FileSelectionFragment.java, line(s) 42,116,251",
+    "section": "code",
+    "title": "App can read/write to External Storage. Any App can read data written to External Storage."
+   },
+   {
+    "description": "SHA-1 is a weak hash known to have hash collisions.\nhttps://github.com/MobSF/owasp-mstg/blob/master/Document/0x04g-Testing-Cryptography.md#identifying-insecure-andor-deprecated-cryptographic-algorithms-mstg-crypto-4\n\nFiles:\nde/blinkt/openvpn/api/AppRestrictions.java, line(s) 74\nde/blinkt/openvpn/core/LogItem.java, line(s) 362",
+    "section": "code",
+    "title": "SHA-1 is a weak hash known to have hash collisions."
+   },
+   {
+    "description": "The following secrets were identified from the app. Ensure that these are not secrets or private information.\n\"auth_username\" : \"Hassan\"\n\"auth_username\" : \"\u30e6\u30fc\u30b6\u540d(\u8a8d\u8a3c\u306a\u3057\u306e\u5834\u5408\u306f\u7a7a\u6b04)\"\n\"auth_username\" : \"\u4f7f\u7528\u8005\u540d\u7a31\uff08\u7559\u7a7a\u8868\u793a\u4e0d\u767b\u5165\uff09\"\n\"auth_username\" : \"\u7528\u6237\u540d\uff08\u7559\u7a7a\u8868\u793a\u6ca1\u6709\u8eab\u4efd\u9a8c\u8bc1\uff09\"\n\"client_key_title\" : \"Clientzertifikatsschl\u00fcssel\"\n\"client_key_title\" : \"Klientcertifikatn\u00f8gle\"\n\"client_key_title\" : \"Klientcertifikatsnyckel\"\n\"client_key_title\" : \"\u30af\u30e9\u30a4\u30a2\u30f3\u30c8\u8a3c\u660e\u66f8\u306e\u30ad\u30fc\"\n\"client_key_title\" : \"\u5ba2\u6237\u7aef\u8bc1\u4e66\u5bc6\u94a5\"\n\"client_key_title\" : \"\u7528\u6236\u7aef\u6191\u8b49\u91d1\u9470\"\n\"external_authenticator\" : \"\u5916\u90e8\u8a8d\u8a3c\"\n\"external_authenticator\" : \"\u5916\u90e8\u8ba4\u8bc1\u5668\"\n\"external_authenticator\" : \"\u5916\u90e8\u8eab\u4efd\u9a57\u8b49\u5668\"\n\"faq_remote_api\" : \"Ok\"\n\"faq_remote_api_title\" : \"Fjern-API\"\n\"faq_remote_api_title\" : \"Fj\u00e4rr-API\"\n\"faq_remote_api_title\" : \"Remote-API\"\n\"faq_remote_api_title\" : \"\u30ea\u30e2\u30fc\u30c8API\"\n\"faq_remote_api_title\" : \"\u8fdc\u7a0bAPI\"\n\"packet_auth\" : \"Packet-authenticatie\"\n\"packet_auth\" : \"Paket-Authentifizierung\"\n\"packet_auth\" : \"Paketautentisering\"\n\"packet_auth\" : \"Pakkegodkendelse\"\n\"packet_auth\" : \"Pakkegodkjenning\"\n\"packet_auth\" : \"\u30d1\u30b1\u30c3\u30c8\u8a8d\u8a3c\"\n\"packet_auth\" : \"\u5c01\u5305\u9a57\u8b49\"\n\"packet_auth\" : \"\u6570\u636e\u5305\u9a8c\u8bc1\"\n\"password\" : \"Adgangskode\"\n\"password\" : \"Contrasenya\"\n\"password\" : \"Contrase\u00f1a\"\n\"password\" : \"Geslo\"\n\"password\" : \"Has\u0142o\"\n\"password\" : \"Heslo\"\n\"password\" : \"Jelsz\u00f3\"\n\"password\" : \"L\u00f6senord\"\n\"password\" : \"Parola\"\n\"password\" : \"Passord\"\n\"password\" : \"Password\"\n\"password\" : \"Passwort\"\n\"password\" : \"Salas\u00f5na\"\n\"password\" : \"Sandi\"\n\"password\" : \"Senha\"\n\"password\" : \"Wachtwoord\"\n\"password\" : \"\u041b\u043e\u0437\u0438\u043d\u043a\u0430\"\n\"password\" : \"\u041f\u0430\u0440\u043e\u043b\u044c\"\n\"password\" : \"\u05e1\u05d9\u05e1\u05de\u05d4\"\n\"password\" : \"\u0db8\u0dd4\u0dbb\u0db4\u0daf\u0dba\"\n\"password\" : \"\u30d1\u30b9\u30ef\u30fc\u30c9\"\n\"password\" : \"\u5bc6\u7801\"\n\"password\" : \"\u5bc6\u78bc\"\n\"password\" : \"\uc554\ud638\"\n\"pkcs12_file_encryption_key\" : \"PKCS12-Verschl\u00fcsselungs-Passwort\"\n\"pkcs12_file_encryption_key\" : \"PKCS12\u30d5\u30a1\u30a4\u30eb\u306e\u6697\u53f7\u5316\u30ad\u30fc\"\n\"private_key_password\" : \"\u79c1\u5bc6\u91d1\u9470\u5bc6\u78bc\"\n\"private_key_password\" : \"\u79c1\u94a5\u5bc6\u7801\"\n\"private_key_password\" : \"\u79d8\u5bc6\u9375\u306e\u30d1\u30b9\u30ef\u30fc\u30c9\"\n\"proxy_auth_username\" : \"Username\"\n\"save_password\" : \"\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u4fdd\u5b58\"\n\"save_password\" : \"\u4fdd\u5b58\u5bc6\u7801\"\n\"save_password\" : \"\u8a18\u4f4f\u5bc6\u78bc\"\n\"session_ipv4string\" : \"%1$s-%2$s\"\n\"session_ipv4string\" : \"%1$s\uff0d%2$s\"\n\"session_ipv6string\" : \"%1$s-%3$s,%2$s\"\n\"session_ipv6string\" : \"%1$s\uff0d%3$s\uff0c%2$s\"\n\"settings_auth\" : \"Autenticaci\u00f3n/Cifrado\"\n\"settings_auth\" : \"Autenticazione/crittografia\"\n\"settings_auth\" : \"Autentica\u00e7\u00e3o/Cifragem\"\n\"settings_auth\" : \"Autentica\u00e7\u00e3o/encripta\u00e7\u00e3o\"\n\"settings_auth\" : \"Autentificaci\u00f3/Encriptaci\u00f3\"\n\"settings_auth\" : \"Autentificare/criptare\"\n\"settings_auth\" : \"Autentificering/kryptering\"\n\"settings_auth\" : \"Autentimine/Kr\u00fcpteerimine\"\n\"settings_auth\" : \"Autentisering/kryptering\"\n\"settings_auth\" : \"Autentizace/\u0160ifrov\u00e1n\u00ed\"\n\"settings_auth\" : \"Authenticatie/Encryptie\"\n\"settings_auth\" : \"Authentication/Encryption\"\n\"settings_auth\" : \"Authentification/Chiffrement\"\n\"settings_auth\" : \"Authentifizierung/Verschl\u00fcsselung\"\n\"settings_auth\" : \"Hiteles\u00edt\u00e9s/Titkos\u00edt\u00e1s\"\n\"settings_auth\" : \"Otentikasi/Enkripsi\"\n\"settings_auth\" : \"Overenia/\u0161ifrovania\"\n\"settings_auth\" : \"Overitev/\u0160ifriranje\"\n\"settings_auth\" : \"Uwierzytelnianie/Szyfrowanie\"\n\"settings_auth\" : \"\u03a0\u03b9\u03c3\u03c4\u03bf\u03c0\u03bf\u03af\u03b7\u03c3\u03b7/\u039a\u03c1\u03c5\u03c0\u03c4\u03bf\u03b3\u03c1\u03ac\u03c6\u03b7\u03c3\u03b7\"\n\"settings_auth\" : \"\u0410\u0432\u0442\u0435\u043d\u0442\u0438\u0444\u0456\u043a\u0430\u0446\u0456\u044f/\u0428\u0438\u0444\u0440\u0443\u0432\u0430\u043d\u043d\u044f\"\n\"settings_auth\" : \"\u0410\u0443\u0442\u0435\u043d\u0442\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f/\u0448\u0438\u0444\u0440\u043e\u0432\u0430\u043d\u0438\u0435\"\n\"settings_auth\" : \"\u05d0\u05d9\u05de\u05d5\u05ea/\u05d4\u05e6\u05e4\u05e0\u05d4\"\n\"settings_auth\" : \"\u0627\u0644\u0645\u0635\u0627\u062f\u0642\u0629/\u0627\u0644\u062a\u0634\u0641\u064a\u0631\"\n\"settings_auth\" : \"\u0dc3\u0dad\u0dca\u200d\u0dba\u0dcf\u0db4\u0db1\u0dba/\u0d9c\u0dd4\u0db4\u0dca\u0dad\u0d9a\u0dda\u0dad\u0db1\u0dba\"\n\"settings_auth\" : \"\u8a8d\u8a3c/\u6697\u53f7\u5316\"\n\"settings_auth\" : \"\u8ba4\u8bc1/\u52a0\u5bc6\"\n\"settings_auth\" : \"\u9a57\u8b49/\u52a0\u5bc6\"\n\"settings_auth\" : \"\uc778\uc99d/\uc554\ud638\ud654\"\n\"show_password\" : \"\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u8868\u793a\u3059\u308b\"\n\"show_password\" : \"\u663e\u793a\u5bc6\u7801\"\n\"show_password\" : \"\u986f\u793a\u5bc6\u78bc\"\n\"state_auth\" : \"Autenticando\"\n\"state_auth\" : \"Autenticant\"\n\"state_auth\" : \"Autenticazione\"\n\"state_auth\" : \"Autentificare\"\n\"state_auth\" : \"Autentimine\"\n\"state_auth\" : \"Autentiserar\"\n\"state_auth\" : \"Autentisering\"\n\"state_auth\" : \"Authenticating\"\n\"state_auth\" : \"Authenticeren\"\n\"state_auth\" : \"Authentification\"\n\"state_auth\" : \"Authentifiziere\"\n\"state_auth\" : \"Godkender\"\n\"state_auth\" : \"Hiteles\u00edt\u00e9s\"\n\"state_auth\" : \"Overjanje\"\n\"state_auth\" : \"Uwierzytelnianie\"\n\"state_auth\" : \"\u03a0\u03b9\u03c3\u03c4\u03bf\u03c0\u03bf\u03af\u03b7\u03c3\u03b7\"\n\"state_auth\" : \"\u0410\u0443\u0442\u0435\u043d\u0442\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f\"\n\"state_auth\" : \"\u0410\u0443\u0442\u0435\u043d\u0442\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u0458\u0430\"\n\"state_auth\" : \"\u0410\u0443\u0442\u0435\u043d\u0442\u0438\u0444\u0456\u043a\u0430\u0446\u0456\u044f\"\n\"state_auth\" : \"\u05de\u05d0\u05de\u05ea\"\n\"state_auth\" : \"\u0645\u0635\u0627\u062f\u0642\u0629\"\n\"state_auth\" : \"\u6b63\u5728\u9a57\u8b49\u8eab\u5206\"\n\"state_auth\" : \"\u8a8d\u8a3c\u4e2d\"\n\"state_auth\" : \"\u9a8c\u8bc1\u4e2d\"\n\"state_auth\" : \"\uc778\uc99d\uc911\"\n\"state_auth_failed\" : \"\u8a8d\u8a3c\u306b\u5931\u6557\u3057\u307e\u3057\u305f\"\n\"state_auth_failed\" : \"\u8eab\u4efd\u9a57\u8b49\u5931\u6557\"\n\"state_auth_failed\" : \"\u9a8c\u8bc1\u5931\u8d25\"\n\"state_auth_pending\" : \"\u6b63\u5728\u7b49\u5f85\u9a57\u8b49\"\n\"state_auth_pending\" : \"\u8a8d\u8a3c\u306f\u4fdd\u7559\u4e2d\u3067\u3059\"\n\"state_auth_pending\" : \"\u8ba4\u8bc1\u7b49\u5f85\u4e2d\"\n\"tls_authentication\" : \"TLS-autentificering/kryptering\"\n\"tls_authentication\" : \"TLS-autentisering/kryptering\"\n\"tls_authentication\" : \"TLS\u8a8d\u8a3c/\u6697\u53f7\u5316\"\n\"tls_authentication\" : \"TLS\u8ba4\u8bc1/\u52a0\u5bc6\"\n\"trigger_pending_auth_dialog\" : \"\u3053\u3053\u3092\u62bc\u3057\u3066\u30a6\u30a3\u30f3\u30c9\u30a6\u3092\u958b\u304d\u3001\u8ffd\u52a0\u306e\u5fc5\u8981\u306a\u8a8d\u8a3c\u3092\u5165\u529b\u3057\u307e\u3059\"\n\"trigger_pending_auth_dialog\" : \"\u6309\u6b64\u5904\u6253\u5f00\u4e00\u4e2a\u7a97\u53e3\u4ee5\u8f93\u5165\u5176\u4ed6\u6240\u9700\u7684\u8eab\u4efd\u9a8c\u8bc1\"\n\"vpn_allow_bypass\" : \"\u30a2\u30d7\u30ea\u304cVPN\u3092\u30d0\u30a4\u30d1\u30b9\u3067\u304d\u308b\u3088\u3046\u306b\u3059\u308b\"\n\"vpn_allow_bypass\" : \"\u5141\u8bb8\u5e94\u7528\u7ed5\u8fc7VPN\"\n0000111122223333444455556666777788889999\n0000111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF\n0000111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNNOOOOPPPPQQQQRRRRSSSSTTTTUUUUVVVVWWWWXXXXYYYYZZZZaaaabbbbccccddddeeeeffffgggghhhhiiiijjjjkkkkllllmmmmnnnnooooppppqqqqrrrrssssttttuuuuvvvvwwwwxxxxyyyyzzzz\n00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899\n0123456789abcdefABCDEF\n0123456789abcdefABCDEFxX+\n051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef109e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b503f00\n115792089210356248762697446949407573529996955224135760342422259061068512044369\n115792089210356248762697446949407573530086143415290314195533631308867097853951\n11839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e662c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650\n258EAFA5-E914-47DA-95CA-C5AB0DC85B11\n3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f\n39402006196394479212279040100143613805079739270465446667946905279627659399113263569398956308152294913554433653942643\n39402006196394479212279040100143613805079739270465446667948293404245721771496870329047266088258938001861606973112319\n4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5\n5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b\n5e96669f06077099aa41290cdb4c5e6fa0f59349\n6864797660130609714981900799081393217269435300143305409394463459185543183397655394245057746333217197532963996371363321113864768612440380340372808892707005449\n6864797660130609714981900799081393217269435300143305409394463459185543183397656052122559640661454554977296311391480858037121987999716643812574028291115057151\n6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296\n9f872551d3c681d06fd303b36f16ed5c274735eb\naa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab7\nb3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef\nbaseIFbN7openvpn10CryptoAlgs4TypeERKNS3\nc6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3dbaa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66\nN7openvpn10RemoteList11BulkResolve14NotifyCallbackE\nN7openvpn11ClientEvent24TLSAlertHandshakeFailureE\nN7openvpn11ClientEvent32TLSSigAlgDisallowedOrUnsupportedE\nN7openvpn12TCPTransport10LinkCommonIN4asio2ip3tcpEPNS\nN7openvpn12TCPTransport10LinkCommonIN4asio2ip3tcpEPNS0\nN7openvpn13SSLFactoryAPI26ssl\nN7openvpn26PacketIDControlReceiveTypeILj8ELj30EE25packet",
+    "section": "secrets",
+    "title": "This app may contain hardcoded secrets"
+   }
+  ]
+ },
+ "behaviour": {
+  "00012": {
+   "files": {
+    "de/blinkt/openvpn/core/LogFileHandler.java": "7,9"
+   },
+   "metadata": {
+    "description": "Read data and put it into a buffer stream",
+    "label": [
+     "file"
+    ],
+    "severity": "info"
+   }
+  },
+  "00013": {
+   "files": {
+    "de/blinkt/openvpn/FileProvider.java": "13,14,15,16,14",
+    "de/blinkt/openvpn/activities/ConfigConverter.java": "42,43,43",
+    "de/blinkt/openvpn/activities/FileSelect.java": "16,17,17",
+    "de/blinkt/openvpn/core/LogFileHandler.java": "8,9,10,11,9",
+    "de/blinkt/openvpn/core/ProfileEncryption.java": "7,8,9,8",
+    "de/blinkt/openvpn/core/ProfileManager.java": "9,10,11,10",
+    "de/blinkt/openvpn/core/X509Utils.java": "9,10,11,12,10",
+    "okio/Okio__JvmOkioKt.java": "4,5,6,7,5"
+   },
+   "metadata": {
+    "description": "Read file and put it into a stream",
+    "label": [
+     "file"
+    ],
+    "severity": "info"
+   }
+  },
+  "00022": {
+   "files": {
+    "com/github/mikephil/charting/charts/Chart.java": "749,770,44,45",
+    "de/blinkt/openvpn/VpnProfile.java": "377,25,26,27",
+    "de/blinkt/openvpn/activities/ConfigConverter.java": "569,42,43",
+    "de/blinkt/openvpn/core/OpenVpnManagementThread.java": "131,19",
+    "de/blinkt/openvpn/fragments/FileSelectionFragment.java": "42,116,256,18"
+   },
+   "metadata": {
+    "description": "Open a file from given absolute path of the file",
+    "label": [
+     "file"
+    ],
+    "severity": "info"
+   }
+  },
+  "00036": {
+   "files": {
+    "de/blinkt/openvpn/fragments/SendDumpFragment.java": "95,102,110,111,3,7"
+   },
+   "metadata": {
+    "description": "Get resource file from res/raw directory",
+    "label": [
+     "reflection"
+    ],
+    "severity": "info"
+   }
+  },
+  "00051": {
+   "files": {
+    "de/blinkt/openvpn/core/OpenVPNService.java": "1271,1271,8,9,14"
+   },
+   "metadata": {
+    "description": "Implicit intent(view a web page, make a phone call, etc.) via setData",
+    "label": [
+     "control"
+    ],
+    "severity": "info"
+   }
+  },
+  "00063": {
+   "files": {
+    "de/blinkt/openvpn/core/OpenVPNService.java": "1271,8,9,14",
+    "de/blinkt/openvpn/fragments/SendDumpFragment.java": "110,111,4,7"
+   },
+   "metadata": {
+    "description": "Implicit intent(view a web page, make a phone call, etc.)",
+    "label": [
+     "control"
+    ],
+    "severity": "info"
+   }
+  },
+  "00091": {
+   "files": {
+    "de/blinkt/openvpn/core/PasswordDialogFragment.java": "121,63,125,8,10",
+    "de/blinkt/openvpn/fragments/VPNProfileList.java": "250,252,284,286,471,475,568,6,14"
+   },
+   "metadata": {
+    "description": "Retrieve data from broadcast",
+    "label": [
+     "collection"
+    ],
+    "severity": "info"
+   }
+  }
+ },
+ "domains": {
+  "android.googlesource.com": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Mountain View",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "192.178.211.82",
+    "latitude": "37.405991",
+    "longitude": "-122.078514",
+    "region": "California"
+   },
+   "ofac": false
+  },
+  "code.google.com": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Mountain View",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "142.250.205.14",
+    "latitude": "37.405991",
+    "longitude": "-122.078514",
+    "region": "California"
+   },
+   "ofac": false
+  },
+  "community.openvpn.net": {
+   "bad": "no",
+   "geolocation": {
+    "city": "San Francisco",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "104.19.191.106",
+    "latitude": "37.775700",
+    "longitude": "-122.395203",
+    "region": "California"
+   },
+   "ofac": false
+  },
+  "crowdin.com": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Ashburn",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "44.209.146.206",
+    "latitude": "39.043720",
+    "longitude": "-77.487488",
+    "region": "Virginia"
+   },
+   "ofac": false
+  },
+  "crowdin.net": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Ashburn",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "44.209.146.206",
+    "latitude": "39.043720",
+    "longitude": "-77.487488",
+    "region": "Virginia"
+   },
+   "ofac": false
+  },
+  "developer.android.com": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Mountain View",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "172.217.24.14",
+    "latitude": "37.405991",
+    "longitude": "-122.078514",
+    "region": "California"
+   },
+   "ofac": false
+  },
+  "github.com": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Redmond",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "20.207.73.82",
+    "latitude": "47.682899",
+    "longitude": "-122.120903",
+    "region": "Washington"
+   },
+   "ofac": false
+  },
+  "openvpn.net": {
+   "bad": "no",
+   "geolocation": {
+    "city": "San Francisco",
+    "country_long": "United States of America",
+    "country_short": "US",
+    "ip": "104.19.190.106",
+    "latitude": "37.775700",
+    "longitude": "-122.395203",
+    "region": "California"
+   },
+   "ofac": false
+  },
+  "sites.inka.de": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Stuttgart",
+    "country_long": "Germany",
+    "country_short": "DE",
+    "ip": "193.197.184.17",
+    "latitude": "48.782318",
+    "longitude": "9.177020",
+    "region": "Baden-Wurttemberg"
+   },
+   "ofac": false
+  },
+  "www.bouncycastle.org": {
+   "bad": "no",
+   "geolocation": {
+    "city": "Warren",
+    "country_long": "Australia",
+    "country_short": "AU",
+    "ip": "43.250.142.130",
+    "latitude": "-23.500000",
+    "longitude": "150.283325",
+    "region": "Queensland"
+   },
+   "ofac": false
+  }
+ },
+ "file_name": "BENIGN-de.blinkt.openvpn.apk",
+ "manifest_analysis": {
+  "manifest_findings": [
+   {
+    "component": [
+     "6.0-6.0.1",
+     "23"
+    ],
+    "description": "This application can be installed on an older version of android that has multiple unfixed vulnerabilities. These devices won't receive reasonable security updates from Google. Support an Android version => 10, API 29 to receive reasonable security updates.",
+    "name": "App can be installed on a vulnerable unpatched Android version 6.0-6.0.1, [minSdk=23]",
+    "rule": "vulnerable_os_version",
+    "severity": "high",
+    "title": "App can be installed on a vulnerable unpatched Android version 6.0-6.0.1, [minSdk=23]"
+   },
+   {
+    "component": [],
+    "description": "This flag allows anyone to backup your application data via adb. It allows users who have enabled USB debugging to copy application data off of the device.",
+    "name": "Application Data can be Backed up [android:allowBackup=true]",
+    "rule": "app_allowbackup",
+    "severity": "warning",
+    "title": "Application Data can be Backed up [android:allowBackup=true]"
+   },
+   {
+    "component": [
+     "Service",
+     "de.blinkt.openvpn.OpenVPNTileService",
+     "<strong>Permission: </strong>android.permission.BIND_QUICK_SETTINGS_TILE"
+    ],
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "name": "Service de.blinkt.openvpn.OpenVPNTileService is Protected by a permission, but the protection level of the permission should be checked. [<strong>Permission: </strong>android.permission.BIND_QUICK_SETTINGS_TILE] [android:exported=true]",
+    "rule": "exported_protected_permission_not_defined",
+    "severity": "warning",
+    "title": "Service (de.blinkt.openvpn.OpenVPNTileService) is Protected by a permission, but the protection level of the permission should be checked. <strong>Permission: </strong>android.permission.BIND_QUICK_SETTINGS_TILE [android:exported=true]"
+   },
+   {
+    "component": [
+     "de.blinkt.openvpn.activities.ConfigConverter"
+    ],
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "name": "TaskAffinity is set for Activity (de.blinkt.openvpn.activities.ConfigConverter)",
+    "rule": "task_affinity_set",
+    "severity": "warning",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.activities.ConfigConverter)"
+   },
+   {
+    "component": [
+     "Activity",
+     "de.blinkt.openvpn.activities.ConfigConverter"
+    ],
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity de.blinkt.openvpn.activities.ConfigConverter is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity (de.blinkt.openvpn.activities.ConfigConverter) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Activity-Alias",
+     "de.blinkt.openvpn.activities.ConfigConverterFile"
+    ],
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity-Alias de.blinkt.openvpn.activities.ConfigConverterFile is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity-Alias (de.blinkt.openvpn.activities.ConfigConverterFile) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "de.blinkt.openvpn.activities.CreateShortcuts"
+    ],
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "name": "TaskAffinity is set for Activity (de.blinkt.openvpn.activities.CreateShortcuts)",
+    "rule": "task_affinity_set",
+    "severity": "warning",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.activities.CreateShortcuts)"
+   },
+   {
+    "component": [
+     "Activity",
+     "de.blinkt.openvpn.activities.CreateShortcuts"
+    ],
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity de.blinkt.openvpn.activities.CreateShortcuts is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity (de.blinkt.openvpn.activities.CreateShortcuts) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Content Provider",
+     "de.blinkt.openvpn.FileProvider"
+    ],
+    "description": "A Content Provider is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Content Provider de.blinkt.openvpn.FileProvider is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Content Provider (de.blinkt.openvpn.FileProvider) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "de.blinkt.openvpn.activities.DisconnectVPN"
+    ],
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "name": "TaskAffinity is set for Activity (de.blinkt.openvpn.activities.DisconnectVPN)",
+    "rule": "task_affinity_set",
+    "severity": "warning",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.activities.DisconnectVPN)"
+   },
+   {
+    "component": [
+     "Service",
+     "de.blinkt.openvpn.core.OpenVPNService",
+     "<strong>Permission: </strong>android.permission.BIND_VPN_SERVICE"
+    ],
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "name": "Service de.blinkt.openvpn.core.OpenVPNService is Protected by a permission, but the protection level of the permission should be checked. [<strong>Permission: </strong>android.permission.BIND_VPN_SERVICE] [android:exported=true]",
+    "rule": "exported_protected_permission_not_defined",
+    "severity": "warning",
+    "title": "Service (de.blinkt.openvpn.core.OpenVPNService) is Protected by a permission, but the protection level of the permission should be checked. <strong>Permission: </strong>android.permission.BIND_VPN_SERVICE [android:exported=true]"
+   },
+   {
+    "component": [
+     "Service",
+     "de.blinkt.openvpn.api.ExternalOpenVPNService"
+    ],
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Service de.blinkt.openvpn.api.ExternalOpenVPNService is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Service (de.blinkt.openvpn.api.ExternalOpenVPNService) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Activity",
+     "de.blinkt.openvpn.api.GrantPermissionsActivity"
+    ],
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity de.blinkt.openvpn.api.GrantPermissionsActivity is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity (de.blinkt.openvpn.api.GrantPermissionsActivity) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Activity",
+     "de.blinkt.openvpn.api.ConfirmDialog"
+    ],
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity de.blinkt.openvpn.api.ConfirmDialog is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity (de.blinkt.openvpn.api.ConfirmDialog) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Broadcast Receiver",
+     "de.blinkt.openvpn.OnBootReceiver"
+    ],
+    "description": "A Broadcast Receiver is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Broadcast Receiver de.blinkt.openvpn.OnBootReceiver is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Broadcast Receiver (de.blinkt.openvpn.OnBootReceiver) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Service",
+     "de.blinkt.openvpn.core.keepVPNAlive",
+     "<strong>Permission: </strong>android.permission.BIND_JOB_SERVICE"
+    ],
+    "description": "A Service is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "name": "Service de.blinkt.openvpn.core.keepVPNAlive is Protected by a permission, but the protection level of the permission should be checked. [<strong>Permission: </strong>android.permission.BIND_JOB_SERVICE] [android:exported=true]",
+    "rule": "exported_protected_permission_not_defined",
+    "severity": "warning",
+    "title": "Service (de.blinkt.openvpn.core.keepVPNAlive) is Protected by a permission, but the protection level of the permission should be checked. <strong>Permission: </strong>android.permission.BIND_JOB_SERVICE [android:exported=true]"
+   },
+   {
+    "component": [
+     "de.blinkt.openvpn.LaunchVPN"
+    ],
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "name": "TaskAffinity is set for Activity (de.blinkt.openvpn.LaunchVPN)",
+    "rule": "task_affinity_set",
+    "severity": "warning",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.LaunchVPN)"
+   },
+   {
+    "component": [
+     "Activity",
+     "de.blinkt.openvpn.LaunchVPN"
+    ],
+    "description": "An Activity is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity de.blinkt.openvpn.LaunchVPN is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity (de.blinkt.openvpn.LaunchVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "de.blinkt.openvpn.api.RemoteAction"
+    ],
+    "description": "If taskAffinity is set, then other application could read the Intents sent to Activities belonging to another task. Always use the default setting keeping the affinity as the package name in order to prevent sensitive information inside sent or received Intents from being read by another application.",
+    "name": "TaskAffinity is set for Activity (de.blinkt.openvpn.api.RemoteAction)",
+    "rule": "task_affinity_set",
+    "severity": "warning",
+    "title": "TaskAffinity is set for activity (de.blinkt.openvpn.api.RemoteAction)"
+   },
+   {
+    "component": [
+     "Activity-Alias",
+     "de.blinkt.openvpn.api.SetDefaultVPN"
+    ],
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity-Alias de.blinkt.openvpn.api.SetDefaultVPN is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.SetDefaultVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Activity-Alias",
+     "de.blinkt.openvpn.api.ResumeVPN"
+    ],
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity-Alias de.blinkt.openvpn.api.ResumeVPN is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.ResumeVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Activity-Alias",
+     "de.blinkt.openvpn.api.PauseVPN"
+    ],
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity-Alias de.blinkt.openvpn.api.PauseVPN is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.PauseVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Activity-Alias",
+     "de.blinkt.openvpn.api.DisconnectVPN"
+    ],
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity-Alias de.blinkt.openvpn.api.DisconnectVPN is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.DisconnectVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Activity-Alias",
+     "de.blinkt.openvpn.api.ConnectVPN"
+    ],
+    "description": "An Activity-Alias is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device.",
+    "name": "Activity-Alias de.blinkt.openvpn.api.ConnectVPN is not Protected. [android:exported=true]",
+    "rule": "explicitly_exported",
+    "severity": "warning",
+    "title": "Activity-Alias (de.blinkt.openvpn.api.ConnectVPN) is not Protected. [android:exported=true]"
+   },
+   {
+    "component": [
+     "Broadcast Receiver",
+     "androidx.profileinstaller.ProfileInstallReceiver",
+     "<strong>Permission: </strong>android.permission.DUMP"
+    ],
+    "description": "A Broadcast Receiver is found to be shared with other apps on the device therefore leaving it accessible to any other application on the device. It is protected by a permission which is not defined in the analysed application. As a result, the protection level of the permission should be checked where it is defined. If it is set to normal or dangerous, a malicious application can request and obtain the permission and interact with the component. If it is set to signature, only applications signed with the same certificate can obtain the permission.",
+    "name": "Broadcast Receiver androidx.profileinstaller.ProfileInstallReceiver is Protected by a permission, but the protection level of the permission should be checked. [<strong>Permission: </strong>android.permission.DUMP] [android:exported=true]",
+    "rule": "exported_protected_permission_not_defined",
+    "severity": "warning",
+    "title": "Broadcast Receiver (androidx.profileinstaller.ProfileInstallReceiver) is Protected by a permission, but the protection level of the permission should be checked. <strong>Permission: </strong>android.permission.DUMP [android:exported=true]"
+   },
+   {
+    "component": [
+     "999",
+     1
+    ],
+    "description": "By setting an intent priority higher than another intent, the app effectively overrides other requests.",
+    "name": "High Intent Priority (999) - {1} Hit(s) [android:priority]",
+    "rule": "high_intent_priority_found",
+    "severity": "warning",
+    "title": "High Intent Priority (999) - {1} Hit(s) [android:priority]"
+   }
+  ],
+  "manifest_summary": {
+   "high": 1,
+   "info": 0,
+   "suppressed": 0,
+   "warning": 25
+  }
+ },
+ "md5": "99f97881537ab5e2723dff7e472186e7",
+ "min_sdk": "23",
+ "package_name": "de.blinkt.openvpn",
+ "permissions": {
+  "android.permission.ACCESS_LOCAL_NETWORK": {
+   "status": "unknown"
+  },
+  "android.permission.ACCESS_NETWORK_STATE": {
+   "status": "normal"
+  },
+  "android.permission.FOREGROUND_SERVICE": {
+   "status": "normal"
+  },
+  "android.permission.FOREGROUND_SERVICE_SPECIAL_USE": {
+   "status": "normal"
+  },
+  "android.permission.INTERNET": {
+   "status": "normal"
+  },
+  "android.permission.POST_NOTIFICATIONS": {
+   "status": "dangerous"
+  },
+  "android.permission.QUERY_ALL_PACKAGES": {
+   "status": "normal"
+  },
+  "android.permission.READ_EXTERNAL_STORAGE": {
+   "status": "dangerous"
+  },
+  "android.permission.RECEIVE_BOOT_COMPLETED": {
+   "status": "normal"
+  },
+  "de.blinkt.openvpn.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION": {
+   "status": "unknown"
+  }
+ },
+ "providers": [
+  "de.blinkt.openvpn.FileProvider",
+  "androidx.startup.InitializationProvider"
+ ],
+ "receivers": [
+  "de.blinkt.openvpn.OnBootReceiver",
+  "androidx.profileinstaller.ProfileInstallReceiver"
+ ],
+ "services": [
+  "de.blinkt.openvpn.OpenVPNTileService",
+  "de.blinkt.openvpn.core.OpenVPNService",
+  "de.blinkt.openvpn.api.ExternalOpenVPNService",
+  "de.blinkt.openvpn.core.OpenVPNStatusService",
+  "de.blinkt.openvpn.core.keepVPNAlive"
+ ],
+ "sha1": "da01203f588b7de6f36426b247aa32930a00664b",
+ "sha256": "3ce86b641d1627820d8f05606a3fb58d966ffa8360c234563b3c5e1bd3a8490a",
+ "size": "37.92MB",
+ "target_sdk": "37",
+ "trackers": {
+  "detected_trackers": 0,
+  "total_trackers": 432,
+  "trackers": []
+ },
+ "version": "v4.5.4",
+ "version_name": "0.7.65",
+ "virus_total": null
+}

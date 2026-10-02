@@ -21,7 +21,7 @@ discredits the findings that *are* right. So:
     URL;
   * where the choice depends on the finding, it is decided per finding from
     evidence the rule already recorded — never hardcoded to one branch;
-  * and two of our ten rules are mapped to **nothing**, deliberately, because
+  * and some of our rules are mapped to **nothing**, deliberately (see UNMAPPED), because
     ATT&CK has no technique that honestly describes them.
 
 The two that do not map

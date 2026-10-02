@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box, Typography, Button, TextField, Alert, LinearProgress, MenuItem, Link,
 } from '@mui/material';
@@ -9,6 +9,8 @@ import Sidebar from '../components/layout/Sidebar';
 import TopBar from '../components/layout/TopBar';
 import ClassificationBanner, { BANNER_HEIGHT } from '../components/layout/ClassificationBanner';
 import { examineSample } from '../services/forensics';
+import { getEngineLimits } from '../services/engine';
+import SecondOpinion from '../components/sample/SecondOpinion';
 import { useCurrentUser } from '../services/session';
 import { describeError } from '../services/api';
 import {
@@ -138,6 +140,14 @@ function Sources({ sources }) {
             {s.title}
           </Link>
           {' — '}{s.publisher}, {s.date}
+          {/* The address as text. On a machine with no network the link goes
+              nowhere; the citation should still be readable, and printable. */}
+          <Box component="span" sx={{
+            display: 'block', fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10.5, color: GREY_MUTED, wordBreak: 'break-all',
+          }}>
+            {s.url}
+          </Box>
           {!s.verified && (
             <span title="Only a secondary account of this report was read.">
               {' '}(secondary source)
@@ -195,6 +205,18 @@ function Evidence({ items }) {
 function Assessment({ report }) {
   const a = report.assessment;
   const tone = TIER_TONE[a.tier] ?? GREY;
+  // How often this engine is wrong, beside the verdict that most needs it. A tier 1
+  // says "not established"; this says how often "not established" has been the
+  // answer for something that was malware. From the API, never typed here.
+  const [measured, setMeasured] = useState(null);
+  useEffect(() => {
+    if (a.tier !== 1) return undefined;
+    let live = true;
+    getEngineLimits()
+      .then((d) => { if (live) setMeasured(d.nothing_found?.apk_measured ?? null); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [a.tier]);
   return (
     <Panel
       title="Assessment"
@@ -214,6 +236,14 @@ function Assessment({ report }) {
           <Typography sx={{ fontSize: 12.5, color: INK_SOFT, mt: 0.8 }}>{a.meaning}</Typography>
           {a.summary && a.summary !== a.meaning && (
             <Typography sx={{ fontSize: 12.5, color: INK, mt: 0.6 }}>{a.summary}</Typography>
+          )}
+          {a.tier === 1 && measured && (
+            <Typography sx={{ fontSize: 12, color: INK_SOFT, mt: 0.8, borderLeft: `3px solid ${RULE_STRONG}`, pl: 1.2 }}>
+              {measured}{' '}
+              <Link href="/limits" target="_blank" rel="noreferrer" sx={{ color: CYAN }}>
+                Limits of this tool
+              </Link>
+            </Typography>
           )}
         </Box>
         <Box sx={{ minWidth: 280, flex: 1 }}>
@@ -251,6 +281,9 @@ function Assessment({ report }) {
                 <Link href={f.definition_source} target="_blank" rel="noreferrer" sx={{ color: CYAN }}>
                   Google Play Protect
                 </Link>
+                {' ('}<span style={{ fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>
+                  {f.definition_source}
+                </span>{')'}
                 {' · established by '}{f.established_by.join(', ')}
               </Typography>
             </Box>
@@ -496,6 +529,10 @@ export default function SamplePage() {
           {report && (
             <>
               <Assessment report={report} />
+
+              {/* Beside the verdict, because it is read against it: another tool's
+                  report on this same package, filed by hash. */}
+              <SecondOpinion />
 
               {claim?.findings?.length > 0 && (
                 <Panel

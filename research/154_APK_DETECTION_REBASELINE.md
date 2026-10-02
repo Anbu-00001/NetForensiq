@@ -386,3 +386,12 @@ be a new capability rather than another conjunction.
   of evasion, not of malice. An app that forges its ZIP headers is hiding something from
   analysis tools; that is what the tier-2 language says, and it is not the same claim as
   "this app is malware".
+
+---
+
+**Correction, 2 Oct 2026.** The fresh-benign result above is stated as "0 / 100 — one-sided
+95% bound 3.0%". Eleven of the 100 could not be examined, and an app that could not be
+examined is not a clean result. The accurate statement is **0 of 89 examined, one-sided 95%
+bound 3.3%**. The count was never wrong (no examined app reached a tier); the denominator and
+the bound were. Re-derived from the run logs by `scripts/extract_validation_data.py`
+(research/163). The README now says the same.

@@ -12,6 +12,7 @@ import ApprovalsPage from './pages/ApprovalsPage';
 import ImportPage from './pages/ImportPage';
 import SignInLogPage from './pages/SignInLogPage';
 import SamplePage from './pages/SamplePage';
+import LimitsPage from './pages/LimitsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/status" element={<StatusPage />} />
+        <Route path="/limits" element={<LimitsPage />} />
         <Route
           path="/dashboard"
           element={

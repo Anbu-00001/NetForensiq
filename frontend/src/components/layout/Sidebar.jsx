@@ -12,6 +12,7 @@ import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import FingerprintOutlinedIcon from '@mui/icons-material/FingerprintOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import EvidencePosture from './EvidencePosture';
 import { DutyBoard, CaseDocket, CaptureHealth, IntelFeeds } from './SidebarPanels';
@@ -52,6 +53,9 @@ const navItems = [
     path: '/approvals',
     adminOnly: true,
   },
+  // Everyone, last. What the tool cannot establish is not a supervisor's
+  // concern: it is the first thing an officer should know before relying on it.
+  { label: 'Limits of this tool', icon: <InfoOutlinedIcon />, path: '/limits' },
 ];
 
 /**
