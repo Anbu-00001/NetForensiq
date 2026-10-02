@@ -12,8 +12,20 @@
 **/*.sqlite3
 **/*.sqlite3-*
 **/evidence_store
+**/updates
 **/staticfiles
 **/.env
+
+# Keys. The evidence key decrypts every sealed exhibit and the signing key makes
+# a case package look like it came from this installation. Both were copied into
+# every image built from a working checkout, because only databases and the
+# evidence store were excluded: `docker run --entrypoint ls IMAGE -la /app`
+# showed /app/.evidence.key. An image is carried across air gaps and shared;
+# a key must never ride along. A deployment supplies its own (RUN_OFFLINE.md).
+**/.evidence.key
+**/.signing.key
+**/*.key
+**/*.pem
 backend/reference_captures
 
 .git

@@ -24,9 +24,16 @@ OUT="${2:-airgap-images}"
 
 APP_IMAGE="netforensiq:${VERSION}"
 DB_IMAGE="$(grep -oP 'image:\s*\Kpostgres:[^\s]+' docker-compose.yml | head -1)"
+# The one-line relay that lets docker-compose.airgap.yml publish a port while
+# the application sits on a network with no route off the host. 4 MB.
+RELAY_IMAGE="$(grep -oP 'image:\s*\Kalpine/socat:[^\s]+' docker-compose.airgap.yml | head -1)"
 
 if [[ -z "$DB_IMAGE" ]]; then
     echo "Could not read the Postgres image out of docker-compose.yml." >&2
+    exit 1
+fi
+if [[ -z "$RELAY_IMAGE" ]]; then
+    echo "Could not read the relay image out of docker-compose.airgap.yml." >&2
     exit 1
 fi
 
@@ -35,18 +42,21 @@ mkdir -p "$OUT"
 echo "Building ${APP_IMAGE} (this needs network — it is the last step that does)…"
 docker build -t "$APP_IMAGE" .
 
-echo "Fetching ${DB_IMAGE}…"
+echo "Fetching ${DB_IMAGE} and ${RELAY_IMAGE}…"
 docker pull "$DB_IMAGE"
+docker pull "$RELAY_IMAGE"
 
 echo "Saving…"
 docker save "$APP_IMAGE" | gzip > "${OUT}/netforensiq-${VERSION}.tar.gz"
 docker save "$DB_IMAGE"  | gzip > "${OUT}/postgres.tar.gz"
+docker save "$RELAY_IMAGE" | gzip > "${OUT}/relay.tar.gz"
 
 # A manifest, so the target machine can tell a truncated transfer from a
 # complete one before it finds out during the demo.
 {
     echo "netforensiq_image=${APP_IMAGE}"
     echo "postgres_image=${DB_IMAGE}"
+    echo "relay_image=${RELAY_IMAGE}"
     echo "built_at=$(date -Iseconds)"
 } > "${OUT}/manifest.txt"
 

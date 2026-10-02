@@ -404,6 +404,10 @@ class CustodyEvent(models.Model):
         # evidence. That distinction is exactly the kind a defence counsel
         # probes, so the act is logged and the log says the hash is unchanged.
         ENCRYPTED = 'encrypted', 'Encrypted at rest'
+        # Another tool's output about this exhibit was filed beside it. That is a
+        # movement in the record — the exhibit now has an opinion attached that
+        # this system did not form — so it is logged, with the report's hash.
+        REPORT_ATTACHED = 'report_attached', 'Third-party report attached'
 
     evidence = models.ForeignKey(
         EvidenceRecord, on_delete=models.CASCADE, related_name='custody_events',

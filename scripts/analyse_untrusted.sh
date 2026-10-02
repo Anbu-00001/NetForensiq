@@ -34,7 +34,7 @@
 #                             machine has been knocked over by it before
 #
 # One consequence worth recording: the image's main python3 carries
-# cap_net_raw,cap_net_admin for live packet capture, and a binary with file
+# cap_net_raw for live packet capture, and a binary with file
 # capabilities cannot be exec'd under no-new-privileges — the kernel refuses
 # with EPERM. That is the correct refusal. The examination runs on
 # /usr/local/bin/python3-analysis, the capability-free copy the Dockerfile makes

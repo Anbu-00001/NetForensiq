@@ -1,4 +1,4 @@
-import { test, expect, apiGet, rows } from './fixtures';
+import { test, expect, apiGet, rows, shownCount } from './fixtures';
 
 /**
  * The air-gap claim, enforced.
@@ -135,7 +135,7 @@ test.describe('the platform works with no route off this machine', () => {
     ).toBeGreaterThan(0);
     const summary = await apiGet(page, `sessions/${sessions[0].id}/summary/`);
     expect(await page.locator('body').innerText())
-      .toContain(String(summary.totals.flows));
+      .toContain(shownCount(summary.totals.flows));
 
     // Findings.
     await page.goto('/detections');

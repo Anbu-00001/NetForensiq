@@ -28,14 +28,36 @@ echo
 echo "Loaded:"
 grep '=' "${DIR}/manifest.txt" | sed 's/^/  /'
 echo
+APP_IMAGE="$(grep netforensiq_image "${DIR}/manifest.txt" | cut -d= -f2)"
+
 echo "Nothing below this line needs a network."
 echo
-echo "  Single workstation, SQLite, no Postgres:"
-echo "    docker run --rm --network none -p 8000:8000 \\"
-echo "      -e SECRET_KEY=\"\$(openssl rand -base64 48)\" \\"
-echo "      -e DEBUG=False -e ALLOWED_HOSTS=127.0.0.1,localhost \\"
-echo "      -v netforensiq_evidence:/app/evidence_store \\"
-echo "      \$(grep netforensiq_image "${DIR}/manifest.txt" | cut -d= -f2)"
+echo "  1. Keys, once. Keep a copy somewhere that is not this machine —"
+echo "     a new evidence key makes every sealed exhibit permanently unreadable."
+echo "       export NF_SECRET_KEY=\"\$(openssl rand -base64 48)\""
+echo "       export NF_EVIDENCE_KEY=\"\$(openssl rand -base64 32)\""
 echo
-echo "  Or with Postgres (both images are now present, so no pull happens):"
-echo "    docker compose up          # NOT --build; building needs a network"
+echo "  2. Start it with no route off the machine (recommended):"
+echo "       export NF_IMAGE=${APP_IMAGE}"
+echo "       docker compose -f docker-compose.airgap.yml up -d"
+echo "       scripts/verify_airgap.sh"
+echo "       # then open http://127.0.0.1:8000"
+echo
+echo "  Or, single container on the ordinary Docker network. Both volumes are"
+echo "  needed: the database and the evidence key live in /app/data, and without"
+echo "  a volume there stopping the container deletes the custody chain."
+echo "       docker run -d --name netforensiq \\"
+echo "         -p 127.0.0.1:8000:8000 \\"
+echo "         -e SECRET_KEY=\"\$NF_SECRET_KEY\" \\"
+echo "         -e EVIDENCE_ENCRYPTION_KEY=\"\$NF_EVIDENCE_KEY\" \\"
+echo "         -e DEBUG=False -e ALLOWED_HOSTS=127.0.0.1,localhost \\"
+echo "         -e SQLITE_NAME=/app/data/netforensiq.sqlite3 \\"
+echo "         -v netforensiq_db:/app/data \\"
+echo "         -v netforensiq_evidence:/app/evidence_store \\"
+echo "         ${APP_IMAGE}"
+echo
+echo "  Do not combine --network none with -p: Docker accepts it without a"
+echo "  warning and publishes nothing."
+echo
+echo "  Or with Postgres (both images are present, so no pull happens):"
+echo "       docker compose up          # NOT --build; building needs a network"

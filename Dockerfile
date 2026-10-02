@@ -10,10 +10,18 @@
 #
 # Air-gapped use
 # --------------
-# The running container needs no network. Verified by running it under
-# `--network none`, where a socket to 1.1.1.1 fails with "Network is
-# unreachable" and the platform still seals a capture, analyses it and issues a
-# Section 63 certificate.
+# Nothing in the platform makes an outbound connection unless an operator
+# configures an alerting sink; the only network it needs is the loopback port
+# the interface is served on. That is a property of the code, checked at build
+# time for the interface (scripts/build_offline_bundle.sh) and by the tests.
+#
+# Whether the *container* can reach the internet is a property of how it is run,
+# and the image cannot decide that. `docker run --network none` removes the
+# network entirely but then cannot publish a port, so a browser could not reach
+# it. docker-compose.airgap.yml puts the application on an `internal` network
+# (no route off the host) behind a one-line relay that alone publishes the
+# loopback port, and scripts/verify_airgap.sh checks that structure. See
+# RUN_OFFLINE.md.
 #
 # BUILDING needs a network — this file pulls two base images and runs apt-get,
 # npm ci and pip install. So the build happens on a connected machine and the
@@ -104,7 +112,9 @@ ENV APK_ENGINE_PYTHON=/usr/local/bin/python3-analysis \
     # weaker than it should be — a real deployment supplies
     # EVIDENCE_ENCRYPTION_KEY from a secrets manager instead and never writes
     # it to this disk. See RUN_OFFLINE.md.
-    EVIDENCE_KEY_FILE=/app/data/.evidence.key
+    EVIDENCE_KEY_FILE=/app/data/.evidence.key \
+    SIGNING_KEY_FILE=/app/data/.signing.key \
+    UPDATES_ROOT=/app/data/updates
 
 RUN python manage.py collectstatic --noinput
 
@@ -135,8 +145,21 @@ RUN useradd --create-home --uid 10001 netforensiq \
 # vanished the next time the container was recreated. Baking it into the image
 # is the difference between "worked when we tried it" and "works".
 #
-# Narrower than running as root: it permits packet capture and nothing else.
-# Reading a stored .pcap has never needed it.
+# Narrower than running as root: it permits opening raw sockets and nothing
+# else. Reading a stored .pcap has never needed it.
+#
+# Only CAP_NET_RAW, and that is deliberate. This line used to grant
+# `cap_net_raw,cap_net_admin=eip`, and an image built from it could not start
+# under a plain `docker run`: `exec /usr/local/bin/python: operation not
+# permitted`. Python is a "capability-dumb" binary, so with the effective bit
+# set the kernel refuses to exec it unless every permitted file capability can
+# be granted (capabilities(7)), and CAP_NET_ADMIN is not in Docker's default
+# set (AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, MKNOD,
+# NET_BIND_SERVICE, NET_RAW, SETFCAP, SETGID, SETPCAP, SETUID, SYS_CHROOT).
+# NET_ADMIN was never needed: a non-root scapy sniffer with promiscuous mode on
+# captured 26 packets on eth0 with only NET_RAW, and an interpreter without the
+# capability raised PermissionError (research/161). A test pins the rule, so a
+# capability outside Docker's default set cannot be added here unnoticed.
 # p7zip reads compression methods the standard library does not (Deflate64
 # above all), which Android packers use specifically to break naive parsers.
 # Kept installed, unlike libcap2-bin, because it is needed at run time.
@@ -155,7 +178,7 @@ RUN cp "$(readlink -f "$(command -v python3)")" /usr/local/bin/python3-analysis
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libcap2-bin \
-    && setcap cap_net_raw,cap_net_admin=eip "$(readlink -f "$(command -v python3)")" \
+    && setcap cap_net_raw=eip "$(readlink -f "$(command -v python3)")" \
     && apt-get purge -y libcap2-bin \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*

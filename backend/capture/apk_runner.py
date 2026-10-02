@@ -93,6 +93,12 @@ def run_examination(apk_path, container_path=None, original_name=''):
     if os.environ.get('APK_ENGINE_BASELINES'):
         environment['APK_ENGINE_BASELINES'] = os.environ['APK_ENGINE_BASELINES']
 
+    # Reference data from the last applied signed update bundle, if any. The
+    # engine only ever takes the files reference.UPDATABLE names from it.
+    overlay = getattr(settings, 'ENGINE_DATA_OVERLAY', None)
+    if overlay and os.path.isdir(overlay):
+        environment['APK_ENGINE_DATA_DIR'] = os.path.realpath(overlay)
+
     try:
         with _exclusive():
             completed = subprocess.run(

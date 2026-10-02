@@ -593,3 +593,139 @@ class LiveMonitorState(models.Model):
 
     def __str__(self):
         return f"monitor on {self.interface or '-'} ({'running' if self.running else 'idle'})"
+
+
+class UpdateBundle(models.Model):
+    """
+    A signed update bundle that has been applied to this installation.
+
+    The record is the audit trail for how new indicator feeds and engine
+    reference data arrived: who published it (by key, not by the name the bundle
+    claims), which sequence number, what it contained, who applied it and when.
+
+    The uniqueness of (publisher_fingerprint, sequence) is what stops a bundle
+    being applied twice and an older one being applied after a newer one — the
+    rollback attack — and it is enforced by the database, so two operators racing
+    cannot both succeed.
+    """
+
+    publisher_fingerprint = models.CharField(max_length=64, db_index=True)
+    # What the bundle *says* its publisher is called. Display only: trust is by
+    # key, and a bundle can claim any name it likes.
+    publisher_name = models.CharField(max_length=200, blank=True)
+    sequence = models.PositiveBigIntegerField()
+    bundle_sha256 = models.CharField(max_length=64)
+    created = models.DateTimeField()
+    expires = models.DateTimeField()
+    applied_at = models.DateTimeField(auto_now_add=True)
+    applied_by = models.CharField(max_length=150, blank=True)
+    # What the bundle carried, as {type, name, sha256, size} — enough to see what
+    # changed without keeping the payloads a second time.
+    contents = models.JSONField(default=list)
+    # True when the operator applied it after its expiry date, knowingly.
+    applied_after_expiry = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-applied_at']
+        constraints = [
+            models.UniqueConstraint(fields=['publisher_fingerprint', 'sequence'],
+                                    name='one_application_per_sequence'),
+        ]
+
+    def __str__(self):
+        return f'update #{self.sequence} from {self.publisher_fingerprint[:16]}'
+
+
+class ApkExamination(models.Model):
+    """
+    What the APK engine concluded about a sample, recorded when it concluded it.
+
+    The result used to exist only in the HTTP response and as one line of the audit
+    log. A tier that nobody can look up later cannot be compared with anything,
+    cannot be shown beside a second opinion, and cannot be checked against what the
+    engine would say now. This keeps the conclusion — not the full report — with the
+    exhibit it belongs to, and the identity of the exact bytes examined.
+
+    `analysed_sha256` is the hash of the package the engine actually read. When a
+    sample arrives inside a ZIP the exhibit's own hash is the ZIP's, and every other
+    tool that examines the package reports the *inner* file's hash; this is the
+    column that lets the two be matched.
+    """
+
+    evidence = models.ForeignKey(
+        'evidence.EvidenceRecord', on_delete=models.CASCADE, related_name='apk_examinations',
+    )
+    analysed_sha256 = models.CharField(max_length=64, blank=True, db_index=True)
+    package = models.CharField(max_length=255, blank=True)
+    tier = models.PositiveSmallIntegerField()
+    tier_label = models.CharField(max_length=80)
+    # Which behaviours and integrity indicators set the tier — ids, not prose.
+    basis_ids = models.JSONField(default=list)
+    engine_version = models.CharField(max_length=20, blank=True)
+    # The baseline table in force. A tier means something only relative to it
+    # (research/163), so it is recorded with the verdict.
+    baselines_sha256 = models.CharField(max_length=64, blank=True)
+    examined_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='apk_examinations',
+    )
+    examined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-examined_at']
+
+    def __str__(self):
+        return f'{self.evidence_id}: tier {self.tier} ({self.package or "unparsed"})'
+
+
+class ThirdPartyReport(models.Model):
+    """
+    Another tool's report about a sample, filed beside it as a second opinion.
+
+    It is **derived analysis, not evidence**, and is kept apart from the exhibit for
+    the reason the platform keeps its own findings apart: opinion computed from the
+    evidence is not the evidence. The report's bytes are kept (encrypted at rest when
+    the store is) so what was filed can be re-read and re-hashed, and the facts
+    that matter are extracted into `summary` so that nothing has to parse a 150 KB
+    document to show them.
+
+    `subject_sha256` is what the *report* says it describes. The link to an exhibit
+    exists only when that hash matches a sealed one; this system does not take the
+    importer's word that two different hashes are the same sample.
+    """
+
+    class Tool(models.TextChoices):
+        MOBSF = 'mobsf', 'MobSF'
+
+    tool = models.CharField(max_length=20, choices=Tool.choices)
+    tool_version = models.CharField(max_length=40, blank=True)
+    subject_sha256 = models.CharField(max_length=64, db_index=True)
+    report_sha256 = models.CharField(max_length=64, db_index=True)
+    report_bytes = models.BigIntegerField()
+    stored_path = models.CharField(max_length=500)
+    encrypted_at_rest = models.BooleanField(default=False)
+    summary = models.JSONField(default=dict)
+
+    evidence = models.ForeignKey(
+        'evidence.EvidenceRecord', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='third_party_reports',
+    )
+    imported_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='third_party_reports',
+    )
+    imported_at = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ['-imported_at']
+        constraints = [
+            # The same report is not filed twice against the same exhibit; filing
+            # it twice would make one opinion look like two.
+            models.UniqueConstraint(fields=['report_sha256', 'evidence'],
+                                    name='one_filing_per_report_and_exhibit'),
+        ]
+
+    def __str__(self):
+        return f'{self.tool} {self.tool_version} on {self.subject_sha256[:12]}'
+

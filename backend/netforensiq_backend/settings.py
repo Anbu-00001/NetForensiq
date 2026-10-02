@@ -270,12 +270,57 @@ EVIDENCE_ENCRYPTION = os.getenv('EVIDENCE_ENCRYPTION', 'on')
 EVIDENCE_ENCRYPTION_KEY = os.getenv('EVIDENCE_ENCRYPTION_KEY', '')
 EVIDENCE_KEY_FILE = Path(os.getenv('EVIDENCE_KEY_FILE', BASE_DIR / '.evidence.key'))
 
+# The Ed25519 key that signs what this installation hands to someone else —
+# today, the case package (evidence/case_package.py). It is a different key from
+# the evidence key on purpose: that one decrypts the store and must never leave
+# the machine; this one is meant to be recognised, and its public half and
+# fingerprint are printed on everything it signs.
+#
+# PACKAGE_SIGNING_KEY (base64, 32-byte seed) takes precedence, so a lab can keep
+# it in a secrets manager or on removable media. Otherwise a 0600 key file is
+# generated on first export, never at import time. Losing it does not endanger
+# any evidence: packages already issued still verify against the public key they
+# carry; new ones simply carry a new fingerprint. Publishing it lets anyone
+# forge a package, so it is gitignored and dockerignored.
+PACKAGE_SIGNING_KEY = os.getenv('PACKAGE_SIGNING_KEY', '')
+
+# Signed update bundles (capture/updates.py): how new indicator feeds and engine
+# reference data cross an air gap. Everything an applied update leaves lives
+# under UPDATES_ROOT — on the data volume in a container, so it survives a
+# restart — and `current` is the link the examination engine reads.
+UPDATES_ROOT = Path(os.getenv('UPDATES_ROOT', BASE_DIR / 'updates'))
+ENGINE_DATA_OVERLAY = UPDATES_ROOT / 'apk_engine' / 'current'
+# Who the operator has decided to accept updates from. A key is trusted by an
+# explicit act (`manage.py trust_publisher`) that requires typing its fingerprint,
+# never because a bundle carries one.
+TRUSTED_PUBLISHERS_FILE = Path(os.getenv('TRUSTED_PUBLISHERS_FILE', UPDATES_ROOT / 'trusted_publishers.json'))
+SIGNING_KEY_FILE = Path(os.getenv('SIGNING_KEY_FILE', BASE_DIR / '.signing.key'))
+
 # The test suite ingests evidence, which generates a key on first use. Left at
 # the default that key lands in the project root, where it is one `git add .`
 # away from being published — and it protects nothing, because every test
 # database is thrown away. So tests get a disposable one.
 if 'test' in sys.argv:
     EVIDENCE_KEY_FILE = Path(tempfile.gettempdir()) / 'netforensiq-test.key'
+    SIGNING_KEY_FILE = Path(tempfile.gettempdir()) / 'netforensiq-test-signing.key'
+
+    # The same applies to the store itself. Tests seal real files, and with the
+    # default they landed in backend/evidence_store/ — beside the exhibits of the
+    # database a person is actually using, where 780 MB of test debris
+    # accumulated, and where a root-owned leftover from one run made a later
+    # run fail with PermissionError (research/161 s.5). A test run gets its own
+    # directory, removed when it ends. An explicit MEDIA_ROOT is respected, so
+    # a test that sets one still controls where it writes.
+    if not os.getenv('MEDIA_ROOT'):
+        import atexit
+        import shutil
+        MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='netforensiq-test-evidence-'))
+        EVIDENCE_ROOT = MEDIA_ROOT / 'pcaps'
+        CERTIFICATE_ROOT = MEDIA_ROOT / 'certificates'
+        atexit.register(shutil.rmtree, MEDIA_ROOT, ignore_errors=True)
+        UPDATES_ROOT = MEDIA_ROOT / 'updates'
+        ENGINE_DATA_OVERLAY = UPDATES_ROOT / 'apk_engine' / 'current'
+        TRUSTED_PUBLISHERS_FILE = UPDATES_ROOT / 'trusted_publishers.json'
 
 # Real-time alert delivery. Empty by default: a forensic workstation with no
 # configured sink must not open outbound connections, and on an air-gapped

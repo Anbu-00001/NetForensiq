@@ -23,6 +23,9 @@ ENV/
 *.egg-info/
 *.egg
 dist/
+# The offline verifier is a build output that is also a published file: the page and
+# its digest are committed, and a test rebuilds the page to show they still match.
+!verifier/dist/
 build/
 sdist/
 wheels/
@@ -58,6 +61,9 @@ backend/.env.*
 *.key
 .evidence.key
 backend/.evidence.key
+.signing.key
+backend/.signing.key
+backend/updates/
 
 # ──────────────────────────────────────────────────────────────
 # Node / JavaScript

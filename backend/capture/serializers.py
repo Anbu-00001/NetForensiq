@@ -25,8 +25,8 @@ class DetectionSerializer(serializers.ModelSerializer):
     #
     # A shared vocabulary matters more than it looks: a technique id can be
     # looked up, compared against another tool's output, and discussed with
-    # someone who has never used this platform. Two of the ten rules carry no
-    # identifier, and the field says so rather than going blank — a blank reads
+    # someone who has never used this platform. Some rules carry no
+    # identifier (attack_mapping.UNMAPPED), and the field says so rather than going blank — a blank reads
     # as an oversight, and someone would eventually "fix" it by guessing.
     mitre_attack = serializers.SerializerMethodField()
 

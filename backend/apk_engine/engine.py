@@ -59,8 +59,10 @@ def _reproduction(report, apk_path):
     ``engine.seconds`` is named here as the one field that may differ.
     """
     digests = {}
-    for name in sorted(os.listdir(reference.DATA_DIR)):
-        path = os.path.join(reference.DATA_DIR, name)
+    for name in sorted(os.listdir(reference.PACKAGE_DATA_DIR)):
+        # The file actually read, so after an update the report names the
+        # updated data's hash and not the shipped file's.
+        path = reference.data_path(name)
         if not os.path.isfile(path):
             continue
         digest = hashlib.sha256()

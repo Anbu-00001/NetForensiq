@@ -27,7 +27,7 @@ MESSAGE = (
     'Either run this command under sudo, or grant the capability once so it is\n'
     'not needed again:\n'
     '\n'
-    '    sudo setcap cap_net_raw,cap_net_admin=eip \\\n'
+    '    sudo setcap cap_net_raw=eip \\\n'
     '        "$(readlink -f backend/.venv/bin/python)"\n'
     '\n'
     'The capability is narrower than sudo: it permits packet capture and\n'

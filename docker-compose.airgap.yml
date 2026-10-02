@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
+#
+# NetForensiq with no route off the machine, by construction of the network.
+#
+#     export NF_IMAGE=netforensiq:1.0.0          # the image you loaded
+#     export NF_SECRET_KEY="$(openssl rand -base64 48)"
+#     export NF_EVIDENCE_KEY="$(openssl rand -base64 32)"   # keep a copy elsewhere
+#     docker compose -f docker-compose.airgap.yml up -d
+#     scripts/verify_airgap.sh                              # prove it
+#     # then open http://127.0.0.1:8000
+#
+# Every compose command needs the same variables, `down` and `stop` included:
+# compose reads this file before acting, and refuses without the keys. Keep them
+# in an env file (mode 0600, not in git) and pass it each time:
+#
+#     docker compose --env-file ~/.netforensiq.env -f docker-compose.airgap.yml down
+#
+# Why two services
+# ----------------
+# `docker run --network none` removes the network entirely, which is the
+# strongest isolation Docker offers — and it also cannot publish a port, so a
+# browser could never reach the application. Docker does not warn about the
+# combination: `docker run --network none -p 127.0.0.1:8000:8000 ...` starts
+# normally, publishes nothing, and `docker port` prints an empty line.
+#
+# The standard answer is an `internal` network: containers on it can talk to
+# each other and have no route out. The application lives there alone. A relay
+# attached to both networks is the only thing that publishes a port, and all it
+# does is forward bytes from 127.0.0.1:8000 to the application. It cannot be
+# used to get out: the application can only reach the relay, and the relay only
+# forwards to the application.
+#
+# What this does and does not prove: it removes the application's route off the
+# host. It does not make the host itself air-gapped — if the host is on a
+# network, anything running on the host can still use it. See RUN_OFFLINE.md.
+#
+# The relay is a 4 MB image carrying one binary (socat). It has no HTTP logic,
+# no configuration and nothing to misconfigure; upload size limits, timeouts and
+# streaming behave exactly as they do with a published port.
+
+name: netforensiq-airgap
+
+services:
+  app:
+    image: ${NF_IMAGE:?set NF_IMAGE to the loaded image, e.g. netforensiq:1.0.0}
+    restart: unless-stopped
+    # No `ports:`. The application is not published; only the relay is.
+    expose:
+      - "8000"
+    networks:
+      - inner
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: ${NF_SECRET_KEY:?set NF_SECRET_KEY — see the header of this file}
+      EVIDENCE_ENCRYPTION_KEY: ${NF_EVIDENCE_KEY:?set NF_EVIDENCE_KEY — see the header of this file}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-127.0.0.1,localhost}
+      SQLITE_NAME: /app/data/netforensiq.sqlite3
+      MEDIA_ROOT: /app/evidence_store
+    volumes:
+      # BOTH of these. The database and the evidence key default to /app/data;
+      # without a volume there, stopping the container deletes the custody
+      # chain and every sealed exhibit becomes unreadable.
+      - nf_data:/app/data
+      - nf_evidence:/app/evidence_store
+    # One line on purpose. A YAML folded block with deeper-indented continuation
+    # lines keeps its newlines, the shell then ends the command after
+    # `application`, and gunicorn starts on its defaults (127.0.0.1, one worker,
+    # 30 s timeout) with no error — which is how this file first shipped. A test
+    # reads the parsed command back and checks each flag.
+    command: ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn netforensiq_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 1800 --access-logfile -"]
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/engine/', timeout=4).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+  gate:
+    # Pinned by tag, not by digest. A digest reference works only if the image's
+    # repo digest survives `docker save` / `docker load`, which depends on the
+    # Docker image store on the machine; on this one it does, and a lab machine
+    # may differ, in which case compose would try to pull and fail offline. The
+    # integrity of what was carried across is the archive checksum
+    # (save_airgap_images.sh writes SHA256SUMS, load_airgap_images.sh checks it).
+    image: alpine/socat:1.8.0.3
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - inner
+      - edge
+    ports:
+      # Loopback only. A forensic tool that appears on the station LAN the
+      # moment it starts is not a decision anyone made.
+      - "127.0.0.1:8000:8001"
+    command: ["TCP-LISTEN:8001,fork,reuseaddr", "TCP:app:8000"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  inner:
+    # The line that matters. No route off the host from this network.
+    internal: true
+  edge: {}
+
+volumes:
+  nf_data:
+  nf_evidence:

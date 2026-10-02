@@ -135,3 +135,18 @@ export async function apiPost(page, path, payload) {
 
 /** DRF paginates; plain lists come back bare. */
 export const rows = (data) => (Array.isArray(data) ? data : data?.results ?? []);
+
+/**
+ * A count as the interface prints it. The dashboard abbreviates from a thousand up
+ * ("117.5 K", "1.20 M": formatCount in services/forensics.js), so a test that looks
+ * for the raw digits passes only on captures smaller than that and fails on any
+ * seeded database holding a real one. This mirrors the function; if the two drift,
+ * the dashboard tests below fail loudly.
+ */
+export const shownCount = (n) => {
+  if (n === null || n === undefined) return '—';
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)} M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)} K`;
+  return String(n);
+};
+
