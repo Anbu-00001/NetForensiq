@@ -9,8 +9,8 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-631_passing-1B6E3C?style=flat-square)](#tests)
-[![Air-gapped](https://img.shields.io/badge/Runtime-air--gapped-1B6E3C?style=flat-square)](#air-gapped-by-construction)
+[![Tests](https://img.shields.io/badge/tests-845_passing-1B6E3C?style=flat-square)](#tests)
+[![Outbound](https://img.shields.io/badge/Outbound_connections-none_by_default-1B6E3C?style=flat-square)](#runs-without-a-network)
 [![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#bsa-section-63-certificates)
 
 **2nd Place — KANAD S.H.I.E.L.D. 2026**
@@ -18,6 +18,56 @@ Cyber Crime Branch, Ahmedabad City Police × i-Hub Gujarat
 *Category 2 · Problem Statement #8 — Network & Packet Forensics Platform*
 
 </div>
+
+---
+
+## At a Glance
+
+| | What it does | Measured, not claimed | Read more |
+|---|---|---|---|
+| **Seal and custody** | Hashes every exhibit (SHA-256, SHA-1, MD5), encrypts it at rest, keeps a hash-chained custody log | Tampering with any entry, or removing one from the middle, is caught by tests | [Chain of custody](#chain-of-custody--hash-chained-not-just-logged) |
+| **Network analysis** | Imports PCAPs in a separate process, assembles flows, runs 11 detection signals | A 209 MB capture of 946,238 conversations imports in 492 s on a 5 GB cap, peaking at 3.5 GB | [Performance](#performance) |
+| **Error rates on every finding** | Each finding states how often its rule fires on ordinary traffic | Measured on 22 ordinary and 8 attack captures; a rule never seen on an attack is shown at LOW | [Network rules](#what-the-network-rules-do-to-ordinary-traffic-19-sep-2026) |
+| **Android examination** | Evidence tiers 0 to 4, never a score; the sample is never executed | **58%** of 200 unseen malware samples reached a tier, 0 of 89 examined legitimate apps did | [APK examination](#apk-examination--evidence-tiers-not-a-score) |
+| **Hand a case over** | One signed file the other side checks in a browser, offline | 19 test packages (good, edited, forged, truncated, reordered) get the same verdict, check by check, from two independent implementations | [Signed packages](#hand-a-case-to-the-other-side--signed-packages-and-the-offline-verifier) |
+| **Second opinion** | File a MobSF report beside a sample, matched by hash | On the hackathon sample MobSF read nothing and scored it 73/100; this engine reads tier 3 | [Second opinion](#second-opinion--filing-mobsfs-report-beside-a-sample) |
+| **Say what it cannot do** | A public Limits page, generated from the measured data | A validation report whose figures cannot be edited by hand | [Limits and validation](#limits-and-validation) |
+| **Run with no route out** | Compose file that puts the application on an internal network | Structure checked from Docker's own state, with a control that proves the probe can detect egress | [Runs without a network](#runs-without-a-network) |
+| **Update across the gap** | Signed update bundles for indicator feeds and engine data | Six defences each shown to fail a test when removed | [Carrying things across](#carrying-things-across-the-gap) |
+
+**Where to start.**
+
+| If you are | Start with |
+|---|---|
+| reviewing the project | [Screenshots](#screenshots), [Limits and validation](#limits-and-validation), [Honest limitations](#honest-limitations) |
+| an examiner or investigator | [Quick start](#quick-start), [The evidence lifecycle](#the-evidence-lifecycle), [Hand a case over](#hand-a-case-to-the-other-side--signed-packages-and-the-offline-verifier) |
+| running a laboratory | [Runs without a network](#runs-without-a-network), [Carrying things across the gap](#carrying-things-across-the-gap), `RUN_OFFLINE.md` |
+| checking the claims | `validation/`, `research/`, and `python backend/manage.py test` |
+
+---
+
+## Screenshots
+
+Real captures of the running interface, taken on the isolated air-gapped stack with seeded demonstration data. Nothing is mocked.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/02-dashboard.png" alt="Dashboard showing a real infection capture: packet and flow counts, DNS names, flagged flows and the topology of who talked to whom"><br><sub><b>Dashboard.</b> A real XWorm/AsyncRAT infection capture: one implicated machine, its peers, and the conversations a rule flagged.</sub></td>
+<td width="50%"><img src="docs/screenshots/03-finding-with-error-rate.png" alt="A finding opened to show the rule's measured error rate on ordinary traffic"><br><sub><b>A finding, with its error rate.</b> "How often this rule is wrong": 2 of 22 ordinary captures, 4 of 8 attack captures, and why that makes it a lead and not a conclusion.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/04-evidence-export.png" alt="Evidence register with the Export signed package button and the signing key fingerprint"><br><sub><b>Evidence register.</b> "Export signed package" appends a custody entry, then shows the key fingerprint to give the recipient by another route.</sub></td>
+<td width="50%"><img src="docs/screenshots/05-offline-verifier.png" alt="The offline verifier reporting a verified package"><br><sub><b>Offline verifier.</b> One HTML file, no network. A package checked against the fingerprint the laboratory gave: verified.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/06-offline-verifier-tampered.png" alt="The offline verifier rejecting an altered package"><br><sub><b>Same page, one character changed.</b> The signature no longer matches, so nothing from the file is shown as if it could be trusted.</sub></td>
+<td width="50%"><img src="docs/screenshots/08-second-opinion.png" alt="A MobSF report filed beside a sample and compared with the NetForensiq tier"><br><sub><b>Second opinion.</b> The hackathon sample: tier 3 here; MobSF read package "Failed", no permissions, score 73/100, and the panel says why that number is not a verdict.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/07-limits.png" alt="The Limits of this tool page"><br><sub><b>Limits of this tool.</b> What to say when nothing is found, the measured figures behind it, and what the tool cannot establish.</sub></td>
+<td width="50%"><img src="docs/screenshots/01-sign-in.png" alt="Sign-in page"><br><sub><b>Sign-in.</b> Marked UNCLASSIFIED because it holds no case material, and linking to the Limits page before anyone has an account.</sub></td>
+</tr>
+</table>
 
 ---
 
@@ -72,7 +122,7 @@ This project starts where that job has already failed. A victim has been defraud
 | What it gives | A warning to the user | Reasons — the call path, the permission, the forged header, each signal's measured error rate |
 | Evidence handling | None | Sealed on intake, hash-chained custody, BSA §63 certificate |
 | Network traffic | Not examined | The core of the tool: PCAP import, flow assembly, 11 rules with published error rates |
-| Where it runs | On the phone, with Google's servers | Offline, in the lab, no network at all |
+| Where it runs | On the phone, with Google's servers | Offline, in the lab; makes no outbound connection by default |
 
 ### Why phones still get infected, when the scanner catches 99.8%
 
@@ -96,7 +146,6 @@ cd NetForensiq
 docker build -t netforensiq:latest .
 
 docker run -d --name netforensiq --restart unless-stopped \
-  --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -p 127.0.0.1:8000:8000 \
   -v netforensiq_db:/app/data \
   -v netforensiq_evidence:/app/evidence_store \
@@ -211,6 +260,68 @@ graph LR
 ```
 
 Tampering is reported as *"the chain breaks at event 3"* — not a silent boolean.
+
+---
+
+## Hand a Case to the Other Side — Signed Packages and the Offline Verifier
+
+A Section 63 certificate asserts that a file has a particular hash. The people who most need to test that — defence counsel, a magistrate, a second laboratory — have no way to do it except by asking the investigating agency's own system, which is taking the investigator's word for the investigator's own exhibit.
+
+So the laboratory exports **one signed file**, and the recipient checks it in a browser on their own machine: no account, no install, no network.
+
+```mermaid
+flowchart TD
+    X["Officer presses <b>Export signed package</b>"]
+    C["Custody entry <i>exported</i> is written first,<br/>so the export is inside the package"]
+    P["<b>case.nfcase.json</b><br/>manifest + Ed25519 signature"]
+    T["Carried across: USB, email, print"]
+    V["<b>nfverify.html</b> on the recipient's machine<br/>one file, no network, no install"]
+    K{"Did the recipient type a fingerprint<br/>obtained by another route?"}
+    R1["<b>Verified</b><br/>unaltered, chain holds,<br/>signed by that key"]
+    R2["<b>Intact, not yet confirmed</b><br/>anyone can sign with their own key"]
+    R3["<b>Does not verify</b><br/>nothing from the file is shown"]
+    F["Hash the exhibit file in the page:<br/>is it the file the package describes?"]
+
+    X --> C --> P --> T --> V
+    V -->|"signature or chain fails"| R3
+    V --> K
+    K -->|"matches"| R1
+    K -->|"not supplied"| R2
+    K -->|"differs"| R3
+    R1 --> F
+    R2 --> F
+
+    classDef step fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2545
+    classDef file fill:#F3E8FD,stroke:#6B3FA0,stroke-width:2px,color:#2E1550
+    classDef gate fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
+    classDef good fill:#E6F4EA,stroke:#1B6E3C,stroke-width:3px,color:#0B3D1F
+    classDef warn fill:#FFF8E1,stroke:#8A6100,stroke-width:2px,color:#3D2E00
+    classDef bad fill:#FDECEA,stroke:#B3261E,stroke-width:3px,color:#5C0F0A
+    class X,C,T,F step
+    class P,V file
+    class K gate
+    class R1 good
+    class R2 warn
+    class R3 bad
+```
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/05-offline-verifier.png" alt="Verified"></td>
+<td width="50%"><img src="docs/screenshots/06-offline-verifier-tampered.png" alt="Does not verify"></td>
+</tr>
+</table>
+
+| A pass shows | A pass does **not** show |
+|---|---|
+| The package is unaltered since it was signed (Ed25519 over the exact manifest text) | **That the key is the laboratory's.** Anyone can sign a package with their own key and it will verify. The recipient must compare the fingerprint with one obtained another way |
+| Every custody entry still hashes to what is recorded; none was removed from the middle, reordered or cut off the end | That the log was never rebuilt *before* signing. A hash chain proves consistency, not that nobody recomputed it |
+| The file in the recipient's hand is, or is not, the exhibit (or the certificate PDF) the package describes | That the evidence is genuine or the findings are correct |
+
+> [!NOTE]
+> A forged package signed with someone else's key **verifies** — the tests build one and show it. Only the fingerprint comparison exposes it. The page says so, in the box above the result.
+
+**Why the page can be trusted not to phone home.** It carries `default-src 'none'` and `connect-src 'none'`, with scripts and styles allowed only by hash. A browser test points `fetch`, XHR, an image, a beacon, a WebSocket, a script element and an iframe at a local server: with the policy it receives nothing; with the policy deleted it receives all seven, and the test fails. The page rebuilds byte for byte from pinned sources, and its SHA-256 is published beside it. Because the page never receives a file, a copy on a static host (a Hugging Face Static Space, GitHub Pages) holds no evidence and stores nothing; it is the one part of this project that can sit on the internet without contradicting the rest. Full detail in [`verifier/README.md`](verifier/README.md) and [research/162](research/162_CASE_PACKAGE_AND_VERIFIER.md).
 
 ---
 
@@ -373,13 +484,13 @@ Both halves were measured, on corpora kept apart before anything was examined, b
 | **Detection — blind set, scored once (19 Sep 2026)** | 100 more MalwareBazaar APKs, downloaded by excluding both earlier corpora and left unexamined until the engine was frozen | **52 / 100 = 52.0%** (95% CI 41.8–62.1) |
 | Detection — held-out set | 100 MalwareBazaar APKs, selected by excluding the design corpus *before* any was examined | 64 / 100 = 64.0% (95% CI 53.8–73.4) |
 | **Detection — both unseen sets together** | **200** | **116 / 200 = 58.0%** (95% CI 50.8–64.9) |
-| **False positives — unseen legitimate apps** | 100 F-Droid APKs sampled with a new seed, examined only after the last engine change; re-checked on the shipped engine | **0 / 100** (one-sided 95% bound 3.0%); 11 could not be examined |
+| **False positives — unseen legitimate apps** | 100 F-Droid APKs sampled with a new seed, examined only after the last engine change; re-checked on the shipped engine | **0 / 89 examined** (one-sided 95% bound 3.3%); 11 could not be examined and are not counted as clean |
 | In-sample, for comparison only | the 200 MalwareBazaar APKs the rules were built from | 163 / 200 = 81.5% |
 
 Held-out set by tier: 4 — known harmful software: **2** · 3 — harmful behaviour demonstrated: **17** · 2 — built to evade inspection: **45** · 1 — nothing established: **31** · 0 — could not be examined: **5**.
 Blind set by tier: 4: **4** · 3: **23** · 2: **25** · 1: **45** · 0: **3**.
 
-**The blind set scored lower than the held-out set, and that result stands.** It was scored once, on the engine exactly as it ships, and the pre-registered prediction that it would reach 64 or more was wrong. The difference is almost all in tier 2: 45 held-out samples were caught by forged-archive indicators and 25 blind ones — the blind set was drawn from the 600 most recent uploads, and fewer of them tamper with their own ZIP headers. The engine's strongest signal is a packaging trick, and newer samples use it less. **58% on 200 unseen samples is the number to quote.**
+**The blind set scored lower than the held-out set, and that result stands.** It was scored once, on the engine exactly as it ships, and the pre-registered prediction that it would reach 64 or more was wrong. The difference is almost all in tier 2: 45 held-out samples reached it (integrity indicators — forged archive headers) and 25 blind ones. The likeliest reason, which was not tested, is that the engine's strongest signal is a packaging trick and the blind set is the 600 most recent uploads, which may use it less. **58% on 200 unseen samples is the number to quote.**
 
 **How it got here, and what did not help.** The engine was at **34%** with five behaviour rules and baselines measured on 31 apps. Adding five more rules changed **no tier at all** — a rule that has never been measured against legitimate software cannot raise one, by design. Re-measuring the baselines on the larger corpus is what moved it: ten ZIP/AXML tampering indicators fire on 0 of 201 legitimate apps and on 114 of 200 malicious ones, and once validated they took unseen-malware detection to **63%**. Two further rules, NFC card relay and packed payload, projected to ~82% on the design set and added **one point** on unseen malware: they were fitted to one campaign that the held-out set does not contain. The held-out test also caught three defects before they shipped — a Qt app flagged because framework code was read as the developer's, and two native-code apps whose compressed data looked "packed" — each fixed and recorded.
 
@@ -387,7 +498,7 @@ Blind set by tier: 4: **4** · 3: **23** · 2: **25** · 1: **45** · 0: **3**.
 
 ### What these numbers do and do not support
 
-The false-positive bound depends on corpus size — the exact one-sided 95% upper bound for zero firings is **9.2% at n=31**, **3.0% at n=100**, **1.5% at n=201**. The 100-app figure is the only one measured on apps the engine had not been adjusted against; the 201-app baseline is zero by construction.
+The false-positive bound depends on corpus size — the exact one-sided 95% upper bound for zero firings is **9.2% at n=31**, **3.0% at n=100**, **1.5% at n=201**. The fresh-app figure (89 of 100 examined; the bound there is 3.3%, not 3.0%, because 11 could not be examined) is the only one measured on apps the engine had not been adjusted against; the 201-app baseline is zero by construction.
 
 But F-Droid is a cleaner population than the field: its builds carry **89% fewer tracking libraries** than their Google Play equivalents (University of Oxford, 2025), and developers routinely ship a stripped FOSS variant there. The app that broke the old scorer was a *Play* build of Flipkart, whose merged manifest declares components under `com.facebook`, `in.juspay` and `org.npci.upi` — exactly the class F-Droid under-represents.
 
@@ -435,6 +546,51 @@ MobSF is the standard open-source Android static analyser. It was evaluated and 
 Every score fell between 46 and 67, with the legitimate apps in the middle of the malware. The hackathon sample scored *best* because its manifest is deliberately malformed — MobSF's own APKiD module names the technique, "Resources Confusion" — so its manifest parse returned 0 permissions, 0 activities and 0 services, and a score computed from findings rewarded finding nothing.
 
 **None of that is a defect in MobSF**, which is a better workbench than this engine by most measures: trackers, certificate detail, packer identification, code-pattern rules, a web UI, and dynamic analysis with Frida that this project does not have at all. It is a defect in reading a hardening score as a malware verdict. The one place the two genuinely disagree is tampered archives: MobSF returned HTTP 500 on a sample whose ZIP was corrupted (`UnboundLocalError` in its fallback extraction), where this engine treats the tampering itself as the finding.
+
+### Second opinion — filing MobSF's report beside a sample
+
+A lab that already runs MobSF has a report in hand when a sample arrives. It can be filed against the sealed exhibit and read next to this engine's conclusion.
+
+```mermaid
+flowchart TD
+    APK["Sample arrives<br/>often inside a ZIP"]
+    NF["NetForensiq examines it<br/>tier + the <b>inner</b> package's SHA-256<br/>recorded with the exhibit"]
+    MB["Lab runs MobSF<br/>(not run by this tool)"]
+    RP["MobSF JSON report<br/>states the SHA-256 it examined"]
+    FI["File beside the sample"]
+    H{"Report's hash equals an<br/>examined package?"}
+    L["Linked to the exhibit<br/>custody entry written<br/>side by side, no ranking"]
+    U["Stored unlinked,<br/>with the reason"]
+    W["MobSF score = hardening,<br/>not a verdict"]
+
+    APK --> NF
+    MB --> RP --> FI --> H
+    NF -.-> H
+    H -->|yes| L
+    H -->|no| U
+    L --> W
+
+    classDef nf fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
+    classDef mb fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
+    classDef gate fill:#F3E8FD,stroke:#6B3FA0,stroke-width:2px,color:#2E1550
+    classDef ok fill:#E6F4EA,stroke:#1B6E3C,stroke-width:2px,color:#0B3D1F
+    classDef warn fill:#FFF8E1,stroke:#8A6100,stroke-width:2px,color:#3D2E00
+    classDef in fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2545
+    class APK in
+    class NF nf
+    class MB,RP,FI mb
+    class H gate
+    class L ok
+    class U,W warn
+```
+
+<img src="docs/screenshots/08-second-opinion.png" alt="MobSF report filed beside the hackathon sample" width="720">
+
+* **Matched by hash and by nothing else.** A sample that arrives inside a ZIP is sealed as the ZIP, while MobSF reports the inner package's hash, so each examination now records *both* — the engine's conclusion used to live only in an HTTP response.
+* **No ranking, no agreement score.** MobSF's security score measures hardening, not malice. On the hackathon sample MobSF could not read the manifest (package "Failed", no permissions) and scored it **73/100**, the best score of any app in that comparison.
+* **A report is treated as hostile input.** Whitelisted fields, bounded lists, text rendered as text, encrypted at rest, never executed. Filing is a custody event and the chain still verifies.
+
+Six defences were each removed in turn to confirm a test fails; one of my own assertions was too weak and was found that way. [research/166](research/166_SECOND_OPINION.md).
 
 ### Two design decisions worth reading
 
@@ -497,6 +653,53 @@ graph LR
     class PCAP b
     class OUT c
 ```
+
+---
+
+## Limits and Validation
+
+The tool says what it cannot establish, and the figures it says it with are generated from the validation data, not typed.
+
+<img src="docs/screenshots/07-limits.png" alt="The Limits page" width="760">
+
+**If it finds nothing, this is what to say** (the Limits page and the sample result carry it, generated from the measured data):
+
+> No harmful behaviour was established by static examination. That is not a finding that the app is safe. On 200 malware samples this engine had not been built from, it reached a tier on 116 (58%; 95% interval 51%–65%), reached none on 76 (38%), and could not examine 8. A sample like the one in front of you may be among those it misses.
+
+```mermaid
+flowchart TD
+    LG["Run logs +<br/>corpus manifests"]
+    EX["extract_validation_data.py<br/><i>counts derived; must equal<br/>the engine's own tally</i>"]
+    RJ["validation/results.json"]
+    RP["VALIDATION_REPORT.md<br/><i>generated</i>"]
+    SM["validation_summary.json<br/><i>inside the image</i>"]
+    TS{"Tests: report equals a<br/>regeneration; hashes of the<br/>shipped tables match"}
+    UI["Limits page · tier-1 banner ·<br/>report's limits section"]
+
+    LG --> EX --> RJ
+    RJ --> RP & SM
+    RP & SM --> TS
+    SM --> UI
+
+    classDef data fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2545
+    classDef proc fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
+    classDef out fill:#F3E8FD,stroke:#6B3FA0,stroke-width:2px,color:#2E1550
+    classDef gate fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
+    classDef ui fill:#E6F4EA,stroke:#1B6E3C,stroke-width:3px,color:#0B3D1F
+    class LG,RJ data
+    class EX proc
+    class RP,SM out
+    class TS gate
+    class UI ui
+```
+
+* **[`validation/VALIDATION_REPORT.md`](validation/VALIDATION_REPORT.md)** — what the tool is claimed to do, the test data and how little control there was over it, every result, the failures highlighted, the limitations. Arranged after what the UK Forensic Science Regulator's validation guidance (FSR-G-218) asks of a record. It is **developer-supplied information, not a validation of any laboratory's method**, it has not been reviewed by anyone but its author, and it sets no acceptance criteria.
+* **It cannot drift.** The report is rendered from `results.json`; a test requires the committed file to equal a regeneration. Another test requires the shipped baseline table and the rate table to match the hashes the report names, so changing the method without re-measuring fails.
+* **Deriving it from the logs found four things I had got wrong or not tested:** the false-positive denominator (89 examined, not 100); two unseen sets that had been scored by two different engine images (re-run on one image: 64/100 again, every verdict identical); an explanation for the blind-set drop that had been stated as fact and never tested; and a pre-registered prediction about native-code signals that was false by a wide margin. All four are stated in the report (sections 3 and 5).
+* **The investigation report had typed counts that went stale** ("thirty-five thresholds, twenty-three ours", "the ten rules" after the code reached 36, 24 and 11). Its limits section now computes them from the code, and a test scans for the old phrases.
+* **The standards are quoted, not claimed.** The page maps the tool onto NIST SP 800-86's four phases (text read in full) and ISO/IEC 27037 (its text is paywalled, so its scope is marked as a secondary summary). Nothing on the page says the tool complies with either.
+
+[research/163](research/163_VALIDATION_REPORT.md).
 
 ---
 
@@ -589,13 +792,13 @@ graph LR
 ```mermaid
 graph TB
     subgraph FE["React 19 + Vite + MUI"]
-        UI["Dashboard · Findings · Evidence<br/>Import · Examine Sample · Approvals"]
+        UI["Dashboard · Findings · Evidence<br/>Import · Examine Sample · Approvals · Limits"]
         D3["Deterministic D3 topology<br/><i>no force simulation</i>"]
     end
     subgraph API["Django 6 + DRF · gunicorn ×3"]
         AUTH["accounts/<br/><i>JWT · roles · audit log</i>"]
-        CAP["capture/<br/><i>parse · detect · monitor · APK</i>"]
-        EV["evidence/<br/><i>seal · custody · §63 · posture</i>"]
+        CAP["capture/<br/><i>parse · detect · monitor · APK<br/>second opinion · limits · updates</i>"]
+        EV["evidence/<br/><i>seal · custody · §63<br/>signed packages · posture</i>"]
     end
     subgraph DATA["Storage"]
         DB[("SQLite WAL / PostgreSQL")]
@@ -603,7 +806,12 @@ graph TB
     end
     subgraph WIRE["Capture"]
         PCAP["PCAP / pcapng"]
-        LIVE["Live NIC<br/><i>CAP_NET_RAW</i>"]
+        LIVE["Live NIC<br/><i>CAP_NET_RAW only</i>"]
+    end
+    subgraph GAP["Crosses the gap on removable media"]
+        PKG["Signed case package<br/><i>Ed25519</i>"]
+        VER["nfverify.html<br/><i>offline verifier, no network</i>"]
+        UPD["Signed update bundle<br/><i>feeds and engine data</i>"]
     end
 
     UI --> AUTH & CAP & EV
@@ -611,44 +819,193 @@ graph TB
     PCAP & LIVE --> CAP
     CAP --> DB
     EV --> ES & DB
+    EV -.->|exported| PKG
+    PKG -.->|checked by| VER
+    UPD -.->|imported by an operator| CAP
 
     classDef fe fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2545
     classDef api fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
     classDef data fill:#E6F4EA,stroke:#1B6E3C,stroke-width:2px,color:#0B3D1F
     classDef wire fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
+    classDef gap fill:#F3E8FD,stroke:#6B3FA0,stroke-width:2px,color:#2E1550
     class UI,D3 fe
     class AUTH,CAP,EV api
     class DB,ES data
     class PCAP,LIVE wire
+    class PKG,VER,UPD gap
+    style FE fill:#F4F8FE,stroke:#1A73E8,stroke-width:1px,color:#0B2545
+    style API fill:#F2FAFB,stroke:#0891A6,stroke-width:1px,color:#04353D
+    style DATA fill:#F1FAF4,stroke:#1B6E3C,stroke-width:1px,color:#0B3D1F
+    style WIRE fill:#FFF8EE,stroke:#B35C00,stroke-width:1px,color:#3D2200
+    style GAP fill:#FAF5FE,stroke:#6B3FA0,stroke-width:1px,color:#2E1550
 ```
 
 **Why the topology graph is deterministic:** a force simulation draws the same capture differently every time it runs. Reproducibility is an evidence property, so the layout is a two-column ledger — inside the monitored network on the left, outside on the right, arrowheads pointing at whoever answered.
 
 ---
 
-## Air-Gapped by Construction
+## Runs Without a Network
 
-The running container needs **no network**. Verified under `--network none`: a socket to `1.1.1.1` fails with *Network is unreachable*, and the platform still seals a capture, analyses it and issues a §63 certificate.
+Three claims, each with what it rests on, and a list of what is not claimed.
 
-- No cloud scanner, no VirusTotal, no telemetry
-- Raw-socket capability baked into the image, not applied by hand
-- `scripts/save_airgap_images.sh` / `load_airgap_images.sh` for transfer
-- SQLite WAL + 30 s busy timeout, so long analyses don't lock out sign-in
+| Claim | Rests on |
+|---|---|
+| The platform opens no outbound connection unless an operator configures one | The only calls in the backend that initiate a connection are the optional syslog and webhook alert senders (`capture/alerting.py`), whose targets are empty by default, and `apk_engine/refresh_data.py`, which an operator runs on the connected build machine. No telemetry, no update check, no cloud scanner. Established by searching the code, not by a network trace, and third-party libraries were not audited. |
+| The interface loads nothing from outside | Fonts are bundled, and `scripts/build_offline_bundle.sh` fails the build if a built asset references an external host. |
+| The application container has no route off the machine | `docker-compose.airgap.yml` puts it on an `internal` Docker network behind a one-line relay that alone publishes `127.0.0.1:8000`. `scripts/verify_airgap.sh` reads Docker's own state and, with `--control`, shows its probe can detect egress. Run end to end on 2 Oct 2026, including a 10 MB capture import through the relay ([research/161](research/161_AIRGAP_AND_CAPABILITIES.md)). |
 
-<sub>Building requires a network. The build happens on a connected machine and the image is carried across.</sub>
+**Not claimed.** That the host is offline: anything else running on it can still use its network. That every feature works without one: live monitoring needs `--network host`, and SIEM export sends to a server by definition. That citations open: the ATT&CK and source links are web links, so offline the officer sees the citation text and URL but cannot follow it. That the public certificate-verify endpoint is useful on a loopback-only machine: nobody else can reach it.
+
+```mermaid
+graph LR
+    B["Browser<br/><b>127.0.0.1:8000</b>"]
+    subgraph HOST["Evidence workstation"]
+        subgraph EDGE["edge network"]
+            G["Relay: socat, 4 MB<br/><i>the only published port</i>"]
+        end
+        subgraph INNER["inner network: <b>internal: true</b><br/>no route off the host"]
+            A["NetForensiq<br/>gunicorn x3"]
+            DV[("data volume<br/>database + keys")]
+            EV[("evidence volume<br/>AES-256-GCM")]
+        end
+    end
+    NET(("Internet"))
+
+    B -->|loopback only| G
+    G -->|forwards bytes| A
+    A --- DV
+    A --- EV
+    A -.-x|no route| NET
+
+    classDef user fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2545
+    classDef relay fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
+    classDef app fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
+    classDef store fill:#E6F4EA,stroke:#1B6E3C,stroke-width:2px,color:#0B3D1F
+    classDef off fill:#FDECEA,stroke:#B3261E,stroke-width:2px,color:#5C0F0A,stroke-dasharray:4 3
+    class B user
+    class G relay
+    class A app
+    class DV,EV store
+    class NET off
+    style HOST fill:#F4F5F7,stroke:#C7CCD2,stroke-width:1px,color:#2B3138
+    style EDGE fill:#FFF8EE,stroke:#B35C00,stroke-width:1px,color:#3D2200
+    style INNER fill:#F1FAF4,stroke:#1B6E3C,stroke-width:2px,color:#0B3D1F
+```
+
+```bash
+export NF_IMAGE=netforensiq:1.0.0
+export NF_SECRET_KEY="$(openssl rand -base64 48)"
+export NF_EVIDENCE_KEY="$(openssl rand -base64 32)"   # keep a copy somewhere else
+docker compose -f docker-compose.airgap.yml up -d
+scripts/verify_airgap.sh --control
+```
+
+`docker run --network none -p ...` starts a container and publishes nothing, with no warning, which is why the relay exists. Building the image needs a network; it is built on a connected machine and carried across with `scripts/save_airgap_images.sh` and `load_airgap_images.sh`, which verify the transfer before loading.
+
+---
+
+## Carrying Things Across the Gap
+
+A laboratory that must not touch the internet still needs the software, new threat data, and a way to hand evidence out. Each crosses on removable media, each is signed, and each can be checked offline by someone who trusts nothing else here.
+
+| What crosses | Format | Checked by | Command |
+|---|---|---|---|
+| The software | image archive + 4 CycloneDX bills of materials + signed manifest | signature, every artefact's SHA-256, the published fingerprint | `scripts/make_release.py verify` |
+| New indicator feeds and engine data | signed update bundle | trusted key (fingerprint typed), rising sequence number, expiry, allow-listed files, payload hashes | `manage.py import_update_bundle --dry-run` |
+| Evidence going out | signed case package | the offline verifier | open `nfverify.html` |
+
+### The software: a signed release
+
+```mermaid
+flowchart TD
+    SRC["Source commit<br/>+ digest of every tracked file"]
+    IMG["Docker image archive"]
+    SB["4 CycloneDX bills of materials<br/>OS, Python, frontend, verifier"]
+    OT["Verifier page, validation report,<br/>air-gap compose file"]
+    MF["<b>release-X.json</b><br/>each artefact by SHA-256<br/>Ed25519 signed"]
+    LAB["Laboratory, offline<br/>make_release.py verify"]
+    CK{"Signature valid?<br/>Every artefact's SHA-256 matches?<br/>Fingerprint the one published?"}
+    OK["Load the image"]
+    STOP["Do not load it"]
+
+    SRC --> IMG & SB & OT
+    IMG & SB & OT --> MF
+    MF -->|"carried on USB"| LAB --> CK
+    CK -->|"all yes"| OK
+    CK -->|"any no"| STOP
+
+    classDef src fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2545
+    classDef art fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
+    classDef sig fill:#F3E8FD,stroke:#6B3FA0,stroke-width:3px,color:#2E1550
+    classDef gate fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
+    classDef ok fill:#E6F4EA,stroke:#1B6E3C,stroke-width:3px,color:#0B3D1F
+    classDef bad fill:#FDECEA,stroke:#B3261E,stroke-width:3px,color:#5C0F0A
+    class SRC src
+    class IMG,SB,OT art
+    class MF sig
+    class LAB,CK gate
+    class OK ok
+    class STOP bad
+```
+
+Measured on this repository: the whole release builds in 50 s, the image archive is 193.6 MB, and the four bills of materials hold 40 Python, 92 operating-system, 172 frontend and 4 verifier components, each validated against CycloneDX's own JSON schema. Flipping one byte of any artefact fails verification; so does the wrong fingerprint.
+
+> [!WARNING]
+> **Reproducible builds are not claimed.** A Docker image built twice is not bit-identical. The manifest binds one specific archive to a version; what *is* reproducible is the source identity (a digest over every tracked file, recomputable with `scripts/tree_digest.py`). A build from a tree with uncommitted changes is refused unless `--allow-dirty`, and the manifest then says so. **No release has been signed with a real key yet** — publishing the key's fingerprint is the author's decision. [research/165](research/165_SIGNED_RELEASES.md).
+
+### New data: a signed update bundle
+
+```mermaid
+flowchart TD
+    PUB["<b>Publisher</b> (connected machine)<br/>make_update_bundle.py build"]
+    B["Signed bundle<br/>feeds + three engine files"]
+    USB["Carried on removable media"]
+    TR{"Is the signing key on<br/>this machine's trust list?"}
+    TT["Operator typed its fingerprint,<br/>obtained by another route"]
+    CH{"Checks: sequence is higher,<br/>not expired, only allowed files,<br/>every payload matches its SHA-256"}
+    AP["Applied all or nothing<br/>one transaction + atomic link switch"]
+    EN["APK engine reads the new data<br/>reports its SHA-256"]
+    FD["IOC feed imported with provenance<br/><i>IOC_FEED_MATCH can now fire</i>"]
+    NO["Refused, every reason listed<br/>nothing changed"]
+
+    PUB --> B --> USB --> TR
+    TT -.->|trust_publisher| TR
+    TR -->|no| NO
+    TR -->|yes| CH
+    CH -->|any fails| NO
+    CH -->|all pass| AP
+    AP --> EN
+    AP --> FD
+
+    classDef pub fill:#E8F0FE,stroke:#1A73E8,stroke-width:2px,color:#0B2545
+    classDef gate fill:#FFF4E5,stroke:#B35C00,stroke-width:2px,color:#3D2200
+    classDef ok fill:#E6F4EA,stroke:#1B6E3C,stroke-width:2px,color:#0B3D1F
+    classDef eng fill:#E8F6F8,stroke:#0891A6,stroke-width:2px,color:#04353D
+    classDef bad fill:#FDECEA,stroke:#B3261E,stroke-width:3px,color:#5C0F0A
+    classDef note fill:#F3E8FD,stroke:#6B3FA0,stroke-width:2px,color:#2E1550
+    class PUB,B,USB pub
+    class TR,CH gate
+    class TT note
+    class AP ok
+    class EN,FD eng
+    class NO bad
+```
+
+Only indicator feeds and three named engine files can be updated. **The baseline table, the detection rules and the known-signers list cannot**: they define what the method treats as validated, so changing them is re-validation, not an update. A fast-forward by the key's holder and a stolen key are **not** prevented — the answer to both is to stop trusting the key. [research/164](research/164_SIGNED_UPDATES.md).
 
 ---
 
 ## Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 631 backend tests
+docker exec netforensiq python manage.py test    # 845 backend tests
 cd frontend && npx playwright test               # Playwright E2E
+cd verifier && npm test                          # offline verifier: known answers, a real browser, reproducible build
 ```
 
 <div align="center">
 
-**`Ran 447 tests — OK`**
+**`Ran 845 tests — OK`**
 
 </div>
 
@@ -662,6 +1019,12 @@ The tests that earned their keep:
 | `tests_monitor.py` | Module-level state broke under 3 gunicorn workers — `start` and `status` hit different processes. |
 | `apk_engine/tests/test_cli.py` | An examination that fails must be tier 0. Three failure paths — timeout, killed process, unparsable output — all once returned an empty findings list that read like a clean sample. |
 | `apk_engine` corpus run | `cap.overlay_window` matched **nothing at all**, in 31 legitimate apps and the malicious one: window type is assigned to a field, not passed to the constructor. |
+| `tests_airgap_docs.py` | The image would not **start** under plain `docker run`: `setcap cap_net_admin` makes `exec` fail with "operation not permitted" under Docker's default capabilities. The test pins the capability set to that default. |
+| `tests_airgap_docs.py` | The compose command was a folded YAML block that silently **dropped the gunicorn flags**: the server bound 127.0.0.1 and the relay saw "connection refused". The test reads the parsed command. |
+| `tests_release.py` | The real `.evidence.key` was **copied into every image** (it is not in git, so no review of the diff would have shown it). Patterns in `.dockerignore`, a test, and a rebuilt image checked clean. |
+| `tests_isolation.py` | Running the test suite **wrote into the real evidence store**. Tests now get a disposable one, and a test fails if that stops being true. |
+| `verifier/test/browser.test.mjs` | A page that claims never to phone home is only believable if the claim can fail: with the security policy removed, all seven request routes reach the test server and the test goes red. |
+| mutation checks | Two of my own assertions were too weak: one looked for the digit "8" inside "58%", and nothing tested that a stored second-opinion report was encrypted. Both were found by breaking the code and watching nothing fail. |
 
 ---
 
@@ -679,7 +1042,10 @@ NetForensiq/
 │   │   ├── monitor.py       DB-backed live monitor (multi-worker safe)
 │   │   ├── siem.py          ECS · CEF · RFC 5424
 │   │   ├── ioc.py           threat-feed import & matching
-│   │   └── scenario.py      ATT&CK-ordered attack reconstruction
+│   │   ├── scenario.py      ATT&CK-ordered attack reconstruction
+│   │   ├── limits.py        what the tool cannot establish, from measured data
+│   │   ├── second_opinion.py  MobSF report import, matched by hash
+│   │   └── updates.py       signed update bundles: apply, roll back, trust
 │   ├── apk_engine/        APK examination, run as a separate program
 │   │   ├── integrity.py     forged ZIP/AXML headers (apkInspector)
 │   │   ├── codemap.py       call graph · app vs SDK vs obfuscated code
@@ -692,11 +1058,20 @@ NetForensiq/
 │       ├── service.py       seal · custody · verify · §63 signing
 │       ├── certificate_pdf.py   renders THE SCHEDULE, Parts A & B
 │       ├── crypto.py        AES-256-GCM at rest
+│       ├── signing.py       Ed25519 signing and key fingerprints
+│       ├── case_package.py  the signed case package and its Python verifier
+│       ├── update_bundle.py signed update bundle format
 │       └── posture.py       statutory compliance posture
-├── frontend/src/pages/    Dashboard · Detections · Evidence · Import · Sample
+├── frontend/src/pages/    Dashboard · Detections · Evidence · Import · Sample · Limits
+├── verifier/              the offline verifier: one HTML file, its sources, tests, build
+├── validation/            tool validation report, generated from results.json
+├── docs/screenshots/      the images in this README
 ├── integrations/wazuh/    decoders · rules · sample events
 ├── research/              legal, technical and literature research
+├── Dockerfile · docker-compose.airgap.yml · RUN_OFFLINE.md
 └── scripts/               verification · offline bundle · air-gap transfer
+                        · make_release.py · make_update_bundle.py · verify_airgap.sh
+                        · build_validation_report.py · check_docs.py
                         · fetch_fdroid_corpus.py (reproducible benign corpus)
 ```
 
@@ -714,6 +1089,14 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 - **Ten of the fourteen ATT&CK tactics cannot be evidenced from network capture at all**, and `scenario.py` names them rather than quietly leaving them out.
 - **`ANOMALY_STATISTICAL` cites no threshold.** It is capped at MEDIUM and always ships the features that made a flow stand out.
 - **JA4+ variants (JA4S/JA4H/JA4T…) are not shipped** — FoxIO License 1.1 makes them non-commercial. Only core JA4 (BSD-3-Clause) is used.
+- **A signed package proves integrity, not origin.** It verifies under any key that signed it; only comparing the fingerprint with one obtained another way shows it came from the laboratory. A hash chain shows the log is consistent, not that it was never rebuilt before signing. The package says neither the evidence is genuine nor the findings correct. There is no timestamping authority, so nothing external shows *when* a package was signed, and the certificate PDF does not yet print the key fingerprint ([research/162](research/162_CASE_PACKAGE_AND_VERIFIER.md)).
+- **No real signing key exists yet.** The repository ships the tooling, not a key: no release has been signed and no fingerprint is published, because choosing and publishing one is the author's act. Signing uses one key per publisher, with no threshold signing, no rotation and no revocation list; a stolen key, or a fast-forward by its holder, is not prevented, and removing a key from the trust file is the whole remedy ([research/164](research/164_SIGNED_UPDATES.md)).
+- **Reproducible builds are not claimed.** A release binds one archive to a version and to a source digest; two builds of the image differ. SBOMs are not compared against vulnerability databases ([research/165](research/165_SIGNED_RELEASES.md)).
+- **The air-gap is a property of the container, not of the host.** `verify_airgap.sh` checks what Docker's own state says; it does not prove the machine is offline. The relay image is pinned by tag, not digest. Not run under Podman or Swarm. Live monitoring needs host networking and so is outside the isolated stack ([research/161](research/161_AIRGAP_AND_CAPABILITIES.md)).
+- **The verifier page was run in one browser engine** (Chromium). Firefox and WebKit are untested, and the Python side has been reviewed by no one but its author.
+- **The second opinion supports one tool, one major version.** MobSF 4.x (4.5.4) only; matching is by SHA-256 and nothing else; a report cannot be filed against a PCAP. Filed reports are listed by the API but not yet on the Evidence page, and no Playwright test covers the screen ([research/166](research/166_SECOND_OPINION.md)).
+- **The validation report is developer-supplied information.** It sets no acceptance criteria and has had no outside review. ISO/IEC 27037's text is paywalled and was not read; NIST SP 800-86 was.
+- **One end-to-end test does not pass on the isolated test server.** A colour-contrast check on the "Start watching" button fails there; the isolated server cannot capture, so that button is disabled. That is the likely cause, but the test was not re-run on a capturing server.
 - **CERT-In's 6-hour rule is a reporting deadline, not a detection mandate**, and is deliberately *not* cited as justification for real-time alerting.
 
 ---

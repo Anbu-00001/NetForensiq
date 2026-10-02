@@ -93,6 +93,9 @@ CLAIMS = [
     # The README's shields.io badge. It said 447 while the suite had 583 —
     # the first number a visitor reads, and the one nothing was checking.
     (r'badge/tests-(\d+)_passing', 'backend_tests'),
+    # The "Ran N tests — OK" line under the Tests heading. It said 447 for a
+    # suite of 631 and nothing caught it, because nothing looked for this form.
+    (r'Ran\s+(\d+)\s+tests', 'backend_tests'),
     (r'Frontend:\s+(\d+)\s+Playwright', 'e2e_tests'),
     (r'\*\*(\d+)\s+Playwright E2E', 'e2e_tests'),
     (r'(\d+)\s+Playwright E2E', 'e2e_tests'),

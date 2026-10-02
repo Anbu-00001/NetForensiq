@@ -56,6 +56,24 @@ and SHA-256 of every file are recorded in `data/sources.json`.
 | `public_suffix_list.dat` | [Mozilla Public Suffix List](https://publicsuffix.org/list/public_suffix_list.dat), version `2026-09-18_18-42-54_UTC`, commit `ff02362b20e2`, SHA-256 `330c1c71…d261d261` | MPL-2.0 | Shipped unmodified, as a separate file. Used by `capture/psl.py` to group DNS queries by registered domain; the version is recorded on every DNS finding. |
 | `rule_base_rates.json` | Measured by this project (research/158) | MIT | How often each network rule fires on ordinary and on attack traffic. Written by `scripts/rule_base_rate_report.py --emit`; never edited by hand. |
 
+## Bundled in the offline verifier (`verifier/`)
+
+| Component | Version | Licence | Notes |
+|---|---|---|---|
+| [`@noble/hashes`](https://github.com/paulmillr/noble-hashes) | 2.4.0 | MIT (Paul Miller) | SHA-256, SHA-1 and MD5, incremental. Bundled unminified, licence comments kept, in `verifier/vendor/noble.iife.js` (SHA-256 `f3ccb385…00344378` for this build). |
+| [`@noble/curves`](https://github.com/paulmillr/noble-curves) | 2.4.0 | MIT (Paul Miller) | Ed25519 verification, strict RFC 8032 (`zip215: false`). |
+| [`esbuild`](https://esbuild.github.io/) | 0.25.10 | MIT | Build tool only; nothing of it is in the shipped page. |
+
+Versions are pinned in `verifier/package.json` and `package-lock.json`, and a test
+rebuilds the page and requires byte-identical output.
+
+## Test fixtures derived from MobSF output (`backend/capture/tests_data/`)
+
+Two files are real MobSF 4.5.4 reports on this project's own samples (the KANAD
+S.H.I.E.L.D. hackathon sample, and F-Droid's OpenVPN), trimmed to the fields the importer
+reads. MobSF is GPL-3.0 and is not shipped or imported: these are data about our samples,
+produced by running it. Used only by tests. See research/159 and research/166.
+
 ## Classification vocabulary
 
 Category names and definitions are Google's Potentially Harmful Application
