@@ -73,6 +73,30 @@ INDEX = 'index.html'
 ASSET_CACHE_CONTROL = f'public, max-age={365 * 24 * 60 * 60}, immutable'
 INDEX_CACHE_CONTROL = 'no-cache, no-store, must-revalidate'
 
+# The interface keeps its sign-in tokens in sessionStorage, which any script
+# running in the page can read. This policy is what stops a script getting
+# there: only the app's own files may run, nothing inline, no eval, and no
+# request may leave for another origin. Styles are the one relaxation, because
+# MUI injects <style> elements and the D3 graph sets style attributes; an
+# injected style cannot read a token.
+#
+# Sent with the app shell only. The offline verifier (nfverify.html) is a file
+# under the same root with its own, stricter policy whose inline scripts are
+# allowed by hash; a browser enforces every policy it receives, so this header
+# on that file would stop the verifier running.
+APP_CSP = '; '.join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+
 NOT_BUILT = """NetForensiq: the frontend has not been built.
 
 Expected to find {index}
@@ -194,4 +218,5 @@ def serve_frontend(request, path=''):
 
     response = serve_static(request, INDEX, document_root=root)
     response.headers['Cache-Control'] = INDEX_CACHE_CONTROL
+    response.headers['Content-Security-Policy'] = APP_CSP
     return response

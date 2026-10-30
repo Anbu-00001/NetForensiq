@@ -178,6 +178,42 @@ class SpaRoutingTests(SimpleTestCase):
         )
 
 
+@override_settings(FRONTEND_DIST=str(DIST))
+class AppSecurityPolicyTests(SimpleTestCase):
+    """What a script injected into the page could do, which the policy decides."""
+
+    def _policy(self, path='/', accept='text/html'):
+        response = self.client.get(path, HTTP_ACCEPT=accept)
+        return {d.split()[0]: d.split()[1:] for d in
+                response.headers.get('Content-Security-Policy', '').split('; ') if d}
+
+    def test_the_shell_allows_only_its_own_scripts(self):
+        policy = self._policy()
+        self.assertEqual(policy['script-src'], ["'self'"])
+        self.assertEqual(policy['default-src'], ["'self'"])
+
+    def test_nothing_injected_can_send_a_token_elsewhere(self):
+        policy = self._policy('/evidence')
+        self.assertEqual(policy['connect-src'], ["'self'"])
+        self.assertEqual(policy['form-action'], ["'self'"])
+        self.assertEqual(policy['base-uri'], ["'none'"])
+
+    def test_no_directive_relaxes_script_execution(self):
+        header = self.client.get('/', HTTP_ACCEPT='text/html').headers['Content-Security-Policy']
+        script = header.split('script-src', 1)[1].split(';', 1)[0]
+        for word in ("'unsafe-inline'", "'unsafe-eval'", '*', 'http:', 'https:', 'data:'):
+            self.assertNotIn(word, script)
+
+    def test_files_are_served_without_the_shell_policy(self):
+        """The verifier carries its own; a second policy would block its hashed scripts."""
+        (DIST / 'nfverify.html').write_text('<!doctype html><title>verifier</title>')
+        for path in ('/nfverify.html', '/assets/index-abc123.js'):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertNotIn('Content-Security-Policy', response.headers)
+
+
 @override_settings(FRONTEND_DIST=str(Path(tempfile.gettempdir()) / 'nf-no-such-dist'))
 class SpaNotBuiltTests(SimpleTestCase):
     def test_missing_build_explains_itself(self):

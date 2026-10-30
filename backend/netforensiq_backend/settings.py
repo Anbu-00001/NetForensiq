@@ -22,6 +22,8 @@ from datetime import timedelta
 
 from dotenv import load_dotenv
 
+from .throttles import throttle_rates
+
 load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, '.env'))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -388,16 +390,9 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ),
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '30/hour' if is_testing else os.getenv('ANON_THROTTLE_RATE', '10000/hour'),
-        'user': '1000/hour' if is_testing else os.getenv('USER_THROTTLE_RATE', '10000/hour'),
-        'login': '8/hour' if is_testing else os.getenv('LOGIN_THROTTLE_RATE', '10000/hour'),
-        'register': '5/hour' if is_testing else os.getenv('REGISTER_THROTTLE_RATE', '10000/hour'),
-        'approval_status': '20/hour' if is_testing else os.getenv('APPROVAL_STATUS_THROTTLE_RATE', '10000/hour'),
-        'public_verify': '60/hour' if is_testing else os.getenv('PUBLIC_VERIFY_THROTTLE_RATE', '10000/hour'),
-        'upload': '20/hour' if is_testing else os.getenv('UPLOAD_THROTTLE_RATE', '10000/hour'),
-        'engine': '600/hour' if is_testing else os.getenv('ENGINE_THROTTLE_RATE', '10000/hour'),
-    },
+    # Defaults and their reasons are in throttles.py; each can be overridden by
+    # its environment variable, and a test holds the defaults to what the docs say.
+    'DEFAULT_THROTTLE_RATES': throttle_rates(os.environ, testing=is_testing),
 }
 
 SIMPLE_JWT = {
