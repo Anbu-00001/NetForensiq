@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-lL4HQPsbOfzOPTUKHS/yE8ZYihHLYeaK5XAFUMILkSE='; style-src 'sha256-kT4XlY1jhefQo/5GSNeeWv4Oux8xo+SHPfqB7kOk6w4='; connect-src 'none'; img-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-P2W0qFtUn0o0f8KxFMsNJAbYAemuvj7rnsFvAf3d6JI='; style-src 'sha256-kT4XlY1jhefQo/5GSNeeWv4Oux8xo+SHPfqB7kOk6w4='; connect-src 'none'; img-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'">
 <title>NetForensiq case package verifier</title>
 <style>:root {
   --ink: #111315; --soft: #2b3138; --muted: #5a6068; --rule: #e2e5e9;
@@ -2592,6 +2592,11 @@ beside it, so you can check the checker.</footer>
     return toHex(noble.sha256(utf8(payload)));
   }
 
+  // Fields that must not contain '|'. With these free of it the hashed text has
+  // one reading; a package where one holds '|' could have had its fields
+  // re-split without changing any hash. Mirrors NO_PIPE_FIELDS in case_package.py.
+  var NO_PIPE_FIELDS = ['action', 'actor_badge', 'actor_ip', 'timestamp', 'previous_hash'];
+
   function chainProblems(evidenceId, custody) {
     var events = (custody && custody.events) || [];
     var problems = [];
@@ -2606,6 +2611,12 @@ beside it, so you can check the checker.</footer>
       }
       if (entry.previous_hash !== previous) {
         problems.push('entry #' + n + ': previous_hash does not match the entry before it');
+      }
+      for (var f = 0; f < NO_PIPE_FIELDS.length; f++) {
+        if (String(entry[NO_PIPE_FIELDS[f]] || '').indexOf('|') !== -1) {
+          problems.push('entry #' + n + ': ' + NO_PIPE_FIELDS[f] + " contains '|', so the " +
+            "entry's hash does not fix which text belongs to which field");
+        }
       }
       if (!HEX64.test(String(entry.entry_hash))) {
         problems.push('entry #' + n + ': entry_hash is not a SHA-256 digest');

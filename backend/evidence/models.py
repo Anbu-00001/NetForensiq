@@ -431,12 +431,27 @@ class CustodyEvent(models.Model):
     class Meta:
         ordering = ['evidence', 'sequence']
         unique_together = [('evidence', 'sequence')]
+        constraints = [
+            # See compute_hash: detail is the only field allowed to contain '|'.
+            models.CheckConstraint(condition=~models.Q(actor_badge__contains='|'),
+                                   name='custody_actor_badge_has_no_pipe'),
+        ]
 
     def __str__(self):
         return f"#{self.sequence} {self.action} · {self.evidence.exhibit_number}"
 
     def compute_hash(self):
-        """Digest over the immutable content of this entry plus the prior link."""
+        """
+        Digest over the immutable content of this entry plus the prior link.
+
+        The fields are joined with '|' and not escaped, so the text must split one
+        way only. It does because detail is the only field that may contain '|':
+        evidence id and sequence are integers, action is a fixed choice, actor_ip
+        is an IP address, timestamp is ISO 8601, previous_hash is hex, and
+        actor_badge has a database constraint. Before 30 Oct 2026 the badge had
+        none, and a badge ending in '|' hashed the same as a detail beginning
+        with one. Both verifiers now reject any other field holding '|'.
+        """
         payload = '|'.join([
             str(self.evidence_id),
             str(self.sequence),

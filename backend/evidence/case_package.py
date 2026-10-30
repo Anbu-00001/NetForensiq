@@ -59,8 +59,13 @@ CONTEXT = b'netforensiq.case-package/1\n'
 CHAIN_RECIPE = (
     "sha256 of the UTF-8 text formed by joining these fields with '|': "
     'evidence_id, sequence, action, actor_badge, actor_ip, detail, timestamp, '
-    'previous_hash'
+    "previous_hash. Only detail may contain '|', so the text splits one way only."
 )
+
+# Fields of a custody entry that must not contain '|'. With these free of it, the
+# hashed text has exactly one reading; a package where one holds '|' is rejected,
+# because its fields could have been re-split without changing any hash.
+NO_PIPE_FIELDS = ('action', 'actor_badge', 'actor_ip', 'timestamp', 'previous_hash')
 
 HOW_TO_VERIFY = (
     'Open nfverify.html (a single offline page; it makes no network requests), '
@@ -301,6 +306,11 @@ def chain_problems(evidence_id, custody):
         if entry.get('previous_hash') != previous:
             problems.append(
                 f'entry #{n}: previous_hash does not match the entry before it')
+        for field in NO_PIPE_FIELDS:
+            if '|' in str(entry.get(field) or ''):
+                problems.append(
+                    f"entry #{n}: {field} contains '|', so the entry's hash does not "
+                    'fix which text belongs to which field')
         if not _HEX64.match(str(entry.get('entry_hash', ''))):
             problems.append(f'entry #{n}: entry_hash is not a SHA-256 digest')
         elif entry_hash(evidence_id, entry) != entry['entry_hash']:

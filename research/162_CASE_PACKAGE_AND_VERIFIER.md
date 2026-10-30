@@ -106,3 +106,9 @@ browser made no request off the machine.
 * No timestamping authority: nothing external shows *when* a package was signed.
 * Verification of the Python side by anyone other than its author, and of the page by a
   second browser engine (Firefox, WebKit): only Chromium was run.
+
+## Update, 30 Oct 2026
+
+The case list is now 20: a forgery that moves text from a `detail` into `actor_ip` across a
+`|`, leaving every entry hash unchanged, was added after an outside review. Both verifiers
+now reject an entry where any field other than `detail` contains `|`. See research/167.

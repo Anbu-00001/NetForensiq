@@ -93,8 +93,8 @@ cd backend && python manage.py test evidence.tests_case_package evidence.tests_c
   `"abc"` for SHA-256, SHA-1 and MD5.
 * **Streaming.** Hashes of 0, 1, 55, 56, 64 bytes and either side of the 4 MiB chunk
   boundary equal Node's own.
-* **Two implementations that must agree.** Python builds 19 packages — good, edited,
-  re-signed, forged, truncated, reordered, with a removed middle entry, with a mismatched
+* **Two implementations that must agree.** Python builds 20 packages — good, edited,
+  re-signed, forged, truncated, reordered, with fields re-split around a `|`, with a removed middle entry, with a mismatched
   certificate — and runs its verifier; the page's JavaScript must give the same verdict,
   the same checks, in the same order, with the same wording. Then JavaScript signs and
   Python verifies. Mutating either implementation makes this test fail.

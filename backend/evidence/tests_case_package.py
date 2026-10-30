@@ -426,3 +426,60 @@ class SigningKeyEndpointTests(PackageFixture, TestCase):
 
     def test_it_requires_a_signed_in_officer(self):
         self.assertIn(APIClient().get('/api/evidence/signing-key/').status_code, (401, 403))
+
+
+class CustodyHashHasOneReading(PackageFixture, TestCase):
+    """
+    The entry hash joins fields with '|' unescaped. That is sound only if the joined
+    text splits one way, which needs every field but detail to be free of '|'.
+    Raised in an outside review (Oct 2026); before then a badge could hold '|'.
+    """
+
+    def _events(self):
+        return json.loads(json.loads(self.text)['manifest_json'])['exhibits'][0]['custody']['events']
+
+    def test_the_hashed_text_decodes_back_to_exactly_its_fields(self):
+        """Injective by construction: five fields from the left, two from the right, the rest is detail."""
+        for entry in self._events():
+            fields = [str(self.record.id), str(entry['sequence']), entry['action'],
+                      entry['actor_badge'], entry['actor_ip'], entry['detail'],
+                      entry['timestamp'], entry['previous_hash']]
+            text = '|'.join(fields)
+            left = text.split('|', 5)
+            middle, timestamp, previous = left[5].rsplit('|', 2)
+            self.assertEqual(left[:5] + [middle, timestamp, previous], fields)
+
+    def test_a_resplit_entry_keeps_its_hash_and_is_still_rejected(self):
+        events = self._events()
+        # The fixture records one detail with a pipe in it, on purpose.
+        at = next(i for i, e in enumerate(events) if '|' in e['detail'])
+        entry = dict(events[at])
+        before = case_package.entry_hash(self.record.id, entry)
+        head, tail = entry['detail'].split('|', 1)
+        entry['actor_ip'] = (entry['actor_ip'] or '') + '|' + head
+        entry['detail'] = tail
+
+        # The flaw: different fields, the same hash.
+        self.assertEqual(case_package.entry_hash(self.record.id, entry), before)
+        # The fix: the verifier refuses the reading.
+        problems = case_package.chain_problems(self.record.id, {
+            'events': events[:at] + [entry] + events[at + 1:], 'event_count': len(events),
+            'head_hash': events[-1]['entry_hash']})
+        self.assertTrue(any("actor_ip contains '|'" in p for p in problems), problems)
+
+    def test_the_database_will_not_store_a_badge_with_a_pipe(self):
+        from django.db import IntegrityError, transaction
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            User.objects.create_user(username='pipe', password='x-Long-passw0rd',
+                                     badge_id='GJ|1', department='Cyber')
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            CustodyEvent.objects.create(evidence=self.record, sequence=99,
+                                        action=CustodyEvent.Action.VIEWED, actor_badge='GJ|1')
+
+    def test_a_form_says_why_the_badge_was_refused(self):
+        from django.core.exceptions import ValidationError
+        user = User(username='pipe2', badge_id='GJ|2', department='Cyber')
+        user.set_password('x-Long-passw0rd')
+        with self.assertRaises(ValidationError) as caught:
+            user.full_clean()
+        self.assertIn("cannot contain '|'", str(caught.exception))

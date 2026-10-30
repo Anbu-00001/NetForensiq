@@ -84,6 +84,15 @@ class CrossLanguageTests(PackageFixture, TestCase):
             m['exhibits'][0]['custody']['events'][1]['detail'] = 'something else'
         cases['forged-altered-entry'] = (self.forge(alter), '')
 
+        def resplit(m):
+            # Move the start of a detail into actor_ip. The joined text, and so
+            # every hash, is unchanged: the case a '|'-joined hash has to rule out.
+            e = next(e for e in m['exhibits'][0]['custody']['events'] if '|' in e['detail'])
+            head, tail = e['detail'].split('|', 1)
+            e['actor_ip'] = (e['actor_ip'] or '') + '|' + head
+            e['detail'] = tail
+        cases['forged-resplit-fields'] = (self.forge(resplit), '')
+
         def truncate(m):
             m['exhibits'][0]['custody']['events'].pop()
         cases['forged-truncated'] = (self.forge(truncate), '')
@@ -157,6 +166,7 @@ class CrossLanguageTests(PackageFixture, TestCase):
         self.assertTrue(outcomes['forged-unchanged'])      # a forgery verifies...
         self.assertFalse(outcomes['forged-vs-real-fingerprint'])  # ...until the fingerprint is known
         self.assertFalse(outcomes['forged-altered-entry'])
+        self.assertFalse(outcomes['forged-resplit-fields'])
         self.assertFalse(outcomes['edited-signed-text'])
         self.assertGreaterEqual(sum(1 for ok in outcomes.values() if ok), 4)
         self.assertGreaterEqual(sum(1 for ok in outcomes.values() if not ok), 10)

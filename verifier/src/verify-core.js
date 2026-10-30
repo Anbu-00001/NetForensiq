@@ -81,6 +81,11 @@
     return toHex(noble.sha256(utf8(payload)));
   }
 
+  // Fields that must not contain '|'. With these free of it the hashed text has
+  // one reading; a package where one holds '|' could have had its fields
+  // re-split without changing any hash. Mirrors NO_PIPE_FIELDS in case_package.py.
+  var NO_PIPE_FIELDS = ['action', 'actor_badge', 'actor_ip', 'timestamp', 'previous_hash'];
+
   function chainProblems(evidenceId, custody) {
     var events = (custody && custody.events) || [];
     var problems = [];
@@ -95,6 +100,12 @@
       }
       if (entry.previous_hash !== previous) {
         problems.push('entry #' + n + ': previous_hash does not match the entry before it');
+      }
+      for (var f = 0; f < NO_PIPE_FIELDS.length; f++) {
+        if (String(entry[NO_PIPE_FIELDS[f]] || '').indexOf('|') !== -1) {
+          problems.push('entry #' + n + ': ' + NO_PIPE_FIELDS[f] + " contains '|', so the " +
+            "entry's hash does not fix which text belongs to which field");
+        }
       }
       if (!HEX64.test(String(entry.entry_hash))) {
         problems.push('entry #' + n + ': entry_hash is not a SHA-256 digest');

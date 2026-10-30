@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models.signals import post_init, post_save
 from django.dispatch import receiver
@@ -28,7 +29,11 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.VIEWER,
     )
-    badge_id = models.CharField(max_length=50, unique=True)
+    # A badge is copied into every custody entry the officer makes, and the entry's
+    # hash joins its fields with '|'. If a badge could contain '|', the same hashed
+    # text could be split into different fields (evidence/models.py, CustodyEvent).
+    badge_id = models.CharField(max_length=50, unique=True, validators=[RegexValidator(
+        r'^[^|]*$', message="A badge number cannot contain '|'.")])
     department = models.CharField(max_length=100)
 
     # Security / approval workflow fields
@@ -48,6 +53,14 @@ class User(AbstractUser):
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            # The validator above gives a readable message on forms; this holds
+            # for every other way a row can be written (create_user, the shell).
+            models.CheckConstraint(condition=~models.Q(badge_id__contains='|'),
+                                   name='badge_id_has_no_pipe'),
+        ]
 
     def __str__(self):
         return f"{self.username} ({self.role})"
