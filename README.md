@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-845_passing-1B6E3C?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-861_passing-1B6E3C?style=flat-square)](#tests)
 [![Outbound](https://img.shields.io/badge/Outbound_connections-none_by_default-1B6E3C?style=flat-square)](#runs-without-a-network)
 [![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#bsa-section-63-certificates)
 
@@ -29,7 +29,7 @@ Cyber Crime Branch, Ahmedabad City Police × i-Hub Gujarat
 | **Network analysis** | Imports PCAPs in a separate process, assembles flows, runs 11 detection signals | A 209 MB capture of 946,238 conversations imports in 492 s on a 5 GB cap, peaking at 3.5 GB | [Performance](#performance) |
 | **Error rates on every finding** | Each finding states how often its rule fires on ordinary traffic | Measured on 22 ordinary and 8 attack captures; a rule never seen on an attack is shown at LOW | [Network rules](#what-the-network-rules-do-to-ordinary-traffic-19-sep-2026) |
 | **Android examination** | Evidence tiers 0 to 4, never a score; the sample is never executed | **58%** of 200 unseen malware samples reached a tier, 0 of 89 examined legitimate apps did | [APK examination](#apk-examination--evidence-tiers-not-a-score) |
-| **Hand a case over** | One signed file the other side checks in a browser, offline | 19 test packages (good, edited, forged, truncated, reordered) get the same verdict, check by check, from two independent implementations | [Signed packages](#hand-a-case-to-the-other-side--signed-packages-and-the-offline-verifier) |
+| **Hand a case over** | One signed file the other side checks in a browser, offline | 20 test packages (good, edited, forged, truncated, reordered, fields re-split) get the same verdict, check by check, from two independent implementations | [Signed packages](#hand-a-case-to-the-other-side--signed-packages-and-the-offline-verifier) |
 | **Second opinion** | File a MobSF report beside a sample, matched by hash | On the hackathon sample MobSF read nothing and scored it 73/100; this engine reads tier 3 | [Second opinion](#second-opinion--filing-mobsfs-report-beside-a-sample) |
 | **Say what it cannot do** | A public Limits page, generated from the measured data | A validation report whose figures cannot be edited by hand | [Limits and validation](#limits-and-validation) |
 | **Run with no route out** | Compose file that puts the application on an internal network | Structure checked from Docker's own state, with a control that proves the probe can detect egress | [Runs without a network](#runs-without-a-network) |
@@ -260,6 +260,8 @@ graph LR
 ```
 
 Tampering is reported as *"the chain breaks at event 3"* — not a silent boolean.
+
+**One text, one reading.** An entry's hash covers its fields joined with `|`, unescaped. That is sound only if the joined text splits one way, so `detail` is the only field allowed to contain `|`: the others are integers, a fixed action, an IP address, a timestamp and a hex digest, and the badge number has a database constraint. Until 30 Oct 2026 it did not, and an outside review pointed out that a badge ending in `|` hashed the same as a detail starting with one: text could move between fields with every hash unchanged. Both verifiers now reject an entry where any other field holds `|`, and a test builds exactly that re-split forgery to show it is caught ([research/167](research/167_EXTERNAL_REVIEW.md)).
 
 ---
 
@@ -998,14 +1000,14 @@ Only indicator feeds and three named engine files can be updated. **The baseline
 ## Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 845 backend tests
+docker exec netforensiq python manage.py test    # 861 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 cd verifier && npm test                          # offline verifier: known answers, a real browser, reproducible build
 ```
 
 <div align="center">
 
-**`Ran 845 tests — OK`**
+**`Ran 861 tests — OK`**
 
 </div>
 
@@ -1068,6 +1070,7 @@ NetForensiq/
 ├── docs/screenshots/      the images in this README
 ├── integrations/wazuh/    decoders · rules · sample events
 ├── research/              legal, technical and literature research
+│   └── sources/           external AI-generated research inputs, kept as received
 ├── Dockerfile · docker-compose.airgap.yml · RUN_OFFLINE.md
 └── scripts/               verification · offline bundle · air-gap transfer
                         · make_release.py · make_update_bundle.py · verify_airgap.sh
@@ -1097,6 +1100,12 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 - **The second opinion supports one tool, one major version.** MobSF 4.x (4.5.4) only; matching is by SHA-256 and nothing else; a report cannot be filed against a PCAP. Filed reports are listed by the API but not yet on the Evidence page, and no Playwright test covers the screen ([research/166](research/166_SECOND_OPINION.md)).
 - **The validation report is developer-supplied information.** It sets no acceptance criteria and has had no outside review. ISO/IEC 27037's text is paywalled and was not read; NIST SP 800-86 was.
 - **One end-to-end test does not pass on the isolated test server.** A colour-contrast check on the "Start watching" button fails there; the isolated server cannot capture, so that button is disabled. That is the likely cause, but the test was not re-run on a capturing server.
+- **The network rules are the weakest part of detection.** From the shipped rate table (22 ordinary captures, 8 attack captures): `C2_BEACON_KEEPALIVE` fired on 10 ordinary and 0 attack captures, `C2_BEACON_PERIODIC` on 4 and 0, `EXFIL_VOLUME_ASYMMETRY` on 8 and 1, and `ANOMALY_STATISTICAL` on all 22 by construction. Only `RECON_PORT_SCAN` (2 ordinary, 4 attack) fires more often on attacks than on ordinary traffic. Each finding prints these rates, which is honest, but a lead that fires on half of ordinary captures is not much of a lead. Fixing it needs more attack captures, especially of beacons, not retuning against the same 30.
+- **The test data is not what a laboratory seizes.** F-Droid apps, MalwareBazaar uploads and 2013–2017 CTU captures are public and convenient; phones and captures from real cases will differ in ways not measured.
+- **Sign-in tokens are kept in `sessionStorage`**, readable by any script in the page. What protects them is a strict Content-Security-Policy on the interface (only the app's own scripts, no inline script, no eval, no request to another origin). Checked in Chromium on 30 Oct 2026 against the built app served by Django: eight screens, no violations, and an injected inline script and a cross-origin `fetch` both refused. The policy is only sent when Django serves the interface, not under the Vite development server. Moving tokens to `HttpOnly` cookies has not been done.
+- **The rate limits were not what the documents said, until 30 Oct 2026.** From 21 Aug every default was 10,000/hour, set for demonstrations, while `.env.example` and PROGRESS.md said sign-in was limited to eight an hour. The documented values are the defaults again, and a test now compares the code, `docker-compose.yml` and `.env.example`. `account_locked_until` exists on the user model and nothing reads or sets it.
+- **One licence question is open.** Under `docker-compose.yml` (PostgreSQL), `psycopg2` (LGPL-3.0-or-later, with an OpenSSL exception) is loaded in the same process as scapy (GPL-2.0-only). Whether an image containing both may be redistributed as one program has not been settled; nothing here is legal advice. The air-gapped compose file uses SQLite and never loads `psycopg2`.
+- **Nobody but the author has reviewed this.** No laboratory, lawyer or forensic science laboratory has checked the code, the validation or the Section 63 certificate. One outside review of the repository (Oct 2026) raised the points above; its findings and what was done are in [research/167](research/167_EXTERNAL_REVIEW.md).
 - **CERT-In's 6-hour rule is a reporting deadline, not a detection mandate**, and is deliberately *not* cited as justification for real-time alerting.
 
 ---
@@ -1107,7 +1116,7 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 
 NetForensiq is open on purpose: use it, fork it, build on it, commercially or not. The licence's one condition is that the copyright notice stays in every copy, and every source file carries it as a two-line SPDX header. If you build on this, say where it started — [NOTICE.md](NOTICE.md) has a one-line form of words, and GitHub's **Cite this repository** button uses [CITATION.cff](CITATION.cff).
 
-MIT is a deliberate choice, not a default: scapy (GPL-2.0-only) runs in the web process and androguard (Apache-2.0) runs in the APK engine, and those two licences cannot be combined in one program. MIT is compatible with both, and the engine runs as a **separate process** so the question never arises in the first place. It also rules out the stricter licences: a non-commercial or source-available licence adds restrictions GPL-2.0 forbids, and GPL-3.0/AGPL-3.0 are incompatible with GPL-2.0-only.
+MIT is a deliberate choice, not a default: scapy (GPL-2.0-only) runs in the web process and androguard (Apache-2.0) runs in the APK engine, and those two licences cannot be combined in one program. MIT is compatible with both, and the engine runs as a **separate process** so the question never arises in the first place. One question remains open: with PostgreSQL, `psycopg2` (LGPL-3.0-or-later) shares the web process with scapy (see [Honest limitations](#honest-limitations)). It also rules out the stricter licences: a non-commercial or source-available licence adds restrictions GPL-2.0 forbids, and GPL-3.0/AGPL-3.0 are incompatible with GPL-2.0-only.
 
 ### Authorship and provenance
 

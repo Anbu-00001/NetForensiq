@@ -351,11 +351,11 @@ this project's own `99_GUJARAT_FIT.md` already reached the same conclusion indep
 - **TRAI SMS header registry** (`smsheader-trai-gov-in`) — for tracing SMS-sender service
   providers, also named directly in the Gujarat CAWACH SOP (§1e).
 - **CCTNS Property Register Service** — already documented in this project's own
-  `deep-research-report.md` as the existing (if unintegrated) module for physical seized-item
+  `research/sources/deep-research-report.md` as the existing (if unintegrated) module for physical seized-item
   tracking; a Jharkhand CCTNS tender specifically required tracking property status
   ("released/transferred to other PS/Lab/testing").
 - **eSakshya** — mandated scene-video capture app under BNSS §105 — already extensively
-  verified in this project's `deep-research-report.md` and `95_ESAKSHYA_VERIFIED_FINDINGS.md`;
+  verified in this project's `research/sources/deep-research-report.md` and `95_ESAKSHYA_VERIFIED_FINDINGS.md`;
   confirmed to stop at upload, with no post-seizure custody tracking — this project's own
   positioning ("falls between eSakshya and CCTNS") remains accurate and should not change.
 - **Gujarat's own existing tech stack** (ASTR, VISHWAS, e-GujCop, NARIT AI) — already

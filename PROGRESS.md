@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **845 backend tests (all pass; 1 is skipped because it only runs when asked to regenerate the verifier fixtures) + 66 Playwright E2E (one colour-contrast test fails on the isolated test server, where live capture is disabled; see the README's Honest Limitations)**
+## Status: Phases 0–13 complete · **861 backend tests (all pass; 1 is skipped because it only runs when asked to regenerate the verifier fixtures) + 66 Playwright E2E (one colour-contrast test fails on the isolated test server, where live capture is disabled; see the README's Honest Limitations)**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -374,7 +374,9 @@ against the database found it was three-quarters true.
   server error and bad credentials now each say what happened.
 
 The limit itself is unchanged at eight per hour, which is our own figure rather
-than a standard. It is now settable by `LOGIN_THROTTLE_RATE` for the one
+than a standard. (Correction, 30 Oct 2026: from 21 Aug the code's default was
+10,000/hour while this paragraph still said eight. The default is eight again,
+and a test now holds the code and the documents together; see research/167.) It is now settable by `LOGIN_THROTTLE_RATE` for the one
 legitimate case that trips it: signing in as investigator, expert, commander
 and viewer in turn during a demonstration exhausts eight in a few minutes, and
 being locked out in front of an audience is not a security outcome anybody

@@ -1,7 +1,7 @@
 # eSakshya — verified findings, and what they change
 
-Merge of the three external reports ([grok.d](../grok.d),
-[deep-research-report.md](../deep-research-report.md), the Gemini PDF), with every
+Merge of the three external reports ([grok.d](sources/grok.d),
+[deep-research-report.md](sources/deep-research-report.md), the Gemini PDF), with every
 load-bearing claim checked against primary sources on 15 Aug 2026.
 
 **Rule applied:** a claim is marked ✅ only if I fetched the primary source myself.
