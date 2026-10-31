@@ -9,7 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-861_passing-1B6E3C?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-901_passing-1B6E3C?style=flat-square)](#tests)
 [![Outbound](https://img.shields.io/badge/Outbound_connections-none_by_default-1B6E3C?style=flat-square)](#runs-without-a-network)
 [![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#bsa-section-63-certificates)
 
@@ -261,7 +261,11 @@ graph LR
 
 Tampering is reported as *"the chain breaks at event 3"* — not a silent boolean.
 
-**One text, one reading.** An entry's hash covers its fields joined with `|`, unescaped. That is sound only if the joined text splits one way, so `detail` is the only field allowed to contain `|`: the others are integers, a fixed action, an IP address, a timestamp and a hex digest, and the badge number has a database constraint. Until 30 Oct 2026 it did not, and an outside review pointed out that a badge ending in `|` hashed the same as a detail starting with one: text could move between fields with every hash unchanged. Both verifiers now reject an entry where any other field holds `|`, and a test builds exactly that re-split forgery to show it is caught ([research/167](research/167_EXTERNAL_REVIEW.md)).
+**One text, one reading.** An entry's hash covers its fields joined with `|`, unescaped. That is sound only if the joined text splits one way, so `detail` is the only field allowed to contain `|`: the others are integers, a fixed action, an IP address, a timestamp and a hex digest, and the badge number has a database constraint. Until 30 Oct 2026 it did not, and an outside review pointed out that a badge ending in `|` hashed the same as a detail starting with one: text could move between fields with every hash unchanged. Both verifiers now reject an entry where any other field holds `|`, and a test builds exactly that re-split forgery to show it is caught ([research/167](research/167_EXTERNAL_REVIEW.md)). The IP address is one only because it is checked before it is stored: until 31 Oct 2026 it was the first entry of `X-Forwarded-For` taken as sent, so a signed-in user could put any text there, `|` included. The server now ignores that header unless `TRUSTED_PROXY_COUNT` says a proxy sits in front, stores anything that is not an address as unknown, and its own chain check rejects a `|` in any field but `detail`, as the package verifiers do. ([research/168](research/168_BLIND_AUDIT.md))
+
+**Where the log ends.** A hash chain shows that nothing before the last entry was changed or removed. It cannot show that the last few entries were deleted, because the shorter log still re-derives link by link; a blind audit on 31 Oct 2026 deleted them and the check said intact. Each exhibit now has a recorded end (entry count and last hash), moved in the same locked transaction as every append, and the check compares the log with it. Someone who can write to the database can move that record too, so the anchor outside the database is the end of the log printed on each Section 63 certificate, in full, and the head hash in each signed package. The certificate's Officer column now leads with the badge, which the entry hash covers, rather than the account name, which it does not.
+
+**A seal check has three answers.** Intact, failed, or not checked. A file that cannot be read (missing, permission denied, disk full while decrypting) or an encrypted store whose key is not configured is reported as not checked and leaves the exhibit's status alone. Until 31 Oct 2026 any of those set the permanent *Integrity check FAILED* status. A failed hash or a failed authentication tag still sets it. The anonymous verify page and the status strip reuse a check made in the last 15 minutes (`SEAL_CHECK_REUSE_SECONDS`) and say when it was made, rather than hashing the whole exhibit for every request; the officer's Verify button always hashes now.
 
 ---
 
@@ -729,6 +733,8 @@ sequenceDiagram
 
 The renderer reproduces **THE SCHEDULE** to the Act — Part A and Part B — and the custody register prints its signature column **empty**, because a signature this system never witnessed is not one it will print.
 
+**The document handed out is the one issued.** The PDF is rendered once, when a part is signed, into a temporary file that replaces the old one only when complete, and its SHA-256 is recorded. Every download serves that file; one that no longer matches its recorded digest is refused with HTTP 409 rather than served or quietly re-rendered. Until 31 Oct 2026 each download re-rendered it, so no two copies matched each other or the digest in a later case package, and a `<` in a file name stopped issue part-way, leaving a certificate row and a custody entry with no document. Issue and countersigning are now single transactions, and text from a file name, a form or a capture is printed as written rather than read as page markup.
+
 ---
 
 ## Performance
@@ -1000,16 +1006,18 @@ Only indicator feeds and three named engine files can be updated. **The baseline
 ## Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 861 backend tests
+docker exec netforensiq python manage.py test    # 901 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 cd verifier && npm test                          # offline verifier: known answers, a real browser, reproducible build
 ```
 
 <div align="center">
 
-**`Ran 861 tests — OK`**
+**`Ran 901 tests — OK`**
 
 </div>
+
+On a fresh clone two of these skip: the tests that compare the fast DNS and ICMP readers with scapy over the reference captures, which are third-party files and not in git. The skip names the script that fetches them (`scripts/fetch_reference_captures.sh`); with any capture present, the coverage minimums apply in full. Until 31 Oct 2026 they failed instead.
 
 The tests that earned their keep:
 
@@ -1086,12 +1094,13 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 
 - **Detection on unseen malware is 58%, and 42% is missed.** Of 200 MalwareBazaar APKs never examined before, 76 reached no tier and 8 could not be examined. The blind set (52/100) came in below the held-out one (64/100), and **Play Protect detects far more** (99.8% in AV-TEST's May 2025 test, on different samples). Both unseen sets are now spent; the next claim needs a new capability and newly downloaded samples, not more rules written from the same misses ([research/154](research/154_APK_DETECTION_REBASELINE.md), [research/158](research/158_NETWORK_RULES_MEASURED_AGAIN.md)).
 - **The shipped baselines rest on 201 F-Droid apps, one signal carried forward.** `data/baselines.json` was measured on 201 legitimate and 194 malicious apps. `cert.debug_certificate` keeps the six benign firings seen on the earlier 31-app corpus, whose locally built apps are no longer on disk, so a debug-signed APK cannot raise a tier on the strength of their absence.
-- **Two signals are mislabelled by that small corpus.** `cert.malformed_country` carries `validated` status from 0/31 yet fired on 15 of 299 unseen apps (it does not reach the tier path today, so nothing is wrong in output); `cap.dynamic_code_loading` was 0/31 but is 1/299. Both are corrected in [research/151 §8.13](research/151_WHAT_MAKES_THIS_DIFFERENT.md).
+- **A zero on 201 apps is not a zero.** `cap.dynamic_code_loading` fired on none of the 201 baseline apps, so it carries `validated` status, yet one of 299 unseen legitimate apps used it. `cert.malformed_country`, `validated` on the earlier 31-app corpus, fires on 11 of 201 in the shipped baselines and is now `experimental` ([research/151 §8.13](research/151_WHAT_MAKES_THIS_DIFFERENT.md)).
 - **The benign corpus is cleaner than the field.** F-Droid builds carry 89% fewer tracking libraries than their Play equivalents, so the false-positive bound is optimistic for Play Store apps.
 - **Static analysis only.** No detonation, no decompilation, no emulation. It reads the manifest, the certificate and DEX strings — nothing more is claimed.
 - **Ten of the fourteen ATT&CK tactics cannot be evidenced from network capture at all**, and `scenario.py` names them rather than quietly leaving them out.
 - **`ANOMALY_STATISTICAL` cites no threshold.** It is capped at MEDIUM and always ships the features that made a flow stand out.
 - **JA4+ variants (JA4S/JA4H/JA4T…) are not shipped** — FoxIO License 1.1 makes them non-commercial. Only core JA4 (BSD-3-Clause) is used.
+- **Any approved account can read every case.** Exhibits, certificates and custody logs are not restricted to the officers assigned to a case, and any investigator can act on any case. Whether a unit wants that is a policy decision, so it is left open rather than chosen in code. A blind audit on 31 Oct 2026 raised it with fourteen other findings; what was fixed and what was not is in [research/168](research/168_BLIND_AUDIT.md).
 - **A signed package proves integrity, not origin.** It verifies under any key that signed it; only comparing the fingerprint with one obtained another way shows it came from the laboratory. A hash chain shows the log is consistent, not that it was never rebuilt before signing. The package says neither the evidence is genuine nor the findings correct. There is no timestamping authority, so nothing external shows *when* a package was signed, and the certificate PDF does not yet print the key fingerprint ([research/162](research/162_CASE_PACKAGE_AND_VERIFIER.md)).
 - **No real signing key exists yet.** The repository ships the tooling, not a key: no release has been signed and no fingerprint is published, because choosing and publishing one is the author's act. Signing uses one key per publisher, with no threshold signing, no rotation and no revocation list; a stolen key, or a fast-forward by its holder, is not prevented, and removing a key from the trust file is the whole remedy ([research/164](research/164_SIGNED_UPDATES.md)).
 - **Reproducible builds are not claimed.** A release binds one archive to a version and to a source digest; two builds of the image differ. SBOMs are not compared against vulnerability databases ([research/165](research/165_SIGNED_RELEASES.md)).
@@ -1103,9 +1112,9 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 - **The network rules are the weakest part of detection.** From the shipped rate table (22 ordinary captures, 8 attack captures): `C2_BEACON_KEEPALIVE` fired on 10 ordinary and 0 attack captures, `C2_BEACON_PERIODIC` on 4 and 0, `EXFIL_VOLUME_ASYMMETRY` on 8 and 1, and `ANOMALY_STATISTICAL` on all 22 by construction. Only `RECON_PORT_SCAN` (2 ordinary, 4 attack) fires more often on attacks than on ordinary traffic. Each finding prints these rates, which is honest, but a lead that fires on half of ordinary captures is not much of a lead. Fixing it needs more attack captures, especially of beacons, not retuning against the same 30.
 - **The test data is not what a laboratory seizes.** F-Droid apps, MalwareBazaar uploads and 2013–2017 CTU captures are public and convenient; phones and captures from real cases will differ in ways not measured.
 - **Sign-in tokens are kept in `sessionStorage`**, readable by any script in the page. What protects them is a strict Content-Security-Policy on the interface (only the app's own scripts, no inline script, no eval, no request to another origin). Checked in Chromium on 30 Oct 2026 against the built app served by Django: eight screens, no violations, and an injected inline script and a cross-origin `fetch` both refused. The policy is only sent when Django serves the interface, not under the Vite development server. Moving tokens to `HttpOnly` cookies has not been done.
-- **The rate limits were not what the documents said, until 30 Oct 2026.** From 21 Aug every default was 10,000/hour, set for demonstrations, while `.env.example` and PROGRESS.md said sign-in was limited to eight an hour. The documented values are the defaults again, and a test now compares the code, `docker-compose.yml` and `.env.example`. `account_locked_until` exists on the user model and nothing reads or sets it.
+- **The rate limits were not what the documents said, until 30 Oct 2026.** From 21 Aug every default was 10,000/hour, set for demonstrations, while `.env.example` and PROGRESS.md said sign-in was limited to eight an hour. The documented values are the defaults again, and a test now compares the code, `docker-compose.yml` and `.env.example`. A blind audit on 31 Oct 2026 then got fifteen wrong passwords past the eight-an-hour limit by changing `X-Forwarded-For` on each try, because the server believed that header. It no longer does unless told a proxy is in front (`TRUSTED_PROXY_COUNT`), and attempts at one account are also limited to ten an hour from any number of addresses. That second limit lets someone who knows a username lock that account out for an hour. The unused `account_locked_until` field was removed.
 - **One licence question is open.** Under `docker-compose.yml` (PostgreSQL), `psycopg2` (LGPL-3.0-or-later, with an OpenSSL exception) is loaded in the same process as scapy (GPL-2.0-only). Whether an image containing both may be redistributed as one program has not been settled; nothing here is legal advice. The air-gapped compose file uses SQLite and never loads `psycopg2`.
-- **Nobody but the author has reviewed this.** No laboratory, lawyer or forensic science laboratory has checked the code, the validation or the Section 63 certificate. One outside review of the repository (Oct 2026) raised the points above; its findings and what was done are in [research/167](research/167_EXTERNAL_REVIEW.md).
+- **Nobody but the author has reviewed this.** No laboratory, lawyer or forensic science laboratory has checked the code, the validation or the Section 63 certificate. One outside review of the repository (Oct 2026) raised the points above; its findings and what was done are in [research/167](research/167_EXTERNAL_REVIEW.md). A blind audit on 31 Oct 2026 was made by a separate AI agent given only the public repository; it found real faults ([research/168](research/168_BLIND_AUDIT.md)) but it is not a human review either.
 - **CERT-In's 6-hour rule is a reporting deadline, not a detection mandate**, and is deliberately *not* cited as justification for real-time alerting.
 
 ---

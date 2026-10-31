@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **861 backend tests (all pass; 1 is skipped because it only runs when asked to regenerate the verifier fixtures) + 66 Playwright E2E (one colour-contrast test fails on the isolated test server, where live capture is disabled; see the README's Honest Limitations)**
+## Status: Phases 0–13 complete · **901 backend tests (all pass; 1 is skipped because it only runs when asked to regenerate the verifier fixtures) + 66 Playwright E2E (one colour-contrast test fails on the isolated test server, where live capture is disabled; see the README's Honest Limitations)**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
@@ -468,6 +468,9 @@ AI-search summaries traces to no primary source. Do not plan against it.
 
 ## Known gaps — say these before a judge finds them
 
+- **Any approved account reads every case** (blind audit, 31 Oct 2026, H5). Left
+  open as a policy decision; the audit's other faults in the evidence path were
+  fixed the same day ([research/168](research/168_BLIND_AUDIT.md)).
 - **Two captures is not an evaluation.** No precision or recall is measured.
 - Two of seven C2 flows were missed — 7 s and 13 s, below the sustained floor.
 - **No beacon periodicity was detected on real malware.** 3.5 minutes is not
