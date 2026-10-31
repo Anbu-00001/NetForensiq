@@ -468,6 +468,10 @@ AI-search summaries traces to no primary source. Do not plan against it.
 
 ## Known gaps — say these before a judge finds them
 
+- **Only one network rule is shown to fire more on attacks than on ordinary
+  traffic** (`DNS_TUNNEL_LONG_LABEL`, measured on 91 captures, 31 Oct 2026). A
+  beacon rule rebuilt from published methods did worse on held-out captures and
+  was not shipped ([research/169](research/169_BEACON_RULE_REBUILD_REJECTED.md)).
 - **Any approved account reads every case** (blind audit, 31 Oct 2026, H5). Left
   open as a policy decision; the audit's other faults in the evidence path were
   fixed the same day ([research/168](research/168_BLIND_AUDIT.md)).
