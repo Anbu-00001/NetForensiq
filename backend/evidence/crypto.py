@@ -72,6 +72,14 @@ class EvidenceDecryptionError(Exception):
     """Raised when a sealed artefact will not decrypt or fails its tag check."""
 
 
+class EvidenceKeyMissing(EvidenceDecryptionError):
+    """
+    The artefact is encrypted and no key is configured. This says nothing
+    about the artefact, so verification reports it as not checked rather than
+    as altered.
+    """
+
+
 def _nonce(prefix, counter, final):
     return prefix + struct.pack('>I', counter | (FINAL_FLAG if final else 0))
 
@@ -271,7 +279,7 @@ def readable(path):
 
     key = load_key(create=False)
     if key is None:
-        raise EvidenceDecryptionError(
+        raise EvidenceKeyMissing(
             f'{path} is encrypted but no key is configured. Set '
             f'EVIDENCE_ENCRYPTION_KEY or restore {_key_file()}.'
         )

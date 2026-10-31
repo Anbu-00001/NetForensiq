@@ -102,7 +102,13 @@ function EvidencePosture({ compact = false }) {
     synchronised: 'good', unsynchronised: 'warn', unknown: 'warn',
   }[clock?.synchronisation] ?? 'warn';
 
-  const sealTone = !exhibit ? 'none' : (exhibit.seal_intact ? 'good' : 'bad');
+  // seal_intact is three-valued: null means the stored copy could not be read,
+  // which is reported as that, not as a broken seal.
+  const sealUnread = exhibit && exhibit.seal_intact == null;
+  const sealTone = !exhibit ? 'none'
+    : (sealUnread ? 'warn' : (exhibit.seal_intact ? 'good' : 'bad'));
+  const sealWord = !exhibit ? '—'
+    : (sealUnread ? 'Not checked' : (exhibit.seal_intact ? 'Intact' : 'BROKEN'));
 
   const encryptedAll = encryption?.enabled
     && encryption.exhibits_encrypted === encryption.exhibits_total;
@@ -141,7 +147,7 @@ function EvidencePosture({ compact = false }) {
         {[
           ['Outstanding', owed ? `${owed} item(s) owed` : 'Nothing owed', owedTone],
           ['Case', caseValue, 'none'],
-          ['Seal', exhibit ? (exhibit.seal_intact ? 'Intact' : 'BROKEN') : '—', sealTone],
+          ['Seal', sealWord, sealTone],
           ['Clock', clock?.summary ?? '', clockTone],
           ['Store', encryptionValue, encryptionTone],
           ['Volume', posture.store?.available
@@ -173,9 +179,11 @@ function EvidencePosture({ compact = false }) {
           label="LATEST EXHIBIT"
           value={exhibit.exhibit_number}
           tone={sealTone}
-          detail={exhibit.seal_intact
-            ? `Seal verifies · ${exhibit.custody_entries} custody entries`
-            : 'SEAL DOES NOT VERIFY'}
+          detail={sealUnread
+            ? 'Stored copy could not be read; seal not checked'
+            : (exhibit.seal_intact
+              ? `Seal verifies · ${exhibit.custody_entries} custody entries`
+              : 'SEAL DOES NOT VERIFY')}
         />
       )}
 

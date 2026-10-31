@@ -73,6 +73,23 @@ def _captures():
     return found
 
 
+def _require_reference(test):
+    """
+    Skip, saying why, when no reference capture is present.
+
+    The reference captures are third-party files and are not in git, so a
+    fresh clone has none and these two tests used to fail there (blind audit,
+    31 Oct 2026, M11). A skip is not a pass: the reason names the script that
+    fetches them. Once any is present, the coverage minimums apply in full, so
+    a partly fetched corpus still fails rather than passing on too little.
+    """
+    present = os.path.isdir(REFERENCE_DIR) and any(
+        name.endswith(('.pcap', '.pcapng')) for name in os.listdir(REFERENCE_DIR))
+    if not present:
+        test.skipTest('no reference captures in backend/reference_captures/ '
+                      '(not in git); run scripts/fetch_reference_captures.sh')
+
+
 def _scapy_dns(payload, over_tcp):
     """The oracle: what the aggregator used to read, through scapy."""
     try:
@@ -123,6 +140,7 @@ class DnsCorpusTests(SimpleTestCase):
     """
 
     def test_agrees_with_scapy_except_where_scapy_invents_a_message(self):
+        _require_reference(self)
         compared = invented = 0
         for path in _captures():
             for data, _timestamp, linktype in fastparse.iter_frames(path):
@@ -197,6 +215,7 @@ class IcmpCorpusTests(SimpleTestCase):
     """
 
     def test_output_is_always_bytes_from_the_wire(self):
+        _require_reference(self)
         compared = reserialised = 0
         for path in _captures():
             for data, _timestamp, linktype in fastparse.iter_frames(path):

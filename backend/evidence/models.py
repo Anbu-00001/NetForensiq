@@ -343,13 +343,24 @@ class EvidenceRecord(models.Model):
         """
         Recompute the digest and compare against the sealed value.
 
-        Returns (ok, computed_sha256). A mismatch flips status to TAMPERED and
-        is deliberately sticky — an artefact that ever failed verification
-        should not silently return to 'sealed' on a later pass.
+        Returns (ok, computed_sha256), where ok is one of three answers:
+          True   the stored copy hashes to the sealed value;
+          False  it does not, or an encrypted copy failed its authentication
+                 tag. Status becomes TAMPERED and is deliberately sticky: an
+                 artefact that ever failed should not silently return to
+                 'sealed' on a later pass;
+          None   it could not be checked: the file could not be read (missing,
+                 permission denied, disk full while decrypting) or the
+                 decryption key is not configured. Status is left as it was.
+
+        Until 31 Oct 2026 every I/O error also set the sticky TAMPERED, so a
+        passing permission problem, or a lab that had not yet restored its
+        key, branded an exhibit altered for good (blind audit, M2). Unreadable
+        is not altered; callers that need a pass treat None as a refusal.
         """
         from django.utils import timezone
 
-        from .crypto import EvidenceDecryptionError, readable
+        from .crypto import EvidenceDecryptionError, EvidenceKeyMissing, readable
 
         try:
             # Decrypts first when the store is encrypted, so `computed` is
@@ -357,10 +368,12 @@ class EvidenceRecord(models.Model):
             # the value printed on the certificate.
             with readable(self.stored_path) as plaintext:
                 digests, _ = hash_file(plaintext, algorithms=('sha256',))
-        except (OSError, EvidenceDecryptionError):
-            # A file that will not decrypt is indistinguishable, from here,
-            # from one that has been altered — and both answers are the same
-            # answer: do not trust this artefact.
+        except (OSError, EvidenceKeyMissing):
+            return None, None
+        except EvidenceDecryptionError:
+            # A failed authentication tag means the key is wrong or the bytes
+            # changed; from here the two cannot be told apart, and both mean
+            # the same thing: do not trust this artefact.
             self.status = self.Status.TAMPERED
             self.save(update_fields=['status'])
             return False, None
@@ -372,6 +385,33 @@ class EvidenceRecord(models.Model):
             self.status = self.Status.TAMPERED
         self.save(update_fields=['last_verified_at', 'status'])
         return ok, computed
+
+    def recent_verification(self, max_age_seconds):
+        """
+        The seal's state for callers that must not re-hash on every request:
+        the anonymous /api/verify/ page and the status strip every signed-in
+        screen polls each minute. Both used to read the whole exhibit each
+        time, so anyone could make the server hash gigabytes on demand.
+
+        Returns (ok, computed_or_None, checked_at, fresh). A TAMPERED exhibit
+        answers False without reading it, since that status never clears. An
+        exhibit checked within max_age_seconds reuses that check (fresh is
+        False, computed is None because nothing was computed now); otherwise
+        it is hashed now. The cost: a file altered since the last check is
+        not seen until the window passes. The officer's Verify button always
+        hashes now.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        if self.status == self.Status.TAMPERED:
+            return False, None, self.last_verified_at, False
+        if (self.last_verified_at
+                and timezone.now() - self.last_verified_at < timedelta(seconds=max_age_seconds)):
+            return True, None, self.last_verified_at, False
+        ok, computed = self.verify()
+        return ok, computed, (self.last_verified_at if ok is not None else None), True
 
 
 class CustodyEvent(models.Model):
@@ -440,6 +480,10 @@ class CustodyEvent(models.Model):
     def __str__(self):
         return f"#{self.sequence} {self.action} · {self.evidence.exhibit_number}"
 
+    # Fields that must not contain '|'; see compute_hash. The package verifiers
+    # (case_package.py, verifier/src/verify-core.js) check the same list.
+    NO_PIPE_FIELDS = ('action', 'actor_badge', 'actor_ip', 'timestamp', 'previous_hash')
+
     def compute_hash(self):
         """
         Digest over the immutable content of this entry plus the prior link.
@@ -447,8 +491,9 @@ class CustodyEvent(models.Model):
         The fields are joined with '|' and not escaped, so the text must split one
         way only. It does because detail is the only field that may contain '|':
         evidence id and sequence are integers, action is a fixed choice, actor_ip
-        is an IP address, timestamp is ISO 8601, previous_hash is hex, and
-        actor_badge has a database constraint. Before 30 Oct 2026 the badge had
+        is an IP address (validated in record_custody: until 31 Oct 2026 it
+        was taken from a client header unchecked), timestamp is ISO 8601,
+        previous_hash is hex, and actor_badge has a database constraint. Before 30 Oct 2026 the badge had
         none, and a badge ending in '|' hashed the same as a detail beginning
         with one. Both verifiers now reject any other field holding '|'.
         """
@@ -464,6 +509,34 @@ class CustodyEvent(models.Model):
         ])
         return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
+
+
+class CustodyHead(models.Model):
+    """
+    Where an exhibit's custody log should end: how many entries, and the hash
+    of the last one.
+
+    A hash chain proves that no entry before the last was altered or removed.
+    It cannot tell that entries after some point were deleted: the shortened
+    log still re-derives link by link. A blind audit (31 Oct 2026, M3) did
+    exactly that and the chain still verified. This row is written in the
+    same transaction as every append, and verify_custody_chain compares the
+    log with it.
+
+    What it does not cover: someone who can write to the database can change
+    this row too. The anchor outside the database is the head hash printed on
+    each Section 63 certificate and carried in each signed case package.
+
+    A separate row rather than fields on EvidenceRecord, so that a full save
+    of an exhibit loaded before an append cannot write a stale count back.
+    """
+    evidence = models.OneToOneField(EvidenceRecord, on_delete=models.CASCADE,
+                                    related_name='custody_head')
+    entry_count = models.PositiveIntegerField(default=0)
+    head_hash = models.CharField(max_length=64, blank=True)
+
+    def __str__(self):
+        return f"{self.evidence.exhibit_number}: {self.entry_count} entries"
 
 class Section63Certificate(models.Model):
     """
@@ -526,6 +599,10 @@ class Section63Certificate(models.Model):
 
     generated_at = models.DateTimeField(auto_now_add=True)
     pdf_path = models.CharField(max_length=500, blank=True)
+    # SHA-256 of the document at pdf_path, recorded when it was rendered. The
+    # document is rendered only when the certificate changes state (issued,
+    # countersigned); downloads serve these bytes and refuse them if they differ.
+    pdf_sha256 = models.CharField(max_length=64, blank=True)
 
     class Meta:
         ordering = ['-generated_at']

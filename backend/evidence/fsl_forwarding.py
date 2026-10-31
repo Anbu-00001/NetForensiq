@@ -163,7 +163,7 @@ def render_forwarding_letter(evidence, path=None, **kwargs):
         Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
     )
 
-    from .certificate_pdf import _styles
+    from .certificate_pdf import _e as escape, _styles
 
     data = build_package(evidence, **kwargs)
     styles = _styles()
@@ -175,9 +175,14 @@ def render_forwarding_letter(evidence, path=None, **kwargs):
     def para(text, style):
         return Paragraph(text, style)
 
+    def esc(value):
+        # Officer-entered and exhibit text, made safe inside ReportLab markup
+        # (blind audit, 31 Oct 2026: a '<' in a value broke the certificate).
+        return escape(str(value))
+
     def table(rows, widths=(50 * mm, 115 * mm)):
         body = [
-            [para(f'<b>{k}</b>', styles['field']), para(str(v or '—'), styles['field'])]
+            [para(f'<b>{esc(k)}</b>', styles['field']), para(esc(v or '—'), styles['field'])]
             for k, v in rows
         ]
         t = Table(body, colWidths=list(widths))
@@ -208,7 +213,7 @@ def render_forwarding_letter(evidence, path=None, **kwargs):
         story.append(Spacer(1, 6))
 
     story += [
-        para(f"To: {data['addressed_to']}", styles['body']),
+        para(f"To: {esc(data['addressed_to'])}", styles['body']),
         para(f"Date: {ist(data['generated_at']):%d/%m/%Y}", styles['body']),
         Spacer(1, 6),
         para('1. CASE PARTICULARS', styles['annex']),
@@ -251,7 +256,7 @@ def render_forwarding_letter(evidence, path=None, **kwargs):
     ]
 
     for index, (_key, text) in enumerate(data['examinations_requested'], start=1):
-        story.append(para(f'{index}. {text}', styles['body']))
+        story.append(para(f'{index}. {esc(text)}', styles['body']))
 
     story += [
         Spacer(1, 6),
@@ -274,16 +279,16 @@ def render_forwarding_letter(evidence, path=None, **kwargs):
 
     if data['remarks']:
         story += [Spacer(1, 6), para('6. REMARKS', styles['annex']),
-                  para(data['remarks'], styles['body'])]
+                  para(esc(data['remarks']), styles['body'])]
 
     officer = data['forwarding_officer']
     story += [
         Spacer(1, 14),
         para('Forwarded by', styles['field']),
         para(
-            f"{officer['username'] or '—'}"
-            + (f" ({officer['badge_id']})" if officer['badge_id'] else '')
-            + (f", {officer['department']}" if officer['department'] else ''),
+            esc(officer['username'] or '—')
+            + (f" ({esc(officer['badge_id'])})" if officer['badge_id'] else '')
+            + (f", {esc(officer['department'])}" if officer['department'] else ''),
             styles['field'],
         ),
         Spacer(1, 12),

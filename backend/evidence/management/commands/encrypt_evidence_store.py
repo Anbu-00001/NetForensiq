@@ -58,6 +58,13 @@ class Command(BaseCommand):
             # fails its hash would preserve the corruption and make it harder
             # to look at, which is the opposite of the point.
             ok, computed = record.verify()
+            if ok is None:
+                self.stderr.write(self.style.ERROR(
+                    f'  SKIPPED {record.exhibit_number}: the stored copy could not '
+                    f'be read, so it was not checked and is not encrypted.'
+                ))
+                skipped += 1
+                continue
             if not ok:
                 self.stderr.write(self.style.ERROR(
                     f'  SKIPPED {record.exhibit_number}: integrity check failed '

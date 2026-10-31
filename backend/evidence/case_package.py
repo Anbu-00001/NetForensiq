@@ -47,6 +47,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from . import signing
+from .models import CustodyEvent
 
 FORMAT = 'netforensiq.case-package/1'
 MANIFEST_SCHEMA = 'netforensiq.case-manifest/1'
@@ -65,7 +66,7 @@ CHAIN_RECIPE = (
 # Fields of a custody entry that must not contain '|'. With these free of it, the
 # hashed text has exactly one reading; a package where one holds '|' is rejected,
 # because its fields could have been re-split without changing any hash.
-NO_PIPE_FIELDS = ('action', 'actor_badge', 'actor_ip', 'timestamp', 'previous_hash')
+NO_PIPE_FIELDS = CustodyEvent.NO_PIPE_FIELDS
 
 HOW_TO_VERIFY = (
     'Open nfverify.html (a single offline page; it makes no network requests), '

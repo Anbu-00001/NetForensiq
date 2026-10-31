@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 """Evidence intake, custody chain maintenance, and certificate issue."""
 
+import ipaddress
 import os
 import re
 import shutil
@@ -14,7 +15,7 @@ from django.utils import timezone
 
 from . import crypto
 from .models import (
-    Case, CaseAssignment, CustodyEvent, EvidenceRecord, Section63Certificate,
+    Case, CaseAssignment, CustodyEvent, CustodyHead, EvidenceRecord, Section63Certificate,
     hash_file,
 )
 
@@ -38,27 +39,38 @@ def validate_exhibit_number(value):
     return value
 
 
-def _next_sequence(evidence):
-    last = evidence.custody_events.order_by('-sequence').first()
-    return (last.sequence + 1) if last else 1
+def _valid_ip(value):
+    if not value:
+        return None
+    try:
+        return str(ipaddress.ip_address(str(value).strip()))
+    except ValueError:
+        return None
 
 
+@transaction.atomic
 def record_custody(evidence, action, actor=None, detail='', actor_ip=None):
     """
     Append a hash-chained entry to an exhibit's custody log.
 
     The entry hash covers the previous entry's hash, so the log can be
-    replayed and verified end to end; see verify_custody_chain.
+    replayed and verified end to end; see verify_custody_chain. The exhibit's
+    CustodyHead row is locked first and moved to the new entry in the same
+    transaction, so two appends cannot take the same sequence number and the
+    recorded end of the log always matches its last entry.
     """
+    head, _ = CustodyHead.objects.select_for_update().get_or_create(evidence=evidence)
     previous = evidence.custody_events.order_by('-sequence').first()
 
     event = CustodyEvent(
         evidence=evidence,
-        sequence=_next_sequence(evidence),
+        sequence=(previous.sequence + 1) if previous else 1,
         action=action,
         actor=actor,
         actor_badge=getattr(actor, 'badge_id', '') or '',
-        actor_ip=actor_ip,
+        # Stored only if it is an IP address; anything else is recorded as
+        # unknown rather than written into a hashed, court-facing record.
+        actor_ip=_valid_ip(actor_ip),
         detail=detail,
         previous_hash=previous.entry_hash if previous else '',
     )
@@ -66,6 +78,9 @@ def record_custody(evidence, action, actor=None, detail='', actor_ip=None):
     event.save()
     event.entry_hash = event.compute_hash()
     event.save(update_fields=['entry_hash'])
+    head.entry_count = event.sequence
+    head.head_hash = event.entry_hash
+    head.save(update_fields=['entry_count', 'head_hash'])
     return event
 
 
@@ -78,6 +93,7 @@ def verify_custody_chain(evidence):
     """
     problems = []
     expected_previous = ''
+    last_sequence = 0
 
     for event in evidence.custody_events.order_by('sequence'):
         if event.previous_hash != expected_previous:
@@ -88,7 +104,29 @@ def verify_custody_chain(evidence):
         recomputed = event.compute_hash()
         if recomputed != event.entry_hash:
             problems.append(f"entry #{event.sequence}: content has been altered")
+        for field in CustodyEvent.NO_PIPE_FIELDS:
+            if '|' in str(getattr(event, field) or ''):
+                problems.append(
+                    f"entry #{event.sequence}: {field} contains '|', so the entry's hash "
+                    'does not fix which text belongs to which field')
         expected_previous = event.entry_hash
+        last_sequence = event.sequence
+
+    # The chain cannot see entries removed from its end; the recorded head can.
+    head = CustodyHead.objects.filter(evidence=evidence).first()
+    count = last_sequence
+    if head is None:
+        if count:
+            problems.append('no recorded end for this log, so removal of its last '
+                            'entries could not be detected')
+    else:
+        if head.entry_count != count:
+            problems.append(
+                f"the log ends at entry #{count} but {head.entry_count} entries were "
+                f"recorded; entries after #{count} are missing" if head.entry_count > count
+                else f"the log has {count} entries but {head.entry_count} were recorded")
+        elif head.head_hash != expected_previous:
+            problems.append('the last entry is not the one recorded as the end of the log')
 
     return (not problems), problems
 
@@ -290,6 +328,7 @@ def ingest_evidence(
     return record
 
 
+@transaction.atomic
 def issue_certificate(
     evidence,
     session=None,
@@ -306,8 +345,17 @@ def issue_certificate(
     Integrity is re-verified first: certifying a hash we have not just checked
     would defeat the purpose. A failed check raises rather than producing a
     certificate that asserts something untrue.
+
+    All or nothing: the certificate row, its custody entry and the rendered
+    document are one transaction. A render that failed used to leave a
+    certificate with no document and a custody entry saying one was issued.
     """
     ok, computed = evidence.verify()
+    if ok is None:
+        raise ValueError(
+            f"Refusing to certify {evidence.exhibit_number}: the stored copy could not be read, "
+            f"so its integrity was not checked"
+        )
     if not ok:
         raise ValueError(
             f"Refusing to certify {evidence.exhibit_number}: integrity check failed "
@@ -398,6 +446,7 @@ def _is_examiner_for(user, evidence):
     ).exists()
 
 
+@transaction.atomic
 def sign_part_b(certificate, user, name='', designation='', organisation='',
                 qualification='', actor_ip=None):
     """
@@ -449,6 +498,11 @@ def sign_part_b(certificate, user, name='', designation='', organisation='',
         )
 
     ok, computed = certificate.evidence.verify()
+    if ok is None:
+        raise ValueError(
+            f"Refusing to countersign {certificate.reference}: the stored copy could not be read, "
+            f"so its integrity was not checked"
+        )
     if not ok:
         raise ValueError(
             f"Refusing to countersign {certificate.reference}: integrity check failed "

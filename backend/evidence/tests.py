@@ -88,9 +88,10 @@ class IngestTests(TestCase):
         record = self._ingest()
         Path(record.stored_path).unlink()
         ok, computed = record.verify()
-        self.assertFalse(ok)
+        # Not checked, which is not the same as altered (tests_seal_check.py).
+        self.assertIsNone(ok)
         self.assertIsNone(computed)
-        self.assertEqual(record.status, EvidenceRecord.Status.TAMPERED)
+        self.assertEqual(record.status, EvidenceRecord.Status.SEALED)
 
 
 class CustodyChainTests(TestCase):
@@ -645,6 +646,8 @@ class PublicVerifyTests(TestCase):
 
     def test_tampering_is_reported_to_the_public_caller(self):
         Path(self.record.stored_path).write_bytes(b'altered after sealing')
+        # Past the window in which a recent check is reused.
+        EvidenceRecord.objects.filter(pk=self.record.pk).update(last_verified_at=None)
         body = self._get().json()
         self.assertFalse(body['content_intact'])
         self.assertNotEqual(body['computed_sha256'], body['recorded_sha256'])

@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Anbuchelvan Ganesan — NetForensiq (https://github.com/Anbu-00001/NetForensiq)
 import base64
+import hashlib
+from pathlib import Path
 
+from django.conf import settings
 from django.http import FileResponse, HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -13,7 +16,7 @@ from rest_framework.serializers import (
     BooleanField, CharField, IntegerField, ModelSerializer, SerializerMethodField,
 )
 
-from accounts.models import AuditLog
+from accounts.models import AuditLog, User
 from accounts.permissions import IsExaminer, IsInvestigatorOrReadOnly
 from accounts.utils import get_client_ip, log_action
 
@@ -26,6 +29,11 @@ from .service import (
     verify_custody_chain,
 )
 
+
+
+def _seal_word(ok):
+    """One word for a three-valued seal check, for logs and custody text."""
+    return {True: 'intact', False: 'FAILED', None: 'NOT CHECKED (unreadable)'}[ok]
 
 class CustodyEventSerializer(ModelSerializer):
     actor_username = CharField(source='actor.username', read_only=True, default=None)
@@ -68,7 +76,9 @@ class Section63CertificateSerializer(ModelSerializer):
 
     class Meta:
         model = Section63Certificate
-        fields = '__all__'
+        # Everything but the server's filesystem path to the PDF, which no
+        # client needs (blind audit, 31 Oct 2026, L4); the pdf action serves it.
+        exclude = ['pdf_path']
 
 
 class CaseAssignmentSerializer(ModelSerializer):
@@ -350,13 +360,16 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
 
         exhibit = None
         if latest is not None:
-            ok, _ = latest.verify()
+            ok, _, checked_at, _ = latest.recent_verification(
+                settings.SEAL_CHECK_REUSE_SECONDS)
             case = latest.case
             exhibit = {
                 'exhibit_number': latest.exhibit_number,
                 'status': latest.status,
                 'status_label': latest.get_status_display(),
+                # True, False, or None when the stored copy could not be read.
                 'seal_intact': ok,
+                'seal_checked_at': checked_at,
                 'provenance': latest.provenance,
                 'provenance_label': latest.get_provenance_display(),
                 'is_demonstration_only': latest.is_demonstration_only,
@@ -464,16 +477,21 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
         record = self.get_object()
         ok, computed = record.verify()
 
+        if ok is None:
+            detail = 'Integrity NOT CHECKED: the stored copy could not be read'
+        elif ok:
+            detail = 'Integrity verified'
+        else:
+            detail = f'INTEGRITY FAILED — computed {computed}'
         record_custody(
             record, CustodyEvent.Action.VERIFIED, actor=request.user,
-            detail=('Integrity verified' if ok
-                    else f'INTEGRITY FAILED — computed {computed}'),
+            detail=detail,
             actor_ip=get_client_ip(request),
         )
         log_action(
             request, AuditLog.Action.VERIFY_EVIDENCE, user=request.user,
             username_attempted=request.user.username,
-            detail=f'Verified {record.exhibit_number}: {"pass" if ok else "FAIL"}',
+            detail=f'Verified {record.exhibit_number}: {_seal_word(ok)}',
         )
         return Response({
             'exhibit_number': record.exhibit_number,
@@ -612,21 +630,48 @@ class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     def pdf(self, request, pk=None):
         """
-        Download the rendered certificate.
+        Download the certificate document as it was issued.
 
-        Re-rendered on request rather than served from disk: the custody
-        annexure and its verdict must reflect the chain as it stands now, not
-        as it stood at issue. Every download is itself a custody event — an
-        exported copy leaving the system is exactly what a court will ask about.
+        It used to be re-rendered on every request so that its custody annexure
+        showed the chain as it stood at download. That made every copy differ:
+        the copy a court received could never match the hash in a case package
+        exported later (blind audit, 31 Oct 2026). The document is now rendered
+        when the certificate changes state, its SHA-256 recorded, and these
+        bytes served. The chain as it stands today is in the custody register
+        and the case package.
+
+        Every download is itself a custody event: an exported copy leaving the
+        system is exactly what a court will ask about.
         """
         certificate = self.get_object()
-        path = render_certificate_pdf(certificate)
+        stored = Path(certificate.pdf_path) if certificate.pdf_path else None
+        if stored is None or not stored.is_file():
+            # Never rendered, or the file is gone: render the current state once.
+            path = render_certificate_pdf(certificate)
+        else:
+            digest = hashlib.sha256(stored.read_bytes()).hexdigest()
+            if certificate.pdf_sha256 and digest != certificate.pdf_sha256:
+                return Response({'detail': (
+                    f'The stored document for {certificate.reference} no longer matches the '
+                    f'SHA-256 recorded when it was rendered ({certificate.pdf_sha256}); it is '
+                    f'{digest}. It has not been served.')},
+                    status=status.HTTP_409_CONFLICT)
+            if not certificate.pdf_sha256:
+                # Rendered before hashes were recorded: record this file's now.
+                certificate.pdf_sha256 = digest
+                certificate.save(update_fields=['pdf_sha256'])
+            path = stored
 
-        record_custody(
-            certificate.evidence, CustodyEvent.Action.EXPORTED, actor=request.user,
-            detail=f'Certificate {certificate.reference} exported as PDF',
-            actor_ip=get_client_ip(request),
-        )
+        # A read-only account's download is recorded in the audit log only.
+        # The custody log is the exhibit's record, written by those with
+        # standing to handle it; a viewer's GET used to append to it (blind
+        # audit, 31 Oct 2026, M1), so anyone who could read could lengthen it.
+        if getattr(request.user, 'role', None) != User.Role.VIEWER:
+            record_custody(
+                certificate.evidence, CustodyEvent.Action.EXPORTED, actor=request.user,
+                detail=f'Certificate {certificate.reference} exported as PDF',
+                actor_ip=get_client_ip(request),
+            )
         log_action(
             request, AuditLog.Action.EXPORT_EVIDENCE, user=request.user,
             username_attempted=request.user.username,
@@ -689,7 +734,8 @@ class PublicVerifyView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        intact, computed = record.verify()
+        intact, computed, checked_at, fresh = record.recent_verification(
+            settings.SEAL_CHECK_REUSE_SECONDS)
         chain_ok, chain_problems = verify_custody_chain(record)
 
         # An optional digest lets the holder of a certificate check their own
@@ -705,7 +751,8 @@ class PublicVerifyView(APIView):
             username_attempted='(public)',
             detail=(
                 f'Public verification of {record.exhibit_number}: '
-                f'content {"intact" if intact else "FAILED"}, '
+                f'content {_seal_word(intact)}'
+                f'{"" if fresh else " (reused check)"}, '
                 f'chain {"intact" if chain_ok else "BROKEN"}'
             ),
         )
@@ -717,7 +764,14 @@ class PublicVerifyView(APIView):
             'status': record.status,
 
             # The two questions a court actually has.
+            # True, False, or None: the stored copy could not be read, which
+            # is reported as that and not as tampering.
             'content_intact': intact,
+            # When the content was last hashed, and whether this request did
+            # it. A check up to SEAL_CHECK_REUSE_SECONDS old is reused rather
+            # than re-reading the exhibit for every anonymous caller.
+            'content_checked_at': checked_at,
+            'content_checked_now': fresh,
             'custody_chain_intact': chain_ok,
             'custody_chain_problems': chain_problems,
             'custody_event_count': record.custody_events.count(),

@@ -25,7 +25,10 @@ absent from reportlab's built-in Type1 fonts and render as a blank or a black
 square depending on the viewer, which on a legal form is worse than plain ASCII.
 """
 
+import hashlib
+import os
 from pathlib import Path
+from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -137,9 +140,22 @@ def _box(ticked):
     return '[X]' if ticked else '[  ]'
 
 
+def _e(value):
+    """
+    Text from a person or a file, made safe to put inside ReportLab markup.
+
+    Paragraph parses its input as markup, so a value is not just printed: a '<'
+    in a file name stopped certificate issue with a parser error, and a value
+    containing <font color="white"> could hide text on a court document. Every
+    value that did not come from this file goes through here (blind audit,
+    31 Oct 2026).
+    """
+    return escape(str(value))
+
+
 def _blank(value, width=34):
     """A filled value, or an underscore rule for a human to complete in ink."""
-    return str(value) if value else '_' * width
+    return _e(value) if value else '_' * width
 
 
 def _tickrow(choices, selected, styles):
@@ -244,9 +260,9 @@ def _signature_block(name, designation, organisation, signed_at, caption, styles
         ),
         Paragraph(
             f"<br/><br/>{'_' * 34}<br/>"
-            f"{name or ''}"
-            + (f"<br/>{designation}" if designation else '')
-            + (f"<br/>{organisation}" if organisation else '')
+            f"{_e(name or '')}"
+            + (f"<br/>{_e(designation)}" if designation else '')
+            + (f"<br/>{_e(organisation)}" if organisation else '')
             + f"<br/><font size='7.6'><i>{caption}</i></font>",
             styles['field'],
         ),
@@ -330,7 +346,7 @@ def _part_b(certificate, styles):
         # s.63 does not define "expert". Recording the qualification lets the
         # court assess competence rather than take the title on trust.
         flow.append(Paragraph(
-            f"<b>Qualification of expert:</b> {certificate.part_b_qualification}",
+            f"<b>Qualification of expert:</b> {_e(certificate.part_b_qualification)}",
             styles['field'],
         ))
     flow.append(_signature_block(
@@ -376,7 +392,7 @@ def _hash_report(certificate, styles):
         ['Police station', evidence.police_station or '—'],
     ]
     table = Table(
-        [[Paragraph(f"<b>{k}</b>", styles['field']), Paragraph(v, styles['mono'])]
+        [[Paragraph(f"<b>{k}</b>", styles['field']), Paragraph(_e(v), styles['mono'])]
          for k, v in rows],
         colWidths=[46 * mm, 124 * mm],
     )
@@ -430,14 +446,19 @@ def _custody_annexure(certificate, styles):
     for event in evidence.custody_events.order_by('sequence'):
         body.append([
             Paragraph(str(event.sequence), styles['field']),
-            Paragraph(event.get_action_display(), styles['field']),
+            Paragraph(_e(event.get_action_display()), styles['field']),
             Paragraph(
                 # No actor means the entry was made by an automated step with
                 # no officer attached. Printing "system" put a placeholder
                 # identity in the Officer column of a court exhibit, beside
                 # real badge-carrying officers. A statutory blank stays blank.
-                (event.actor.username if event.actor else '—')
-                + (f" ({event.actor_badge})" if event.actor_badge else ''),
+                #
+                # The badge leads because it is the identity the entry's hash
+                # covers. The account name is printed after it for a reader,
+                # but it is not in the hash and an account can be renamed
+                # (blind audit, 31 Oct 2026, M4); the note below says so.
+                (_e(event.actor_badge) if event.actor_badge else '—')
+                + (f" · {_e(event.actor.username)}" if event.actor else ''),
                 styles['field'],
             ),
             Paragraph(f"{ist(event.timestamp):%d/%m/%Y %H:%M:%S}", styles['field']),
@@ -455,11 +476,23 @@ def _custody_annexure(certificate, styles):
     flow.append(table)
     flow.append(Spacer(1, 4))
 
+    last = evidence.custody_events.order_by('-sequence').first()
+    flow.append(Paragraph(
+        "Officer is the badge number recorded in the entry, which the entry hash covers; "
+        "the account name after it is not covered. "
+        f"<b>End of log at issue:</b> {last.sequence if last else 0} entries, last entry "
+        f"hash <font face=\"Courier\">{last.entry_hash if last else '—'}</font>. "
+        "A later copy of the log that is shorter, or ends in a different hash, has lost "
+        "or replaced entries.",
+        styles['note'],
+    ))
+    flow.append(Spacer(1, 4))
+
     verdict = ('Chain verified intact: every entry re-derives to its recorded digest.'
                if ok else
                'CHAIN BROKEN — ' + '; '.join(problems))
     flow.append(Paragraph(
-        f"<b>Verification at time of issue:</b> {verdict}",
+        f"<b>Verification at time of issue:</b> {_e(verdict)}",
         ParagraphStyle('verdict', parent=styles['field'],
                        textColor=colors.HexColor('#1A7F37' if ok else '#B3261E')),
     ))
@@ -478,7 +511,7 @@ def _custody_annexure(certificate, styles):
     unsynced = state['synchronisation'] != timesource.SYNCHRONISED
     flow.append(Spacer(1, 4))
     flow.append(Paragraph(
-        f"<b>Time basis:</b> {timesource.summary_line(state)}. {state['note']}",
+        f"<b>Time basis:</b> {_e(timesource.summary_line(state))}. {_e(state['note'])}",
         ParagraphStyle(
             'timebasis', parent=styles['note'],
             textColor=colors.HexColor('#8A6D1F' if unsynced else '#444444'),
@@ -540,9 +573,16 @@ def render_certificate_pdf(certificate, output_path=None):
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Built beside the destination and moved into place only when complete, so
+    # a render that fails leaves the previous document, not half of a new one.
+    partial = output_path.with_name(output_path.name + '.partial')
+
     styles = _styles()
     doc = BaseDocTemplate(
-        str(output_path), pagesize=A4,
+        str(partial), pagesize=A4,
+        # Same certificate state, same bytes: ReportLab otherwise writes the
+        # time of rendering and a random document ID into every file.
+        invariant=1,
         leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=16 * mm, bottomMargin=16 * mm,
         title=f"BSA s.63 Certificate {certificate.reference}",
@@ -640,10 +680,15 @@ def render_certificate_pdf(certificate, output_path=None):
         ))
         for line in certificate.findings_summary.split('\n'):
             if line.strip():
-                story.append(Paragraph(line.strip(), styles['field']))
+                story.append(Paragraph(_e(line.strip()), styles['field']))
 
-    doc.build(story)
+    try:
+        doc.build(story)
+        os.replace(partial, output_path)
+    finally:
+        partial.unlink(missing_ok=True)
 
     certificate.pdf_path = str(output_path)
-    certificate.save(update_fields=['pdf_path'])
+    certificate.pdf_sha256 = hashlib.sha256(output_path.read_bytes()).hexdigest()
+    certificate.save(update_fields=['pdf_path', 'pdf_sha256'])
     return output_path

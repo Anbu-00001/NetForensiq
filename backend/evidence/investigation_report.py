@@ -33,6 +33,8 @@ clock makes timestamps machine-relative.
 from collections import defaultdict
 
 from django.utils import timezone
+from xml.sax.saxutils import escape as xml_escape
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -117,9 +119,21 @@ def _para(text, style):
     return Paragraph(text, style)
 
 
+def _e(value):
+    """
+    Text that did not come from this file, made safe inside ReportLab markup.
+
+    Finding titles and rationales quote hostnames, URLs and headers from the
+    capture, which whoever made the traffic chose. Paragraph parses markup, so
+    unescaped they could break the report or hide text in it (blind audit,
+    31 Oct 2026, on the certificate; the same pattern was here).
+    """
+    return xml_escape(str(value))
+
+
 def _kv_table(rows, styles, widths=(45 * mm, 120 * mm)):
     body = [
-        [_para(f'<b>{k}</b>', styles['field']), _para(str(v), styles['field'])]
+        [_para(f'<b>{_e(k)}</b>', styles['field']), _para(_e(v), styles['field'])]
         for k, v in rows
     ]
     table = Table(body, colWidths=list(widths))
@@ -254,7 +268,6 @@ def _what_was_found(session, styles):
 
 
 def _by_host(session, styles):
-    from xml.sax.saxutils import escape as xml_escape
 
     from capture.attack_mapping import (
         beaconing_hosts_in, describe as attack_describe,
@@ -280,7 +293,7 @@ def _by_host(session, styles):
 
     for ip, findings in ranked:
         block = [
-            _para(f'<b>{ip}</b> — {len(findings)} '
+            _para(f'<b>{_e(ip)}</b> — {len(findings)} '
                   f'{"finding" if len(findings) == 1 else "findings"}',
                   styles['part']),
         ]
@@ -296,15 +309,15 @@ def _by_host(session, styles):
                 continue
 
             block.append(_para(
-                f'<b>{finding.severity.upper()}</b> · {finding.rule_id} — '
-                f'{finding.title}',
+                f'<b>{_e(finding.severity.upper())}</b> · {_e(finding.rule_id)} — '
+                f'{_e(finding.title)}',
                 ParagraphStyle(f'f{finding.id}', parent=styles['field'],
                                textColor=SEVERITY_COLOUR.get(
                                    finding.severity, colors.black)),
             ))
             gloss = PLAIN_LANGUAGE.get(finding.rule_id)
             if gloss and printed[finding.rule_id] == 1:
-                block.append(_para(f'<i>{gloss}</i>', styles['note']))
+                block.append(_para(f'<i>{_e(gloss)}</i>', styles['note']))
 
             # The ATT&CK classification, once per rule. Included because it is
             # the vocabulary a SOC and every threat report already share, so a
@@ -313,7 +326,7 @@ def _by_host(session, styles):
             # leaving a blank that reads as an oversight.
             if printed[finding.rule_id] == 1:
                 block.append(_para(
-                    f'<b>Classification:</b> {attack_describe(finding, beacon_hosts)}',
+                    f'<b>Classification:</b> {_e(attack_describe(finding, beacon_hosts))}',
                     styles['note'],
                 ))
             # Once per rule, beside the classification: how often this rule
@@ -325,7 +338,7 @@ def _by_host(session, styles):
                 block.append(_para(
                     f'<b>Measured error rate:</b> {xml_escape(sentence)}', styles['note']))
             if finding.rationale:
-                block.append(_para(finding.rationale, styles['note']))
+                block.append(_para(_e(finding.rationale), styles['note']))
             block.append(Spacer(1, 3))
 
         for rule_id, count in seen_rules.items():
@@ -402,6 +415,7 @@ def _limits(session, styles):
 
     flow = [_para('3. LIMITS OF THIS EXAMINATION', styles['annex'])]
     for point in points:
+        # The report's own sentences, with their own markup; nothing from a capture.
         flow.append(_para(f'• {point}', styles['body']))
         flow.append(Spacer(1, 2))
     return flow
