@@ -123,7 +123,13 @@ class IsAdministrator(BasePermission):
         return bool(
             user
             and user.is_authenticated
-            and (user.is_superuser or getattr(user, 'role', None) == User.Role.ADMIN)
+            # An unapproved account holds no role yet, whatever its field says;
+            # the other permission classes already required approval (blind
+            # audit, 31 Oct 2026, L6). The superuser who bootstraps a fresh
+            # install is exempt.
+            and (user.is_superuser
+                 or (getattr(user, 'role', None) == User.Role.ADMIN
+                     and getattr(user, 'is_approved', False)))
         )
 
 

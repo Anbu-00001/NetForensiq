@@ -425,6 +425,23 @@ class ApprovalQueueTests(TestCase):
             '/api/auth/accounts/pending/',
             {'username': 'selfstarter', 'decision': 'approve'}, format='json',
         )
+        # Refused before the decision is read: an unapproved account holds no
+        # administrator clearance (blind audit, 31 Oct 2026, L6).
+        self.assertEqual(response.status_code, 403)
+        lone.refresh_from_db()
+        self.assertFalse(lone.is_approved)
+
+    def test_a_superuser_cannot_approve_itself_either(self):
+        """The one account the permission lets through unapproved meets the view's own rule."""
+        root = User.objects.create_user(
+            username='root-unapproved', password='x', badge_id='S-2',
+            department='Cyber', is_superuser=True, is_staff=True,
+        )
+        self.client.force_authenticate(root)
+        response = self.client.post(
+            '/api/auth/accounts/pending/',
+            {'username': 'root-unapproved', 'decision': 'approve'}, format='json',
+        )
         self.assertEqual(response.status_code, 409)
 
     def test_an_unknown_decision_is_refused(self):

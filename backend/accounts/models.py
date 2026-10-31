@@ -49,7 +49,6 @@ class User(AbstractUser):
 
     # Account security tracking
     failed_login_attempts = models.PositiveIntegerField(default=0)
-    account_locked_until = models.DateTimeField(null=True, blank=True)
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

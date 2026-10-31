@@ -19,6 +19,7 @@ from .serializers import RegisterSerializer, UserSerializer
 
 from .models import User, AuditLog
 from .permissions import IsAdministrator
+from .throttles import SignInUsernameThrottle
 from .utils import log_action, get_client_ip
 
 class RegisterView(generics.CreateAPIView):
@@ -88,7 +89,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """
 
     serializer_class = CustomTokenObtainPairSerializer
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [ScopedRateThrottle, SignInUsernameThrottle]
     throttle_scope = 'login'
 
     def throttled(self, request, wait):
@@ -147,7 +148,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             # false statement about a named officer while the screen in front of
             # them correctly said the fault was the server's. The counter is
             # also a lockout mechanism, so a busy database could have locked out
-            # the person trying to use it.
+            # the person trying to use it. (The counter is only recorded; the
+            # control is the per-account limit, accounts/throttles.py.)
             #
             # So: distinct action, no counter increment, and the reason recorded.
             log_action(

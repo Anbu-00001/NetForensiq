@@ -24,6 +24,8 @@ RATES = {
     # is also counted on the account itself (accounts/views.py), so an attacker
     # who changes address is still recorded.
     'login': ('LOGIN_THROTTLE_RATE', '8/hour'),
+    # Attempts at one account from any number of addresses (accounts/throttles.py).
+    'login_user': ('LOGIN_USER_THROTTLE_RATE', '10/hour'),
     'register': ('REGISTER_THROTTLE_RATE', '5/hour'),
     'approval_status': ('APPROVAL_STATUS_THROTTLE_RATE', '20/hour'),
     'public_verify': ('PUBLIC_VERIFY_THROTTLE_RATE', '60/hour'),

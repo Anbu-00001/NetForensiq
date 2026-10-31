@@ -393,6 +393,11 @@ REST_FRAMEWORK = {
     # Defaults and their reasons are in throttles.py; each can be overridden by
     # its environment variable, and a test holds the defaults to what the docs say.
     'DEFAULT_THROTTLE_RATES': throttle_rates(os.environ, testing=is_testing),
+    # How many reverse proxies in front of the app may be believed when they
+    # write X-Forwarded-For. Zero unless the operator says otherwise: the
+    # header is client-supplied, and both the rate limits and the custody log
+    # take the client address from here (accounts/utils.get_client_ip).
+    'NUM_PROXIES': int(os.getenv('TRUSTED_PROXY_COUNT') or 0),
 }
 
 SIMPLE_JWT = {
@@ -412,6 +417,14 @@ AUTH_USER_MODEL = 'accounts.User'
 # on documents that go into a case file.
 EXHIBIT_PREFIX = os.getenv('EXHIBIT_PREFIX', 'NF')
 CERTIFICATE_PREFIX = os.getenv('CERTIFICATE_PREFIX', 'S63')
+
+# How long a seal check is reused by the anonymous /api/verify/ page and the
+# status strip, instead of re-hashing the exhibit on every request. Fifteen
+# minutes is this project's choice, not a standard: long enough that neither
+# can be used to make the server read large files on demand, short enough
+# that a check older than a quarter of an hour is never shown as current.
+# The officer's Verify button always hashes now.
+SEAL_CHECK_REUSE_SECONDS = int(os.getenv('SEAL_CHECK_REUSE_SECONDS') or 900)
 
 # Shown on the Section 63 certificate as the issuing body. Blank prints
 # nothing rather than inventing an organisation.
