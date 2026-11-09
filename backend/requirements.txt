@@ -15,7 +15,7 @@ cryptography==50.0.0
 pycparser==3.0
 
 # --- capture ---
-scapy==2.7.0
+scapy==2.8.0
 
 # --- database ---
 # PostgreSQL driver. Optional: the project falls back to SQLite when
