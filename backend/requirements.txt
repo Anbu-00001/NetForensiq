@@ -24,7 +24,7 @@ psycopg2-binary==2.9.12
 
 # --- analysis / detection ---
 numpy==2.3.4
-scikit-learn==1.7.2
+scikit-learn==1.9.1
 
 # --- APK examination engine ---
 # Runs as a separate process (see apk_engine/__init__.py): androguard and
