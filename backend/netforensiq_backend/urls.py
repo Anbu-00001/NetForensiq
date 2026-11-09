@@ -7,6 +7,7 @@ Everything under /api/ requires a bearer token: DRF is configured to deny by
 default, and the few public endpoints (register, login, approval status) opt
 out explicitly.
 """
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
@@ -33,7 +34,6 @@ router.register('evidence', EvidenceViewSet, basename='evidence')
 router.register('certificates', CertificateViewSet, basename='certificate')
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
     # Public: the landing and login pages state the rule count and version,
     # and a number on a page nobody has signed in to see still has to be true.
@@ -62,3 +62,8 @@ urlpatterns = [
     # properly — see spa.py for why that matters.
     re_path(r'^(?P<path>.*)$', serve_frontend, name='frontend'),
 ]
+
+# Django's own admin site, unless ADMIN_ENABLED=false removes it. The
+# interface does not use it; it exists for bootstrapping an install.
+if settings.ADMIN_ENABLED:
+    urlpatterns.insert(0, path('admin/', admin.site.urls))

@@ -59,6 +59,9 @@ services:
       LOGIN_THROTTLE_RATE: ${LOGIN_THROTTLE_RATE:-8/hour}
       LOGIN_USER_THROTTLE_RATE: ${LOGIN_USER_THROTTLE_RATE:-10/hour}
       TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-0}
+      HTTPS_ONLY: ${HTTPS_ONLY:-false}
+      SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-3600}
+      ADMIN_ENABLED: ${ADMIN_ENABLED:-true}
       ANON_THROTTLE_RATE: ${ANON_THROTTLE_RATE:-30/hour}
       REGISTER_THROTTLE_RATE: ${REGISTER_THROTTLE_RATE:-5/hour}
       APPROVAL_STATUS_THROTTLE_RATE: ${APPROVAL_STATUS_THROTTLE_RATE:-20/hour}
@@ -69,6 +72,13 @@ services:
       # Sealed exhibits and rendered certificates. Named rather than bind-mounted
       # so ownership matches the non-root user in the image.
       - evidence:/app/evidence_store
+      # The evidence key, the signing key and the signed-update trust list live
+      # in /app/data (see the Dockerfile). Without a volume here they sat in the
+      # container's own layer and were deleted with it by `docker compose up
+      # --force-recreate`, an image bump or `docker rm`; the next upload then made
+      # a new key and every older encrypted exhibit failed its check (blind audit,
+      # 9 Nov 2026, F-02/F-03). The air-gapped compose already mounts this.
+      - data:/app/data
     ports:
       # Bound to loopback, not 0.0.0.0. A forensic tool that appears on the
       # station LAN the moment it starts is not a decision anyone made.
@@ -78,3 +88,4 @@ services:
 volumes:
   db_data:
   evidence:
+  data:

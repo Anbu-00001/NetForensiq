@@ -1,0 +1,24 @@
+# Weekly version-update pull requests, so pinned dependencies do not go stale
+# unseen. Added 9 Nov 2026 after a review found known advisories in six pins.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /verifier
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

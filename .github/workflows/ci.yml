@@ -1,0 +1,63 @@
+# Runs the project's own checks on every push and pull request.
+#
+# Written 9 Nov 2026 after a review pointed out that the "tests passing" badge
+# was enforced by nothing. THIS FILE HAS NOT BEEN RUN ON GITHUB: its commands
+# were run by hand on a development machine, and the first push is the first
+# real test of it. Action versions were read from each action's latest release
+# on the day it was written.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      # pdftotext is used by the certificate tests; they skip without it.
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      # The same two installs the Dockerfile does (requirements-nodeps.txt holds
+      # the packages that conflict on licence or dependency pins).
+      - run: pip install -r backend/requirements.txt && pip install --no-deps -r backend/requirements-nodeps.txt
+      # The reference captures are third-party files that are not in git, so two
+      # corpus tests skip here with a message naming the script that fetches them.
+      - run: python backend/manage.py test --parallel 1
+      - run: python backend/manage.py makemigrations --check --dry-run
+      - run: python scripts/check_docs.py
+      - run: python scripts/check_publish_safety.py
+
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: verifier
+      # The browser test needs a browser runtime and is left to a developer
+      # machine; the known answers and the reproducible build run here.
+      - run: node --test test/core.test.mjs test/reproducible.test.mjs
+        working-directory: verifier
+
+  dependencies:
+    runs-on: ubuntu-latest
+    # Informational: a new advisory should be seen, not stop an unrelated change.
+    # One PyJWT advisory (GHSA-gvp8-978c-rx2q) had no fixed release on 9 Nov 2026,
+    # so a blocking check would have failed from the first run.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: pip install pip-audit && pip-audit -r backend/requirements.txt

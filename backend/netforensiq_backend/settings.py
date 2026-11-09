@@ -400,6 +400,15 @@ REST_FRAMEWORK = {
     'NUM_PROXIES': int(os.getenv('TRUSTED_PROXY_COUNT') or 0),
 }
 
+# Transport security (off unless HTTPS_ONLY is set; see transport.py) and the
+# switch that removes Django's /admin/. Read here because the proxy count is
+# needed to decide whether X-Forwarded-Proto may be believed.
+from .transport import admin_enabled, transport_settings  # noqa: E402
+
+globals().update(transport_settings(
+    os.environ, trusted_proxies=REST_FRAMEWORK.get('NUM_PROXIES') or 0))
+ADMIN_ENABLED = admin_enabled(os.environ)
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),

@@ -9,9 +9,9 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Scapy](https://img.shields.io/badge/Scapy-2.7-F7931E?style=flat-square)](https://scapy.net)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/tests-901_passing-1B6E3C?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-911_passing-1B6E3C?style=flat-square)](#tests)
 [![Outbound](https://img.shields.io/badge/Outbound_connections-none_by_default-1B6E3C?style=flat-square)](#runs-without-a-network)
-[![BSA §63](https://img.shields.io/badge/BSA_2023-§63_certified-6B3FA0?style=flat-square)](#bsa-section-63-certificates)
+[![BSA §63](https://img.shields.io/badge/BSA_2023_§63-certificate_form%2C_not_legally_reviewed-6B3FA0?style=flat-square)](#bsa-section-63-certificates)
 
 **2nd Place — KANAD S.H.I.E.L.D. 2026**
 Cyber Crime Branch, Ahmedabad City Police × i-Hub Gujarat
@@ -171,6 +171,19 @@ docker exec netforensiq python manage.py seed_demo
 <sub>Demo password for all four: `Netforensiq@2026`. `pending-applicant` fails by design — it demonstrates the approval gate.</sub>
 
 > Bound to **loopback**, not `0.0.0.0`. A forensic tool that appears on the station LAN the moment it starts is not a decision anyone made.
+
+**Before it faces a network.** The defaults above are for one machine. The application does not terminate TLS; put it behind a proxy that does, or on a network nobody else can reach. Then set, in the environment:
+
+| Setting | What it does | Default |
+|---|---|---|
+| `SECRET_KEY` | Signs sessions and tokens; unset gives a new random one on each start | random per start |
+| `DEBUG` | Leave `False` (the copy of `.env.example` used to say `True`) | `False` |
+| `HTTPS_ONLY=true` | Redirects HTTP, makes the session and CSRF cookies secure-only, sends HSTS | off: it would lock a browser out of plain-HTTP loopback |
+| `SECURE_HSTS_SECONDS` | How long browsers are told to insist on HTTPS; they keep it and it cannot be withdrawn | 3600 |
+| `TRUSTED_PROXY_COUNT` | Reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` may be believed; also needed with `HTTPS_ONLY` behind a TLS-terminating proxy | 0 |
+| `ADMIN_ENABLED=false` | Removes Django's `/admin/` site, which the interface does not use | `true` |
+
+With `HTTPS_ONLY=true`, `manage.py check --deploy` reports two warnings, `SECURE_HSTS_INCLUDE_SUBDOMAINS` and `SECURE_HSTS_PRELOAD`; they are left unset on purpose, because each commits every subdomain of the host name (or the browsers' preload list) to HTTPS. `docker-compose.yml` now mounts `/app/data`, where the evidence key, the signing key and the update trust list live; before 9 Nov 2026 it did not, and recreating the container deleted them ([research/170](research/170_MINOR_FIXES_FROM_REVIEW_AND_AUDIT.md)).
 
 ---
 
@@ -1008,14 +1021,14 @@ Only indicator feeds and three named engine files can be updated. **The baseline
 ## Tests
 
 ```bash
-docker exec netforensiq python manage.py test    # 901 backend tests
+docker exec netforensiq python manage.py test    # 911 backend tests
 cd frontend && npx playwright test               # Playwright E2E
 cd verifier && npm test                          # offline verifier: known answers, a real browser, reproducible build
 ```
 
 <div align="center">
 
-**`Ran 901 tests — OK`**
+**`Ran 911 tests — OK`**
 
 </div>
 
@@ -1102,6 +1115,8 @@ This project was built for a hackathon and it is **not finished**. Stated plainl
 - **Ten of the fourteen ATT&CK tactics cannot be evidenced from network capture at all**, and `scenario.py` names them rather than quietly leaving them out.
 - **`ANOMALY_STATISTICAL` cites no threshold.** It is capped at MEDIUM and always ships the features that made a flow stand out.
 - **JA4+ variants (JA4S/JA4H/JA4T…) are not shipped** — FoxIO License 1.1 makes them non-commercial. Only core JA4 (BSD-3-Clause) is used.
+- **Internal hosts are scanned for only at 250 ports.** `RECON_PORT_SCAN` fires for an outside source at 25 distinct host-and-port pairs, the Snort 3 figure, but for a host inside the monitored network only at 250 (`scan_unique_ports_local`, Zeek's `local_scan_threshold`), so a machine probing a hundred ports of its neighbours raises nothing. That matters for lateral movement. The figure is in the rule's provenance; it is stated here because a review found it was not stated here ([research/170](research/170_MINOR_FIXES_FROM_REVIEW_AND_AUDIT.md)).
+- **The tests run on GitHub only from the first push of `.github/workflows/ci.yml`.** Until then nothing enforced the passing badge; the workflow's commands were run by hand, the workflow itself has not run. Its dependency audit is informational, not blocking.
 - **Any approved account can read every case.** Exhibits, certificates and custody logs are not restricted to the officers assigned to a case, and any investigator can act on any case. Whether a unit wants that is a policy decision, so it is left open rather than chosen in code. A blind audit on 31 Oct 2026 raised it with fourteen other findings; what was fixed and what was not is in [research/168](research/168_BLIND_AUDIT.md).
 - **A signed package proves integrity, not origin.** It verifies under any key that signed it; only comparing the fingerprint with one obtained another way shows it came from the laboratory. A hash chain shows the log is consistent, not that it was never rebuilt before signing. The package says neither the evidence is genuine nor the findings correct. There is no timestamping authority, so nothing external shows *when* a package was signed, and the certificate PDF does not yet print the key fingerprint ([research/162](research/162_CASE_PACKAGE_AND_VERIFIER.md)).
 - **No real signing key exists yet.** The repository ships the tooling, not a key: no release has been signed and no fingerprint is published, because choosing and publishing one is the author's act. Signing uses one key per publisher, with no threshold signing, no rotation and no revocation list; a stolen key, or a fast-forward by its holder, is not prevented, and removing a key from the trust file is the whole remedy ([research/164](research/164_SIGNED_UPDATES.md)).

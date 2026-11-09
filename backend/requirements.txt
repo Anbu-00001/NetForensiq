@@ -1,12 +1,12 @@
 # --- core ---
 asgiref==3.12.1
-Django==6.0.7
-djangorestframework==3.17.1
+Django==6.0.10
+djangorestframework==3.18.3
 djangorestframework_simplejwt==5.5.1
 django-cors-headers==4.9.0
-PyJWT==2.13.0
+PyJWT==2.15.1
 python-dotenv==1.2.2
-sqlparse==0.5.5
+sqlparse==0.6.1
 tzdata==2026.3
 
 # --- crypto (JWT signing, evidence hashing helpers) ---
@@ -55,6 +55,6 @@ reportlab==4.4.4
 gunicorn==23.0.0
 
 # --- testing ---
-pytest==8.4.2
+pytest==9.2.0
 pytest-django==4.11.1
-pyzipper==0.3.6
+pyzipper==0.4.0

@@ -4,7 +4,7 @@
 *Network & Packet Forensics Platform (Cyber Crime Investigation System)*
 **Event:** ~20 Aug 2026 · i-Hub Gujarat, Navrangpura, Ahmedabad
 
-## Status: Phases 0–13 complete · **901 backend tests (all pass; 1 is skipped because it only runs when asked to regenerate the verifier fixtures) + 66 Playwright E2E (one colour-contrast test fails on the isolated test server, where live capture is disabled; see the README's Honest Limitations)**
+## Status: Phases 0–13 complete · **911 backend tests (all pass; 1 is skipped because it only runs when asked to regenerate the verifier fixtures) + 66 Playwright E2E (one colour-contrast test fails on the isolated test server, where live capture is disabled; see the README's Honest Limitations)**
 
 The demonstration dataset is **real traffic**: two published captures with
 written ground truth, plus — only when asked for with `--include-synthetic` —
