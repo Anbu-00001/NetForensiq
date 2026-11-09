@@ -5,7 +5,7 @@ djangorestframework==3.18.3
 djangorestframework_simplejwt==5.5.1
 django-cors-headers==4.9.0
 PyJWT==2.15.1
-python-dotenv==1.2.2
+python-dotenv==1.2.4
 sqlparse==0.6.1
 tzdata==2026.3
 
