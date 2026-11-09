@@ -43,7 +43,7 @@
 # scripts/build_offline_bundle.sh remains the path for machines with no Docker.
 
 # ── stage 1: build the interface ──────────────────────────────────────────
-FROM node:22-slim AS frontend
+FROM node:26-slim AS frontend
 
 WORKDIR /build
 # Copied separately from the source so a change to a component does not
