@@ -29,7 +29,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / 'backend'
 FRONTEND = ROOT / 'frontend'
-PYTHON = BACKEND / '.venv' / 'bin' / 'python'
+# The project's virtualenv on a development machine; on a CI runner, which
+# installs into the interpreter it runs this script with, that interpreter.
+_VENV = BACKEND / '.venv' / 'bin' / 'python'
+PYTHON = _VENV if _VENV.exists() else Path(sys.executable)
 
 
 # ── measuring ────────────────────────────────────────────────────────────

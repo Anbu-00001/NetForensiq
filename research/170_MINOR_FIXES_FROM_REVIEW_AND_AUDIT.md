@@ -14,7 +14,7 @@ at the end.
 | Four `check --deploy` warnings (HSTS, SSL redirect, secure session and CSRF cookie) | Confirmed: five warnings on the shipped settings | **Fixed behind one switch.** `HTTPS_ONLY`, off by default because the default deployment is plain HTTP on loopback. With it on, two warnings remain (`SECURE_HSTS_INCLUDE_SUBDOMAINS`, `SECURE_HSTS_PRELOAD`), left unset because each commits a whole domain |
 | No way to remove Django's `/admin/` | Confirmed | **Fixed.** `ADMIN_ENABLED=false` removes the route. Default unchanged |
 | Pinned dependencies with advisories | Checked against the OSV database (`api.osv.dev`) for each pin: Django 6.0.7 (4, all GeoDjango), DRF 3.17.1 (7), PyJWT 2.13.0 (29), sqlparse 0.5.5 (10), pyzipper 0.3.6 (2), pytest 8.4.2 (2) | **Bumped** to Django 6.0.10, DRF 3.18.3, PyJWT 2.15.1, sqlparse 0.6.1, pyzipper 0.4.0, pytest 9.2.0, each the newest release of its series on PyPI that day; full suite re-run. One PyJWT advisory (GHSA-gvp8-978c-rx2q) lists no fixed release |
-| No CI, no Dependabot | Confirmed: no `.github/workflows` | **Added**, not yet run on GitHub (see below) |
+| No CI, no Dependabot | Confirmed: no `.github/workflows` | **Added**; the first GitHub run failed, fixed 13 Nov (see below) |
 | Verifier lockfile not tracked (blind audit L9) | `verifier/package-lock.json` existed but `.gitignore` excluded all lockfiles | **Fixed.** Un-ignored; `npm ci` against it was run in a clean copy; the verifier tests pass |
 | Badge reads "§63 certified" | The README itself says no lawyer or laboratory has reviewed the certificate | **Reworded** to "certificate form, not legally reviewed" |
 | Internal-scan bar of 250 ports is not in the README | Confirmed: `scan_unique_ports_local` is 250 against 25 for an outside source | **Stated** in Honest Limitations. The rule itself is unchanged |
@@ -52,3 +52,22 @@ runtime.
   separate user.
 
 Each changes what an officer sees or what a deployment does, so each wants a decision first.
+
+## The first run on GitHub (added 13 Nov 2026)
+
+The push of 9 Nov ran the workflow for the first time and it failed. Two faults:
+
+* **The test step ran no tests and passed.** `python backend/manage.py test` from the repository
+  root makes Django discover tests under the root, where it finds none: "Ran 0 tests ... NO
+  TESTS RAN", exit code 0. A green test step on that run would have meant nothing. The step now
+  runs from `backend/`.
+* **`check_docs.py` looked for `backend/.venv/bin/python`,** which exists on the development
+  machine only. It now uses that interpreter when present and its own interpreter otherwise.
+  It also counts the browser tests from Playwright's listing, so the job now installs the
+  frontend's packages.
+
+After the fix the job's steps were run in a fresh clone of the repository with a new virtual
+environment outside it, as the runner has: 911 tests ran (5 skipped: the corpus and reference
+capture tests, whose files are not in git), no migration changes, documented counts matched,
+nothing unsafe to publish. That is a simulation of the runner, not the runner. Of Dependabot's
+pull requests opened the same day, the two whose logs were read failed at the same step.

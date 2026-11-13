@@ -1,10 +1,10 @@
 # Runs the project's own checks on every push and pull request.
 #
 # Written 9 Nov 2026 after a review pointed out that the "tests passing" badge
-# was enforced by nothing. THIS FILE HAS NOT BEEN RUN ON GITHUB: its commands
-# were run by hand on a development machine, and the first push is the first
-# real test of it. Action versions were read from each action's latest release
-# on the day it was written.
+# was enforced by nothing. Its first run on GitHub (9 Nov) failed: the tests
+# ran from the repo root and found none, and check_docs looked for a local
+# virtualenv. Both fixed 13 Nov. Action versions were read from each action's
+# latest release on the day it was written.
 name: checks
 
 on:
@@ -30,8 +30,19 @@ jobs:
       - run: pip install -r backend/requirements.txt && pip install --no-deps -r backend/requirements-nodeps.txt
       # The reference captures are third-party files that are not in git, so two
       # corpus tests skip here with a message naming the script that fetches them.
-      - run: python backend/manage.py test --parallel 1
-      - run: python backend/manage.py makemigrations --check --dry-run
+      # Django discovers tests from the working directory: run from the repo
+      # root, the first run on GitHub found and ran 0 tests and still passed.
+      - run: python manage.py test --parallel 1
+        working-directory: backend
+      - run: python manage.py makemigrations --check --dry-run
+        working-directory: backend
+      # check_docs counts the browser tests from Playwright's own listing, so
+      # the frontend's packages are installed (no browsers are needed to list).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: frontend
       - run: python scripts/check_docs.py
       - run: python scripts/check_publish_safety.py
 
