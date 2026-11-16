@@ -57,7 +57,7 @@ RUN npm run build
 
 
 # ── stage 2: the runtime ──────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 # Standard OCI annotations: `docker inspect` shows who made the image and where
 # its source lives, however it is re-tagged or mirrored. The values must match
